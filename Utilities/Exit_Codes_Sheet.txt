@@ -1,0 +1,7 @@
+This document contains detailed explanation for the various exit codes that occur during a run.
+The first digit determines the scope. The following digits are in code appearance order.
+
+0 - No errors occurred, code exited normally.
+1 - Unexpected error occurred, code exited abnormally.
+1: NASA API
+    10 - (APOD) Wrong date format or bad date given for the image request. Format should be of type - "YYYY-MM-DD".
