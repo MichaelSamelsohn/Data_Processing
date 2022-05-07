@@ -3,7 +3,3 @@ The first digit determines the scope. The following digits are in code appearanc
 
 0 - No errors occurred, code exited normally.
 1 - Unexpected error occurred, code exited abnormally.
-1: APOD (Astronomy Picture Of the Day)
-    10 - Date has either missing or excess parts in it.
-    11 - Year, month and day should consist of 4, 2, 2 digits, respectively.
-    12 - API request code 400 -> Either bad date or a non-existing one.
