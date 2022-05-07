@@ -1,5 +1,15 @@
+"""
+Script Name - NASA_API.py
+
+Purpose - Super class for smaller NASA API requests.
+
+Created by Michael Samelsohn, 07/05/22
+"""
+
 # Imports #
 import os
+import subprocess
+
 import requests
 
 from Utilities import Settings
@@ -27,6 +37,35 @@ def get_request(url):
     log.info("request is successful (status code - 200)")
 
     return request.json()
+
+
+def download_image_url(api_type, image_url, image_suffix=""):
+    """
+    Download and save the images to the specified directory.
+
+    :param api_type: The API request type.
+    :param image_url: The image(s) URL.
+    :param image_suffix: The image suffix (Added to the name of the image).
+    """
+
+    match api_type:
+        case "APOD":
+            log.debug(f"Image URL is - {image_url}")
+            output = subprocess.run(
+                f"{Settings.APOD_DOWNLOAD_METHOD} {api_type}{image_suffix}.{Settings.APOD_IMAGE_FORMAT} {image_url}",
+                shell=True, check=True, capture_output=True)
+            log.print_data(data=output.stderr.decode("utf-8").split("\n"))
+            log.info("Image downloaded successfully")
+        case "EPIC":
+            image_index = 1
+            for url in image_url:
+                log.debug(f"{image_index}) Image URL is - {url} ")
+                output = subprocess.run(
+                    f"{Settings.EPIC_DOWNLOAD_METHOD} EPIC_{image_index}.{Settings.EPIC_IMAGE_FORMAT} {url}",
+                    shell=True, check=True, capture_output=True)
+                log.print_data(data=output.stderr.decode("utf-8").split("\n"))
+                log.info("Image downloaded successfully")
+                image_index += 1
 
 
 class NASA_API:

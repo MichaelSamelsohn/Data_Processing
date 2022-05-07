@@ -8,10 +8,9 @@ Created by Michael Samelsohn, 05/05/22
 """
 
 # Imports #
-import subprocess
 import os
 
-from NASA_API import NASA_API, get_request
+from NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
 from Utilities.Logging import Logger
 
@@ -20,7 +19,7 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
 class APOD(NASA_API):
-    def __init__(self, image_directory, date=Settings.DEFAULT_DATE, hd=Settings.DEFAULT_HD):
+    def __init__(self, image_directory, date=Settings.APOD_DEFAULT_DATE, hd=Settings.APOD_DEFAULT_HD):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param date: Date of the image. Acceptable format is - "YYYY-MM-DD".
@@ -45,12 +44,12 @@ class APOD(NASA_API):
 
         if len(split_date) != 3:
             log.error("Date is not a three part string separated by a '-'")
-            self.__date = Settings.DEFAULT_DATE
+            self.__date = Settings.APOD_DEFAULT_DATE
             log.warning("Date has been changed to default one")
             return
         if len(split_date[0]) != 4 or len(split_date[1]) != 2 or len(split_date[2]) != 2:
             log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each")
-            self.__date = Settings.DEFAULT_DATE
+            self.__date = Settings.APOD_DEFAULT_DATE
             log.warning("Date has been changed to default one")
             return
 
@@ -74,13 +73,13 @@ class APOD(NASA_API):
     def __check_hd_value(self):
         """
         Check that hd value is of a boolean instance.
-        If not, default to 'False'.
+        If not, set to default.
         """
 
         log.debug(f"HD version of the image - {self.__hd}")
         if not isinstance(self.__hd, bool):
-            log.error("hd must be a boolean value, defaulting to 'False'")
-            self.__hd = Settings.DEFAULT_HD
+            log.error("hd must be a boolean value, will reset to default value")
+            self.__hd = Settings.APOD_DEFAULT_HD
 
     @property
     def hd(self):
@@ -112,11 +111,8 @@ class APOD(NASA_API):
 
         log.debug("Retrieving APOD (Astronomy Picture Of the Day) image")
 
-        # Construct the URL suffix.
-        url_suffix = f"date={self.__date}&{Settings.API_KEY}"
-
         # Perform the API request.
-        json_object = get_request(url=f"{Settings.APOD_URL_PREFIX}{url_suffix}")
+        json_object = get_request(url=f"{Settings.APOD_URL_PREFIX}date={self.__date}&{Settings.API_KEY}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return
@@ -125,15 +121,9 @@ class APOD(NASA_API):
         log.debug("IMAGE INFORMATION:")
         log.print_data(data=json_object)
 
-        # The image URL is retrieved based on the HD parameter (two different URLs).
-        image_url = json_object["hdurl"] if self.__hd else json_object["url"]
-
         # Download and save the image to the relevant directory.
-        log.debug(f"Image URL is - {image_url}")
-        output = subprocess.run(f"wget -O APOD_{self.__date}.JPG {image_url}",
-                                shell=True, check=True, capture_output=True)
-        log.print_data(data=output.stderr.decode("utf-8").split("\n"))
-        log.info("Image downloaded successfully")
+        download_image_url(api_type="APOD", image_url=json_object["hdurl"] if self.__hd else json_object["url"],
+                           image_suffix=f"_{self.__date}")
 
 
 if __name__ == "__main__":
