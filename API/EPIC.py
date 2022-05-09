@@ -36,7 +36,7 @@ def reformat_images_url(image_date):
 
 
 class EPIC(NASA_API):
-    def __init__(self, image_directory, number_of_images=Settings.EPIC_NUMBER_OF_PHOTOS_TO_COLLECT):
+    def __init__(self, image_directory, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param number_of_images: Number of images to collect.
@@ -44,8 +44,18 @@ class EPIC(NASA_API):
 
         super().__init__(image_directory)
 
+        self.__image_url_list = []
+
         self.__number_of_images = number_of_images
         self.__check_number_of_images_value()
+
+    @property  # Read only.
+    def image_url_list(self):
+        """
+        Get the image URL list.
+        :return: List with all the image URLs.
+        """
+        return self.__image_url_list
 
     def __check_number_of_images_value(self):
         """
@@ -56,12 +66,15 @@ class EPIC(NASA_API):
         log.debug(f"Number of images is - {self.__number_of_images}")
         if not isinstance(self.__number_of_images, int):
             log.error("Number of images must be an int value, will reset to default")
-            self.__number_of_images = Settings.EPIC_NUMBER_OF_PHOTOS_TO_COLLECT
-            return
+            self.__number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            return False
         if self.__number_of_images < 1:
             log.error("Number of images must be a positive integer value, will reset to default")
-            self.__number_of_images = Settings.EPIC_NUMBER_OF_PHOTOS_TO_COLLECT
-            return
+            self.__number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            return False
+
+        log.info("Selected number of images is within acceptable range")
+        return True
 
     @property
     def number_of_images(self):
@@ -96,13 +109,13 @@ class EPIC(NASA_API):
         json_object = get_request(url=f"{Settings.EPIC_URL_PREFIX}{Settings.EPIC_URL_SUFFIX}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
-            return
+            return False
 
         # Process the response information.
-        image_url_list = self.__process_response_information(response_information=json_object)
+        self.__image_url_list = self.__process_response_information(response_information=json_object)
 
         # Download and save the image(s) to the relevant directory.
-        download_image_url(api_type="EPIC", image_url=image_url_list)
+        download_image_url(api_type="EPIC", image_url_list=self.__image_url_list)
 
     def __process_response_information(self, response_information):
         """
@@ -119,10 +132,9 @@ class EPIC(NASA_API):
         for i in range(0, min(self.__number_of_images, len(response_information))):
             log.debug("Current image number is - {}".format(i + 1))
             image = response_information[i]
-            image_id = image["image"]
             year, month, day = reformat_images_url(image["date"])
             image_url_list.append(Settings.EPIC_URL_PREFIX + "archive/natural/" + year + "/" + month + "/" + day +
-                                  "/png/" + image_id + ".png")
+                                  "/png/" + image["image"] + ".png")
 
         return image_url_list
 

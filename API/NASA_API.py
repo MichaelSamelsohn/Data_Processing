@@ -39,33 +39,42 @@ def get_request(url):
     return request.json()
 
 
-def download_image_url(api_type, image_url, image_suffix=""):
+def download_image_url(api_type, image_url_list, image_suffix=""):
     """
-    Download and save the images to the specified directory.
+    Download the images based on the compiled URLs list and the API type.
+    TODO: Figure out how to make the function protected.
 
-    :param api_type: The API request type.
-    :param image_url: The image(s) URL.
-    :param image_suffix: The image suffix (Added to the name of the image).
+    :param api_type: The API type used for the images.
+    :param image_url_list: List with all image URLs.
+    :param image_suffix: The suffix for the image name.
     """
 
-    match api_type:
-        case "APOD":
-            log.debug(f"Image URL is - {image_url}")
+    match len(image_url_list):
+        case 0:  # Empty list.
+            log.error("Cannot download the images since there are none")
+            return False
+        case 1:  # Single image, no indexing required.
+            log.debug(f"Image URL is - {image_url_list[0]}")
             output = subprocess.run(
-                f"{Settings.APOD_DOWNLOAD_METHOD} {api_type}{image_suffix}.{Settings.APOD_IMAGE_FORMAT} {image_url}",
+                f"{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['DOWNLOAD_METHOD']} "
+                f"{api_type}{image_suffix}.{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['IMAGE_FORMAT']} {image_url_list[0]}",
                 shell=True, check=True, capture_output=True)
             log.print_data(data=output.stderr.decode("utf-8").split("\n"))
             log.info("Image downloaded successfully")
-        case "EPIC":
+        case _:  # Multiple images, indexing required.
             image_index = 1
-            for url in image_url:
+            for url in image_url_list:
                 log.debug(f"{image_index}) Image URL is - {url} ")
                 output = subprocess.run(
-                    f"{Settings.EPIC_DOWNLOAD_METHOD} EPIC_{image_index}.{Settings.EPIC_IMAGE_FORMAT} {url}",
+                    f"{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['DOWNLOAD_METHOD']} "
+                    f"{api_type}{image_suffix}_{image_index}.{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['IMAGE_FORMAT']} {url}",
                     shell=True, check=True, capture_output=True)
                 log.print_data(data=output.stderr.decode("utf-8").split("\n"))
                 log.info("Image downloaded successfully")
                 image_index += 1
+
+    log.info("Finished downloading image(s) successfully")
+    return True
 
 
 class NASA_API:
@@ -73,6 +82,7 @@ class NASA_API:
         """
         :param image_directory: The directory where the image is to be saved at.
         """
+
         self.__image_directory = image_directory
         self.__check_directory_existence()
 

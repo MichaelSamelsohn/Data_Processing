@@ -28,11 +28,21 @@ class APOD(NASA_API):
 
         super().__init__(image_directory)
 
+        self.__image_url_list = []
+
         self.__date = date
         self.__check_date_format()
 
         self.__hd = hd
         self.__check_hd_value()
+
+    @property  # Read only.
+    def image_url_list(self):
+        """
+        Get the image URL list.
+        :return: List with all the image URLs.
+        """
+        return self.__image_url_list
 
     def __check_date_format(self):
         """
@@ -46,12 +56,15 @@ class APOD(NASA_API):
             log.error("Date is not a three part string separated by a '-'")
             self.__date = Settings.APOD_DEFAULT_DATE
             log.warning("Date has been changed to default one")
-            return
+            return False
         if len(split_date[0]) != 4 or len(split_date[1]) != 2 or len(split_date[2]) != 2:
             log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each")
             self.__date = Settings.APOD_DEFAULT_DATE
             log.warning("Date has been changed to default one")
-            return
+            return False
+
+        log.info("Selected date is of correct format")
+        return True
 
     @property
     def date(self):
@@ -80,6 +93,10 @@ class APOD(NASA_API):
         if not isinstance(self.__hd, bool):
             log.error("hd must be a boolean value, will reset to default value")
             self.__hd = Settings.APOD_DEFAULT_HD
+            return False
+
+        log.info("HD status is acceptable")
+        return True
 
     @property
     def hd(self):
@@ -87,7 +104,7 @@ class APOD(NASA_API):
         Get the image HD status.
         :return: The HD status of the image
         """
-        return self.__date
+        return self.__hd
 
     @hd.setter
     def hd(self, new_hd):
@@ -95,7 +112,7 @@ class APOD(NASA_API):
         Set the image HD status.
         :param new_hd: The new HD status of the image.
         """
-        self.__date = new_hd
+        self.__hd = new_hd
         self.__check_hd_value()
 
     def log_class_parameters(self):
@@ -115,18 +132,20 @@ class APOD(NASA_API):
         json_object = get_request(url=f"{Settings.APOD_URL_PREFIX}date={self.__date}&{Settings.API_KEY}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
-            return
+            return False
 
         # Log the image information.
         log.debug("IMAGE INFORMATION:")
         log.print_data(data=json_object)
 
+        # Process the response information.
+        self.__image_url_list = [json_object["hdurl"] if self.__hd else json_object["url"]]
+
         # Download and save the image to the relevant directory.
-        download_image_url(api_type="APOD", image_url=json_object["hdurl"] if self.__hd else json_object["url"],
-                           image_suffix=f"_{self.__date}")
+        download_image_url(api_type="APOD", image_url_list=self.__image_url_list, image_suffix=f"_{self.__date}")
 
 
 if __name__ == "__main__":
-    obj = APOD(image_directory="", date="", hd=5)
+    obj = APOD(image_directory="", date="", hd=False)
     obj.log_class_parameters()
     obj.astronomy_picture_of_the_day()
