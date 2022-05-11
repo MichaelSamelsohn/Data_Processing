@@ -16,21 +16,18 @@ IMAGE_DOWNLOAD_SETTINGS = {
     "APOD": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
     "EPIC": {"DOWNLOAD_METHOD": "curl -o", "IMAGE_FORMAT": "png"},
     "MARS": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
+    "NIL": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
 }
 
 # APOD (Astronomy Picture Of the Day) #
 APOD_URL_PREFIX = "https://api.nasa.gov/planetary/apod?"
 APOD_DEFAULT_DATE = "1996-04-27"
 APOD_DEFAULT_HD = False
-APOD_DOWNLOAD_METHOD = "wget -O"
-APOD_IMAGE_FORMAT = "JPG"
 
 # EPIC (Earth Polychromatic Imaging Camera) #
 EPIC_URL_PREFIX = "https://epic.gsfc.nasa.gov/"
 EPIC_URL_SUFFIX = "api/images.php"
 EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT = 2
-EPIC_DOWNLOAD_METHOD = "curl -o"
-EPIC_IMAGE_FORMAT = "png"
 
 # Mars Rovers #
 MARS_URL_PREFIX = "https://api.nasa.gov/mars-photos/api/v1/"
@@ -38,5 +35,9 @@ MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT = 4
 MARS_DEFAULT_ROVER = "Curiosity"
 MARS_ROVERS = ["Curiosity", "Opportunity", "Spirit"]
 MARS_DEFAULT_DATE = "2021-04-27"
-MARS_DOWNLOAD_METHOD = "wget -O"
-MARS_IMAGE_FORMAT = "JPG"
+
+# NIL (NASA Imaging Library) #
+NIL_URL_PREFIX = "https://images-api.nasa.gov/search?"
+NIL_MEDIA_TYPES = ["image", "audio"]
+NIL_DEFAULT_MEDIA_TYPE = "image"
+NIL_DEFAULT_SEARCH_YEARS = [1960, 2022]
