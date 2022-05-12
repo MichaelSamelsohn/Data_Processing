@@ -122,7 +122,7 @@ class NIL(NASA_API):
         log.debug(f"The selected media type is - {self.__media_type}")
         log.debug(f"The selected search years are - {self.__search_years[0]}-{self.__search_years[1]}")
 
-    def mars_rover_images(self):
+    def nasa_image_library_query(self):
         """
         Save queried image in the selected directory.
         Note - The images are saved as .JPG files.
@@ -153,4 +153,4 @@ class NIL(NASA_API):
 if __name__ == "__main__":
     obj = NIL(image_directory="", query="Crab Nebula")
     obj.log_class_parameters()
-    obj.mars_rover_images()
+    obj.nasa_image_library_query()
