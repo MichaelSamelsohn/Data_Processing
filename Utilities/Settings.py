@@ -41,3 +41,6 @@ NIL_URL_PREFIX = "https://images-api.nasa.gov/search?"
 NIL_MEDIA_TYPES = ["image", "audio"]
 NIL_DEFAULT_MEDIA_TYPE = "image"
 NIL_DEFAULT_SEARCH_YEARS = [1960, 2022]
+
+# Image Class #
+DEFAULT_IMAGE_LENA = os.path.abspath('../Images/Lena.png')
