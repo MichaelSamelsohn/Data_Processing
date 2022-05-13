@@ -46,3 +46,13 @@ NIL_DEFAULT_SEARCH_YEARS = [1960, 2022]
 
 # Image Class #
 DEFAULT_IMAGE_LENA = os.path.abspath('../Images/Lena.png')
+GONZALES_WOODS_BOOK = "Digital Image Processing (4th edition) - Gonzales & Woods"
+
+# Intensity Transformations #
+DEFAULT_BINARY_THRESHOLD = 127
+DEFAULT_GAMMA_VALUE = 1
+DEFAULT_DEGREE_OF_REDUCTION = 4
+DEFAULT_BIT_PLANE = 4
+
+# Common #
+DEFAULT_SCALING_FACTOR = 1

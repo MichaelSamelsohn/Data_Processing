@@ -11,9 +11,8 @@ import copy
 
 import matplotlib.image as im
 import matplotlib.pyplot as plt
-import numpy as np
-import os
 
+from Intensity_Transformations import *
 from Utilities import Settings
 from Utilities.Logging import Logger
 
@@ -40,8 +39,8 @@ class Image:
 
         log.debug(f"The selected directory is - {self.__image_path}")
         if os.path.exists(path=self.__image_path):
-            self.__original_image = im.imread(fname=self.__image_path)
             log.info(f"Image, {self.__image_path}, exists")
+            self.__original_image = im.imread(fname=self.__image_path)
             return True
         else:
             log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image")
@@ -103,7 +102,11 @@ class Image:
         axs[1].imshow(self.__image)
         plt.show()
 
+    def negative1(self):
+        self.__image = bit_plane_slicing(image=self.__image, bit_plane=4)
+
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
+    obj.negative1()
     obj.compare_to_original()
