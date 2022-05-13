@@ -12,6 +12,7 @@ import os
 
 from NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
+from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
 
 # Logger #
@@ -97,6 +98,7 @@ class EPIC(NASA_API):
         super().log_class_parameters()
         log.debug(f"The selected number of images is - {self.__number_of_images}")
 
+    @check_connection
     def earth_polychromatic_imaging_camera(self):
         """
         Save EPIC image(s) in the selected directory.

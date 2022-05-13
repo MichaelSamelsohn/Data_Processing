@@ -10,6 +10,8 @@ Created by Michael Samelsohn, 05/05/22
 import os
 
 # API Related #
+CONNECTION_CHECK_URL = "https://www.google.com/"
+CONNECTION_CHECK_TIMEOUT = 5
 API_KEY = "api_key=fymalkzvEUpMBhhBIpi39IQu0zqsjMy7K2AYhiwJ"
 DEFAULT_IMAGE_DIRECTORY = os.path.abspath('../Images')
 IMAGE_DOWNLOAD_SETTINGS = {

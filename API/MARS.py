@@ -12,6 +12,7 @@ import os
 
 from NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
+from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
 
 # Logger #
@@ -170,6 +171,7 @@ class MARS(NASA_API):
         log.debug(f"The selected Mars rover is - {self.__rover}")
         log.debug(f"The selected image date is - {self.__date}")
 
+    @check_connection
     def mars_rover_images(self):
         """
         Save Mars rover image(s) in the selected directory.

@@ -12,6 +12,7 @@ import os
 
 from NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
+from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
 
 # Logger #
@@ -122,6 +123,7 @@ class NIL(NASA_API):
         log.debug(f"The selected media type is - {self.__media_type}")
         log.debug(f"The selected search years are - {self.__search_years[0]}-{self.__search_years[1]}")
 
+    @check_connection
     def nasa_image_library_query(self):
         """
         Save queried image in the selected directory.

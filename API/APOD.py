@@ -12,6 +12,7 @@ import os
 
 from NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
+from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
 
 # Logger #
@@ -53,14 +54,13 @@ class APOD(NASA_API):
         split_date = self.__date.split("-")
 
         if len(split_date) != 3:
-            log.error("Date is not a three part string separated by a '-'")
+            log.error("Date is not a three part string separated by a '-'. Will reset to default")
             self.__date = Settings.APOD_DEFAULT_DATE
-            log.warning("Date has been changed to default one")
             return False
         if len(split_date[0]) != 4 or len(split_date[1]) != 2 or len(split_date[2]) != 2:
-            log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each")
+            log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each. "
+                      "Will reset to default")
             self.__date = Settings.APOD_DEFAULT_DATE
-            log.warning("Date has been changed to default one")
             return False
 
         log.info("Selected date is of correct format")
@@ -120,6 +120,7 @@ class APOD(NASA_API):
         log.debug(f"The selected image date is - {self.__date}")
         log.debug(f"The selected image HD status is - {self.__hd}")
 
+    @check_connection
     def astronomy_picture_of_the_day(self):
         """
         Save APOD image in the selected directory.
