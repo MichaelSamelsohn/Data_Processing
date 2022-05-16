@@ -77,6 +77,11 @@ def bit_plane_reconstruction(image, degree_of_reduction=Settings.DEFAULT_DEGREE_
     If degree of reduction is 1, all bit planes are included excluding the LSB.
     If degree of reduction is 7 (maximal value), only the MSB is included.
 
+    When looking at reconstructed images, it is noticeable that when dropping a few bits (2-3), the image quality
+    remains intact (identical to human eyes). This means that the human eye, can't detect differences up to a change of
+    4-8 pixel value colors. In terms of engineering, this could help with compression, as lower bits can be dropped
+    entirely (and later padded with zeros), thus saving memory.
+
     :param image: The image for bit plane reconstruction.
     :param degree_of_reduction: Degree of reduction = How many LSB bits are dropped.
     :return: Bit plane reconstructed image.
@@ -101,10 +106,20 @@ def bit_plane_reconstruction(image, degree_of_reduction=Settings.DEFAULT_DEGREE_
 @scale_pixel_values(scale_factor=255)
 def bit_plane_slicing(image, bit_plane=Settings.DEFAULT_BIT_PLANE):
     """
+    Bit plane slicing. It comes to show the contribution of each bit plane.
+    The planes where the bit is equal to 1 will contribute pixel value of 255 (white).
+    The planes where the bit is equal to 0 will contribute pixel value of 0 (black).
+    Since an image is normally continuous (other than edges), the difference between MSB values of neighbouring pixels
+    is small. Therefore, when slicing significant bits, the pixel values should give a relatively 'good' image, where
+    the object is recognizable (*).
+    This is not the case for the less significant bits as even small changes in pixel values, drastically changes those
+    bits. Therefore, lower bit plane slicing will lead to random-like images.
 
-    :param image:
-    :param bit_plane:
-    :return:
+    (*) - This is true for non-random images (usually, where there is an object and background).
+
+    :param image: The imgae to be bit plane sliced.
+    :param bit_plane:  The bit plane.
+    :return: Bit plane sliced image (see explanation above on what image to expect depending on the selected bit plane).
     """
 
     log.debug(f"The chosen bit plane is - {bit_plane}")
@@ -118,7 +133,7 @@ def bit_plane_slicing(image, bit_plane=Settings.DEFAULT_BIT_PLANE):
     log.debug("Preparing the lookup table for the transformation")
     lookup_table = np.zeros(256)  # Initializing zeros array.
     for value in range(256):
-        lookup_table.put(value, 255 * ((value & mask) >> bit_plane))
+        lookup_table.put(value, ((value & mask) >> bit_plane) * 255)
 
     log.debug("Performing bit plane slicing")
     return use_lookup_table(image=image, lookup_table=lookup_table)
