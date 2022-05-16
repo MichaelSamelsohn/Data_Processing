@@ -12,6 +12,7 @@ import copy
 import matplotlib.image as im
 import matplotlib.pyplot as plt
 
+import Common
 from Intensity_Transformations import *
 from Utilities import Settings
 from Utilities.Logging import Logger
@@ -103,7 +104,7 @@ class Image:
         plt.show()
 
     def negative1(self):
-        self.__image = bit_plane_slicing(image=self.__image, bit_plane=4)
+        self.__image = bit_plane_slicing(image=self.__image)
 
 
 if __name__ == "__main__":

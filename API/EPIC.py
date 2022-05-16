@@ -19,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def reformat_images_url(image_date):
+def reformat_images_url(image_date: str):
     """
     Extract the date and time to later form the correct image URL.
 
@@ -37,7 +37,7 @@ def reformat_images_url(image_date):
 
 
 class EPIC(NASA_API):
-    def __init__(self, image_directory, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
+    def __init__(self, image_directory: str, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param number_of_images: Number of images to collect.
@@ -86,7 +86,7 @@ class EPIC(NASA_API):
         return self.__number_of_images
 
     @number_of_images.setter
-    def number_of_images(self, new_number_of_images):
+    def number_of_images(self, new_number_of_images: int):
         """
         Set the number of images.
         :param new_number_of_images: The new number of images.
@@ -119,7 +119,7 @@ class EPIC(NASA_API):
         # Download and save the image(s) to the relevant directory.
         download_image_url(api_type="EPIC", image_url_list=self.__image_url_list)
 
-    def __process_response_information(self, response_information):
+    def __process_response_information(self, response_information: list):
         """
         Process the response information to extract the image URLs.
 

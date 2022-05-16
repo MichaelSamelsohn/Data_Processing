@@ -20,7 +20,7 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
 class MARS(NASA_API):
-    def __init__(self, image_directory, rover=Settings.MARS_DEFAULT_ROVER, date=Settings.MARS_DEFAULT_DATE,
+    def __init__(self, image_directory: str, rover=Settings.MARS_DEFAULT_ROVER, date=Settings.MARS_DEFAULT_DATE,
                  number_of_images=Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
@@ -72,7 +72,7 @@ class MARS(NASA_API):
         return self.__rover
 
     @rover.setter
-    def rover(self, new_rover):
+    def rover(self, new_rover: str):
         """
         Set the rover name.
         :param new_rover: The new rover name.
@@ -122,7 +122,7 @@ class MARS(NASA_API):
         return self.__date
 
     @date.setter
-    def date(self, new_date):
+    def date(self, new_date: str | int):
         """
         Set the image date.
         :param new_date: The new image date.
@@ -158,7 +158,7 @@ class MARS(NASA_API):
         return self.__number_of_images
 
     @number_of_images.setter
-    def number_of_images(self, new_number_of_images):
+    def number_of_images(self, new_number_of_images: int):
         """
         Set the number of images.
         :param new_number_of_images: The new number of images.
@@ -196,7 +196,7 @@ class MARS(NASA_API):
         # Download and save the image to the relevant directory.
         download_image_url(api_type="MARS", image_url_list=self.__image_url_list)
 
-    def __process_response_information(self, response_information):
+    def __process_response_information(self, response_information: dict):
         """
         Process the response information to extract the image URLs.
 

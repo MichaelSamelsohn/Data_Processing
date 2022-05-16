@@ -20,7 +20,7 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
 class APOD(NASA_API):
-    def __init__(self, image_directory, date=Settings.APOD_DEFAULT_DATE, hd=Settings.APOD_DEFAULT_HD):
+    def __init__(self, image_directory: str, date=Settings.APOD_DEFAULT_DATE, hd=Settings.APOD_DEFAULT_HD):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param date: Date of the image. Acceptable format is - "YYYY-MM-DD".
@@ -75,7 +75,7 @@ class APOD(NASA_API):
         return self.__date
 
     @date.setter
-    def date(self, new_date):
+    def date(self, new_date: str):
         """
         Set the image date.
         :param new_date: The new image date.
@@ -107,7 +107,7 @@ class APOD(NASA_API):
         return self.__hd
 
     @hd.setter
-    def hd(self, new_hd):
+    def hd(self, new_hd: bool):
         """
         Set the image HD status.
         :param new_hd: The new HD status of the image.

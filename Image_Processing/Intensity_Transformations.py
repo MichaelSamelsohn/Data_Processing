@@ -1,7 +1,25 @@
+"""
+Script Name - Intensity_Transformations.py
+
+Purpose - Perform intensity transformations on an image. Intensity transformations refer to changes per pixel (as
+opposed to pixel neighbourhood operations).
+
+Best practice for working with intensity transformations (*):
+    1) Construct a formula for the transformation dependent on the pixel value - T(pixel).
+    2) Prepare a lookup table for all the possible pixel values (see use_lookup_table method docstring for time
+       analysis).
+    3) Use the lookup table to transform the image.
+
+(*) - Assuming the image intensity values are integers.
+
+Created by Michael Samelsohn, 13/05/22
+"""
+
 # Imports #
 import os
 
 import numpy as np
+from numpy import ndarray
 
 from Common import use_lookup_table
 from Utilities import Settings
@@ -12,7 +30,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def thresholding(image, threshold_value=Settings.DEFAULT_BINARY_THRESHOLD):
+def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_BINARY_THRESHOLD) -> ndarray:
     """
     Transforming the image to its binary version using the provided threshold.
     Comparing pixel values against provided threshold. If pixel value is larger, convert it to 1 (white).
@@ -34,7 +52,7 @@ def thresholding(image, threshold_value=Settings.DEFAULT_BINARY_THRESHOLD):
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.122-123")
-def negative(image):
+def negative(image: ndarray) -> ndarray:
     """
     Perform image negative. Simply subtract every value of the matrix from the maximal value (1).
 
@@ -48,7 +66,7 @@ def negative(image):
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="??")  # TODO: Add reference.
-def gamma_correction(image, gamma=Settings.DEFAULT_GAMMA_VALUE):
+def gamma_correction(image: ndarray, gamma=Settings.DEFAULT_GAMMA_VALUE) -> ndarray:
     """
     Perform Gamma correction on an image.
         * Higher (>1) Gamma value darkens the image.
@@ -70,7 +88,8 @@ def gamma_correction(image, gamma=Settings.DEFAULT_GAMMA_VALUE):
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
-def bit_plane_reconstruction(image, degree_of_reduction=Settings.DEFAULT_DEGREE_OF_REDUCTION):
+@scale_pixel_values(scale_factor=255)
+def bit_plane_reconstruction(image: ndarray, degree_of_reduction=Settings.DEFAULT_DEGREE_OF_REDUCTION) -> ndarray:
     """
     Bit plane reconstruction. The degree of reduction indicates how many bit planes we dismiss from the LSB.
     If degree of reduction is 0 (minimal value), all bit planes are included (original image).
@@ -94,17 +113,22 @@ def bit_plane_reconstruction(image, degree_of_reduction=Settings.DEFAULT_DEGREE_
     log.warning("If provided degree of reduction is not in acceptable range, [0, 7], "
                 "it will be assigned to closest acceptable value")
     degree_of_reduction = 0 if degree_of_reduction < 0 else 7 if degree_of_reduction > 7 else degree_of_reduction
+    reduction_factor = np.power(2, degree_of_reduction)
+    log.debug(f"The reduction factor is - {reduction_factor}")
+
+    log.debug("Preparing the lookup table for the transformation")
+    lookup_table = np.zeros(256)  # Initializing zeros array.
+    for value in range(256):
+        lookup_table.put(value, value // reduction_factor * reduction_factor)
 
     log.debug("Performing image color reduction")
-    reduction_factor = np.power(2, degree_of_reduction) / 256
-    log.debug(f"The reduction factor is - {reduction_factor}")
-    return image // reduction_factor * reduction_factor
+    return use_lookup_table(image=image, lookup_table=lookup_table)
 
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
 @scale_pixel_values(scale_factor=255)
-def bit_plane_slicing(image, bit_plane=Settings.DEFAULT_BIT_PLANE):
+def bit_plane_slicing(image: ndarray, bit_plane=Settings.DEFAULT_BIT_PLANE) -> ndarray:
     """
     Bit plane slicing. It comes to show the contribution of each bit plane.
     The planes where the bit is equal to 1 will contribute pixel value of 255 (white).
@@ -126,7 +150,6 @@ def bit_plane_slicing(image, bit_plane=Settings.DEFAULT_BIT_PLANE):
     log.warning("If provided bit plane is not in acceptable range, [0, 7], "
                 "it will be assigned to closest acceptable value")
     bit_plane = 0 if bit_plane < 0 else 7 if bit_plane > 7 else bit_plane
-
     mask = 1 << bit_plane  # Mask to filter the bits not belonging to selected bit plane.
     log.debug(f"Using the following mask - {mask}")
 

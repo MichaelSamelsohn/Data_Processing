@@ -20,7 +20,7 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
 class NIL(NASA_API):
-    def __init__(self, image_directory, query, media_type=Settings.NIL_DEFAULT_MEDIA_TYPE,
+    def __init__(self, image_directory: str, query: str, media_type=Settings.NIL_DEFAULT_MEDIA_TYPE,
                  search_years=Settings.NIL_DEFAULT_SEARCH_YEARS):
         """
         :param image_directory: The directory where the image is to be saved at.
@@ -72,7 +72,7 @@ class NIL(NASA_API):
         return self.__media_type
 
     @media_type.setter
-    def media_type(self, new_media_type):
+    def media_type(self, new_media_type: str):
         """
         Set the rover name.
         :param new_media_type: The new rover name.
@@ -109,7 +109,7 @@ class NIL(NASA_API):
         return self.__search_years
 
     @search_years.setter
-    def search_years(self, new_search_years):
+    def search_years(self, new_search_years: list):
         """
         Set the query search years.
         :param new_search_years: The new query search years.
