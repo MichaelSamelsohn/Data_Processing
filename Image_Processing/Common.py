@@ -1,6 +1,16 @@
+"""
+Script Name - Common.py
+
+Purpose - Commonly used functions.
+
+Created by Michael Samelsohn, 12/05/22
+"""
+
 # Imports #
 import copy
 import os
+import numpy as np
+from numpy import ndarray
 
 from Utilities import Settings
 from Utilities.Logging import Logger
@@ -9,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def use_lookup_table(image, lookup_table):
+def use_lookup_table(image, lookup_table: ndarray) -> ndarray:
     """
     Convert image using lookup table values.
     The lookup table provides a transformation value for each possible intensity value (normally, 0-255).
@@ -29,7 +39,7 @@ def use_lookup_table(image, lookup_table):
     return new_image
 
 
-def scale_image(image, scale_factor=Settings.DEFAULT_SCALING_FACTOR):
+def scale_image(image, scale_factor=Settings.DEFAULT_SCALING_FACTOR) -> ndarray:
     """
     Scale the pixel values of an image by the provided scaling factor.
     This function is useful when the pixel range is [0, 1] and it needs to be converted to integer values (scaling
@@ -46,3 +56,20 @@ def scale_image(image, scale_factor=Settings.DEFAULT_SCALING_FACTOR):
         log.debug("Scale factor is 255 -> Setting the image as int type")
         scaled_image = scaled_image.astype(int)
     return scaled_image
+
+
+def generate_filter(filter_type: str, filter_size: int | tuple) -> ndarray:
+    """
+
+    :param filter_type: The type of filter to be generated.
+    :param filter_size:
+    :return:
+    """
+
+    image_filter = None
+
+    match filter_type:
+        case "box":
+            image_filter = np.ones(shape=filter_size)
+
+    return image_filter
