@@ -81,8 +81,11 @@ def gamma_correction(image: ndarray, gamma=Settings.DEFAULT_GAMMA_VALUE) -> ndar
     log.debug(f"Selected Gamma value is - {gamma}")
     if gamma <= 0:
         log.warning("Gamma of zero or less will generate a white image")
+    elif gamma == 1:
+        log.warning("Gamma of 1 does nothing to the image")
+        return image
 
-    log.debug("Performing Gamma correction to an image")
+    log.debug("Performing Gamma correction to the image")
     return np.power(image, gamma)
 
 
@@ -141,7 +144,7 @@ def bit_plane_slicing(image: ndarray, bit_plane=Settings.DEFAULT_BIT_PLANE) -> n
 
     (*) - This is true for non-random images (usually, where there is an object and background).
 
-    :param image: The imgae to be bit plane sliced.
+    :param image: The image to be bit plane sliced.
     :param bit_plane:  The bit plane.
     :return: Bit plane sliced image (see explanation above on what image to expect depending on the selected bit plane).
     """

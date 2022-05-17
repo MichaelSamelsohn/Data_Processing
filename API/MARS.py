@@ -89,7 +89,7 @@ class MARS(NASA_API):
 
         log.debug(f"Selected date is - {self.__date}")
 
-        if isinstance(self.__date, str):
+        if type(self.__date) == str:
             log.debug("Selected date is a string")
             split_date = self.__date.split("-")
 
@@ -103,7 +103,7 @@ class MARS(NASA_API):
                 self.__date = Settings.APOD_DEFAULT_DATE
                 log.warning("Date has been changed to default one")
                 return False
-        elif isinstance(self.__date, int):
+        elif type(self.__date) == int:
             log.debug("Selected date is an integer")
             if self.__date < 1:  # TODO: Find out if sol count starts with 0/1.
                 log.error("Integer date is not positive, setting it to 1")
@@ -137,7 +137,7 @@ class MARS(NASA_API):
         """
 
         log.debug(f"Number of images is - {self.__number_of_images}")
-        if not isinstance(self.__number_of_images, int):
+        if type(self.__number_of_images) != int:
             log.error("Number of images must be an int value, will reset to default")
             self.__number_of_images = Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
@@ -181,7 +181,7 @@ class MARS(NASA_API):
         log.debug("Retrieving Mars rover images")
 
         # Perform the API request.
-        if isinstance(self.__date, str):
+        if type(self.__date) == str:
             json_object = get_request(url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?earth_date={self.__date}&{Settings.API_KEY}")
         else:  # Date is of type integer.
             json_object = get_request(url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?sol={self.__date}&{Settings.API_KEY}")

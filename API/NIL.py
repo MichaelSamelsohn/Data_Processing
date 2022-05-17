@@ -88,7 +88,7 @@ class NIL(NASA_API):
         """
 
         log.debug(f"Selected search years - {self.__search_years[0]}-{self.__search_years[1]}")
-        if not isinstance(self.__search_years, list):
+        if type(self.__search_years) == list:
             log.error("Search years is not of type list, will reset to default")
             self.__search_years = Settings.NIL_DEFAULT_SEARCH_YEARS
             return False

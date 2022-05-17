@@ -104,7 +104,7 @@ class Image:
         plt.show()
 
     def negative1(self):
-        self.__image = bit_plane_slicing(image=self.__image)
+        self.__image = Common.pad_image(image=self.__image, padding_type="zero_padding", padding_size=59)
 
 
 if __name__ == "__main__":

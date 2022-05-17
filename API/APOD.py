@@ -90,7 +90,7 @@ class APOD(NASA_API):
         """
 
         log.debug(f"HD version of the image - {self.__hd}")
-        if not isinstance(self.__hd, bool):
+        if type(self.__hd) != bool:
             log.error("hd must be a boolean value, will reset to default value")
             self.__hd = Settings.APOD_DEFAULT_HD
             return False

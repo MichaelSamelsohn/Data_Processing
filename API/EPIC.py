@@ -65,7 +65,7 @@ class EPIC(NASA_API):
         """
 
         log.debug(f"Number of images is - {self.__number_of_images}")
-        if not isinstance(self.__number_of_images, int):
+        if type(self.__number_of_images) != int:
             log.error("Number of images must be an int value, will reset to default")
             self.__number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
