@@ -21,9 +21,9 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from Common import use_lookup_table
+from Common import use_lookup_table, scale_pixel_values
 from Utilities import Settings
-from Utilities.Decorators import book_implementation, scale_pixel_values
+from Utilities.Decorators import book_implementation
 from Utilities.Logging import Logger
 
 # Logger #

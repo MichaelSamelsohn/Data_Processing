@@ -103,11 +103,12 @@ class Image:
         axs[1].imshow(self.__image)
         plt.show()
 
-    def negative1(self):
-        self.__image = Common.pad_image(image=self.__image, padding_type="zero_padding", padding_size=59)
+    def test(self):
+        image_filter = Common.generate_filter(filter_type="box", filter_size=3)
+        self.__image = Common.convolution_2d(image=self.__image, convolution_matrix=image_filter, padding_type="zero_padding")
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
-    obj.negative1()
+    obj.test()
     obj.compare_to_original()

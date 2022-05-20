@@ -1,8 +1,8 @@
 # Imports #
+import time
 import requests
 import os
 
-from Common import scale_image
 from Utilities import Settings
 from Utilities.Logging import Logger
 
@@ -23,6 +23,16 @@ def check_connection(func):
     return inner
 
 
+def measure_runtime(func):
+    def inner(*args, **kwargs):
+        log.debug(f"Beginning time measurement for method - {func.__name__}")
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        log.info(f"The runtime of the function, {func.__name__}, is - {time.time() - start_time} seconds")
+        return result
+    return inner
+
+
 def book_implementation(book, reference):
     def wrapper(func):
         def inner(*args, **kwargs):
@@ -31,18 +41,3 @@ def book_implementation(book, reference):
             return func(*args, **kwargs)
         return inner
     return wrapper
-
-
-def scale_pixel_values(scale_factor=Settings.DEFAULT_SCALING_FACTOR):
-    def wrapper(func):
-        def inner(*args, **kwargs):
-            log.debug(f"Scaling image by a factor of {scale_factor}")
-            kwargs["image"] = scale_image(image=kwargs["image"], scale_factor=scale_factor)
-            return_image = func(*args, **kwargs)
-            log.debug("Scaling image back")
-            return scale_image(image=return_image, scale_factor=1/scale_factor)
-        return inner
-    return wrapper
-
-
-
