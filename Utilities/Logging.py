@@ -7,7 +7,7 @@ DEBUG - Detailed information, typically of interest only when diagnosing problem
 INFO - Confirmation that things are working as expected.
 WARNING - An indication that something unexpected happened, or indicative of some problem in the near future (e.g.
 'disk space low'). The software continues to work.
-ERROR - Due to a more serious problem, the software has not been able to perform some function.
+ERROR - Due to a more serious issue, the software has not been able to perform some function.
 CRITICAL - A serious error, indicating that the program itself may be unable to continue running.
 
 Logger:
@@ -92,6 +92,14 @@ class Logger:
 
     def critical(self, message):
         self.__logger.critical(message)
+
+    def raise_exception(self, message, exception):
+        self.__logger.critical(message)
+        raise exception(message)
+
+    def exit(self, message, code):
+        self.__logger.critical(message)
+        exit(code=code)
 
     def print_data(self, data):
         """
