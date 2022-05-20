@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 import Common
 from Intensity_Transformations import *
+from Segmentation import line_detection, kirsch_edge_detection, laplacian_gradient
 from Spatial_Filtering import box_filter
 from Utilities import Settings
 from Utilities.Logging import Logger
@@ -25,6 +26,7 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 class Image:
     def __init__(self, image_path=Settings.DEFAULT_IMAGE_LENA):
         # TODO: Add support for initialization using image array.
+        # TODO: Add support for grayscale images.
 
         self.__original_image = None
 
@@ -49,6 +51,10 @@ class Image:
             self.__image_path = Settings.DEFAULT_IMAGE_LENA
             self.__original_image = im.imread(fname=self.__image_path)
             return False
+
+    def convert_to_grayscale(self):
+        red, green, blue = self.__image[:, :, 0], self.__image[:, :, 1], self.__image[:, :, 2]
+        self.__image = 0.2989 * red + 0.5870 * green + 0.1140 * blue
 
     @property
     def image_path(self):
@@ -90,7 +96,12 @@ class Image:
         """
 
         log.debug("Displaying the edited image")
-        plt.imshow(self.__image)
+        if len(self.__image.shape) == 2:
+            # Grayscale image.
+            plt.imshow(self.__image, cmap='gray')
+        else:
+            # Color image.
+            plt.imshow(self.__image)
         plt.show()
 
     def compare_to_original(self):
@@ -101,14 +112,19 @@ class Image:
         log.debug("Displaying the original and edited images side-by-side for comparison")
         figure, axs = plt.subplots(1, 2)
         axs[0].imshow(self.__original_image)
-        axs[1].imshow(self.__image)
+        if len(self.__image.shape) == 2:
+            # Grayscale image.
+            axs[1].imshow(self.__image, cmap='gray')
+        else:
+            # Color image.
+            axs[1].imshow(self.__image)
         plt.show()
 
     def test(self):
-        self.__image = box_filter(image=self.__image, filter_size=3, padding_type=Settings.ZERO_PADDING)
+        self.convert_to_grayscale()
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
-    obj.test()
+    obj.convert_to_grayscale()
     obj.compare_to_original()

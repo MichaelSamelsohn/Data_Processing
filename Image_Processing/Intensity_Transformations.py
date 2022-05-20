@@ -30,7 +30,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_BINARY_THRESHOLD) -> ndarray:
+def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:
     """
     Transforming the image to its binary version using the provided threshold.
     Comparing pixel values against provided threshold. If pixel value is larger, convert it to 1 (white).
@@ -47,7 +47,7 @@ def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_BINARY_THRESHO
     threshold_value = 0 if threshold_value < 0 else 1 if threshold_value > 1 else threshold_value
 
     log.debug("Performing image thresholding")
-    return image > threshold_value
+    return (image > threshold_value).astype(float)
 
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,

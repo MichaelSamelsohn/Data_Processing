@@ -32,6 +32,13 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 def box_filter(image: ndarray, filter_size=Settings.DEFAULT_FILTER_SIZE, padding_type=Settings.DEFAULT_PADDING_TYPE) \
         -> ndarray:
-    kernel = generate_filter(filter_type=Settings.BOX_FILTER, filter_size=filter_size)
+    """
+    Use box filter on an image.
 
+    :param image: The image to be filtered.
+    :param filter_size: The filter size.
+    :param padding_type: The padding type used for the convolution.
+    :return: Filtered image.
+    """
+    kernel = generate_filter(filter_type=Settings.BOX_FILTER, filter_size=filter_size)
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)

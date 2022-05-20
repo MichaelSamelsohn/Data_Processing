@@ -28,7 +28,7 @@ def measure_runtime(func):
         log.debug(f"Beginning time measurement for method - {func.__name__}")
         start_time = time.time()
         result = func(*args, **kwargs)
-        log.info(f"The runtime of the function, {func.__name__}, is - {time.time() - start_time} seconds")
+        log.info(f"The runtime of the function, {func.__name__}, is - {round(time.time() - start_time, 3)} seconds")
         return result
     return inner
 
