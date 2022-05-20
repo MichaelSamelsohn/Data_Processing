@@ -100,7 +100,7 @@ def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settin
     image_filter = np.zeros(shape=filter_size)
     log.debug("Identifying the filter type and generating it")
     match filter_type:
-        case "box":
+        case Settings.BOX_FILTER:
             log.debug("Box type filter selected")
             image_filter = np.ones(shape=filter_size)
             image_filter /= np.sum(image_filter)  # Normalize.
@@ -108,7 +108,7 @@ def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settin
     return image_filter
 
 
-def pad_image(image: ndarray, padding_type=Settings.ZERO_PADDING,
+def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
               padding_size=Settings.DEFAULT_PADDING_SIZE) -> ndarray:
     """
     Padding the image boundaries.
@@ -136,19 +136,19 @@ def pad_image(image: ndarray, padding_type=Settings.ZERO_PADDING,
 
 
 @measure_runtime
-def convolution_2d(image: ndarray, convolution_matrix: ndarray, padding_type=Settings.ZERO_PADDING) -> ndarray:
+def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
-    Perform convolution on an image with a convolution matrix. Mainly used for spatial filtering.
+    Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
 
     :param image: The image to be convolved.
-    :param convolution_matrix: Convolution matrix.
+    :param kernel: Kernel matrix.
     :param padding_type: The padding type used for extending the image boundaries.
     :return: Convolution of the image with the convolution object.
     """
 
     log.debug("Asserting that convolution matrix is symmetrical")
-    convolution_matrix_size = convolution_matrix.shape[0]
-    if convolution_matrix.shape[0] != convolution_matrix.shape[1]:
+    convolution_matrix_size = kernel.shape[0]
+    if kernel.shape[0] != kernel.shape[1]:
         log.raise_exception(message="Convolution matrix is not symmetrical", exception=ValueError)
 
     log.debug(f"Convolution matrix size is - {convolution_matrix_size}")
@@ -161,9 +161,9 @@ def convolution_2d(image: ndarray, convolution_matrix: ndarray, padding_type=Set
         for col in range(convolution_matrix_size // 2, image.shape[1] + convolution_matrix_size // 2):
             sub_image = extract_sub_image(image=padded_image, position=(row, col),
                                           sub_image_size=convolution_matrix_size)
-            for color_index in range(3):
+            for color_index in range(image.shape[2]):
                 convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2, color_index] =\
-                    np.sum(sub_image[:, :, color_index] * convolution_matrix)
+                    np.sum(sub_image[:, :, color_index] * kernel)
 
     return convolution_image
 

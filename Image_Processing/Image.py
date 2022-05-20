@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 import Common
 from Intensity_Transformations import *
+from Spatial_Filtering import box_filter
 from Utilities import Settings
 from Utilities.Logging import Logger
 
@@ -104,8 +105,7 @@ class Image:
         plt.show()
 
     def test(self):
-        image_filter = Common.generate_filter(filter_type="box", filter_size=3)
-        self.__image = Common.convolution_2d(image=self.__image, convolution_matrix=image_filter, padding_type="zero_padding")
+        self.__image = box_filter(image=self.__image, filter_size=3, padding_type=Settings.ZERO_PADDING)
 
 
 if __name__ == "__main__":
