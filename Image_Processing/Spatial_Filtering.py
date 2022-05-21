@@ -20,10 +20,13 @@ Created by Michael Samelsohn, 20/05/22
 # Imports #
 import os
 
+import numpy as np
 from numpy import ndarray
 
 from Common import generate_filter, convolution_2d
+from Segmentation import laplacian_gradient
 from Utilities import Settings
+from Utilities.Decorators import book_implementation
 from Utilities.Logging import Logger
 
 # Logger #
@@ -42,3 +45,51 @@ def box_filter(image: ndarray, filter_size=Settings.DEFAULT_FILTER_SIZE, padding
     """
     kernel = generate_filter(filter_type=Settings.BOX_FILTER, filter_size=filter_size)
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
+
+
+@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+                     reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.178-182")
+def laplacian_image_sharpening(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
+                               include_diagonal_terms=Settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                               c=Settings.DEFAULT_CONSTANT) -> ndarray:
+    """
+    Perform image sharpening using the laplacian operator.
+
+    :param image: The image for sharpening.
+    :param padding_type: The padding type used for the convolution.
+    :param include_diagonal_terms: TODO: Add parameter description.
+    :param c: The multiplication factor.
+    :return: Sharpened image.
+    """
+
+    log.debug("Segment the image using the Laplacian operator")
+    post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
+                                              include_diagonal_terms=include_diagonal_terms)
+
+    return image + (c * post_laplacian_image)
+
+
+def high_boost_filter(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE,
+                      padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+    """
+    Use a high boost filter (un-sharp masking) to sharpen the image.
+
+    :param image: The image for sharpening.
+    :param filter_type: The filter used for the image blurring.
+    :param filter_size: The filter size used for the image blurring.
+    :param padding_type: The padding type used for the convolution.
+    :return: Sharpened image.
+    """
+
+    blurred_image = np.zeros(image.shape)
+
+    log.debug("Blurring the image")
+    match filter_type:
+        case Settings.BOX_FILTER:
+            blurred_image = box_filter(image=image, filter_size=filter_size, padding_type=padding_type)
+
+    log.debug("Subtracting the blurred image from the original one -> Mask")
+    mask = image - blurred_image
+
+    log.debug("Adding the mask to the original image")
+    return image + mask

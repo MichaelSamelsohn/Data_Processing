@@ -129,11 +129,11 @@ class Image:
         plt.show()
 
     def test(self):
-        self.__image = convert_to_grayscale(image=self.__image)
+        self.__image = high_boost_filter(image=self.__image)
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
     obj.test()
-    obj.display_histogram(normalize=True)
-    # obj.compare_to_original()
+    # obj.display_histogram(normalize=True)
+    obj.compare_to_original()
