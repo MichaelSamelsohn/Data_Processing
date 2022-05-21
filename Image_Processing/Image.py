@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 import Common
 from Intensity_Transformations import *
-from Segmentation import line_detection, kirsch_edge_detection, laplacian_gradient
+from Segmentation import line_detection, kirsch_edge_detection, laplacian_gradient, global_thresholding
 from Spatial_Filtering import box_filter
 from Utilities import Settings
 from Utilities.Logging import Logger
@@ -51,10 +51,6 @@ class Image:
             self.__image_path = Settings.DEFAULT_IMAGE_LENA
             self.__original_image = im.imread(fname=self.__image_path)
             return False
-
-    def convert_to_grayscale(self):
-        red, green, blue = self.__image[:, :, 0], self.__image[:, :, 1], self.__image[:, :, 2]
-        self.__image = 0.2989 * red + 0.5870 * green + 0.1140 * blue
 
     @property
     def image_path(self):
@@ -121,10 +117,11 @@ class Image:
         plt.show()
 
     def test(self):
-        self.convert_to_grayscale()
+        self.__image = global_thresholding(image=self.__image, initial_threshold=0.1,
+                                           delta_t=Settings.DEFAULT_DELTA_T)
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
-    obj.convert_to_grayscale()
+    obj.test()
     obj.compare_to_original()

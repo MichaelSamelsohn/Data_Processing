@@ -11,7 +11,7 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from Common import convolution_2d
+from Common import convolution_2d, convert_to_grayscale
 from Intensity_Transformations import thresholding
 from Utilities import Settings
 from Utilities.Decorators import book_implementation
@@ -73,31 +73,56 @@ LAPLACIAN_KERNELS = {
 }
 
 
-# @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
-#                      reference="Chapter 10.3 - Thresholding, p.746-747")
-# def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRESHOLD_VALUE,
-#                         delta_t=Settings.DEFAULT_DELTA_T) -> ndarray:
-#     """
-#     TODO: Add more documentation.
-#
-#     :param image: The image for thresholding.
-#     :param initial_threshold: TODO: Add parameter description.
-#     :param delta_t: TODO: Add parameter description.
-#     :return: Threshold image.
-#     """
-#
-#     log.debug("Setting the global threshold to initial (default) value")
-#     global_threshold = initial_threshold
-#
-#     log.debug("Thresholding the image using the global threshold")
-#     boolean_image = image > global_threshold
-#     above_threshold_pixel_count =
-#
-#
-#     above_threshold_image = boolean_image * image
-#
-#
-#     below_threshold_image = image - above_threshold_image
+@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+                     reference="Chapter 10.3 - Thresholding, p.746-747")
+def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRESHOLD_VALUE,
+                        delta_t=Settings.DEFAULT_DELTA_T) -> ndarray:
+    """
+    TODO: Add more documentation.
+
+    :param image: The image for thresholding.
+    :param initial_threshold: TODO: Add parameter description.
+    :param delta_t: TODO: Add parameter description.
+    :return: Threshold image.
+    """
+
+    grayscale_image = convert_to_grayscale(image=image)
+
+    log.debug(f"Setting the global threshold to initial (default) value - {initial_threshold}")
+    global_threshold = np.round(initial_threshold, 3)
+
+    log.debug("Starting the search for global threshold")
+    iteration_counter = 0
+    while True:
+        iteration_counter += 1  # Update iteration counter.
+
+        # Thresholding the image using the current global threshold.
+        boolean_image = grayscale_image > global_threshold
+
+        # Calculating the pixel count for both groups (pixel values below/above the threshold).
+        above_threshold_pixel_count = np.count_nonzero(boolean_image)
+        below_threshold_pixel_count = grayscale_image.shape[0] * grayscale_image.shape[1] - above_threshold_pixel_count
+
+        # Generating the threshold images.
+        above_threshold_image = boolean_image * grayscale_image
+        below_threshold_image = grayscale_image - above_threshold_image
+
+        # Calculating the mean for each pixel group.
+        above_threshold_mean = np.sum(above_threshold_image) / above_threshold_pixel_count
+        below_threshold_mean = np.sum(below_threshold_image) / below_threshold_pixel_count
+
+        # Calculating the new global threshold.
+        new_global_threshold = 0.5 * (above_threshold_mean + below_threshold_mean)
+
+        # Checking stopping condition (the difference between the two latest thresholds is lower than defined delta).
+        if np.abs(new_global_threshold - global_threshold) < delta_t:
+            log.info(f"Global threshold reached - {np.round(global_threshold, 3)} (initial threshold value - {initial_threshold})")
+            log.info(f"Iterations to reach global threshold - {iteration_counter}")
+            break
+        else:
+            global_threshold = np.round(new_global_threshold, 3)
+
+    return thresholding(image=grayscale_image, threshold_value=np.round(global_threshold, 3))
 
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
@@ -107,10 +132,10 @@ def laplacian_gradient(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYP
     """
     TODO: Add more documentation.
 
-    :param image:
-    :param padding_type:
-    :param include_diagonal_terms:
-    :return:
+    :param image: TODO: Add parameter description.
+    :param padding_type: TODO: Add parameter description.
+    :param include_diagonal_terms: TODO: Add parameter description.
+    :return: TODO: Add parameter description.
     """
 
     laplacian_kernel = LAPLACIAN_KERNELS["WITHOUT_DIAGONAL_TERMS"] if not include_diagonal_terms \
@@ -128,11 +153,11 @@ def isolated_point_detection(image: ndarray, padding_type=Settings.DEFAULT_PADDI
     """
     TODO: Add more documentation.
 
-    :param image:
-    :param padding_type:
-    :param include_diagonal_terms:
-    :param threshold_value:
-    :return:
+    :param image: TODO: Add parameter description.
+    :param padding_type: TODO: Add parameter description.
+    :param include_diagonal_terms: TODO: Add parameter description.
+    :param threshold_value: TODO: Add parameter description.
+    :return: TODO: Add parameter description.
     """
 
     # TODO: Add logs.

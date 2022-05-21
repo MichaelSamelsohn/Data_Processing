@@ -20,6 +20,21 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
+def convert_to_grayscale(image: ndarray) -> ndarray:
+    """
+    Convert a color image to grayscale.
+
+    :param image: Color image for conversion. If image is grayscale, it is returned as is.
+    :return: Grayscale image.
+    """
+
+    # TODO: Add a check that image is not grayscale already.
+    log.debug("Converting image to grayscale")
+    red, green, blue = image[:, :, 0], image[:, :, 1], image[:, :, 2]
+    grayscale_image = 0.2989 * red + 0.5870 * green + 0.1140 * blue
+    return grayscale_image
+
+
 def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
     """
     Convert image using lookup table values.
