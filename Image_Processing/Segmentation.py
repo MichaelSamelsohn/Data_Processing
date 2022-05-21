@@ -198,7 +198,7 @@ def line_detection(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
     return filtered_images_dictionary
 
 
-@book_implementation(book="Digital Image Processing (4th edition) - Gonzales & Woods",
+@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
 def kirsch_edge_detection(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE) -> dict:
     """

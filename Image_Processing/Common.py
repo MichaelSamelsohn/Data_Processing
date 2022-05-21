@@ -62,12 +62,14 @@ def scale_pixel_values(scale_factor=Settings.DEFAULT_SCALING_FACTOR):
             kwargs["image"] = scale_image(image=kwargs["image"], scale_factor=scale_factor)
             return_image = func(*args, **kwargs)
             log.debug("Scaling image back")
-            return scale_image(image=return_image, scale_factor=1/scale_factor)
+            return scale_image(image=return_image, scale_factor=1 / scale_factor)
+
         return inner
+
     return wrapper
 
 
-def scale_image(image, scale_factor=Settings.DEFAULT_SCALING_FACTOR) -> ndarray:
+def scale_image(image: ndarray, scale_factor=Settings.DEFAULT_SCALING_FACTOR) -> ndarray:
     """
     Scale the pixel values of an image by the provided scaling factor.
     This function is useful when the pixel range is [0, 1] and it needs to be converted to integer values (scaling
@@ -88,6 +90,43 @@ def scale_image(image, scale_factor=Settings.DEFAULT_SCALING_FACTOR) -> ndarray:
         scaled_image = scaled_image.astype(int)
 
     return scaled_image
+
+
+def calculate_histogram(image: ndarray, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION) \
+        -> tuple[ndarray, ndarray, ndarray] | ndarray:
+    """
+    Calculate the histogram of an image. A histogram shows the amount of pixels per pixel intensity value.
+    If the histogram is normalized, it shows the probabilities per pixel intensity value.
+    Note - if the image is a color one, the return value will contain three histograms (one for each color channel).
+
+    :param image: The image.
+    :param normalize: Boolean value indicating if the histogram is to be normalized or not.
+    :return: Histogram of the provided image.
+    """
+
+    if len(image.shape) == 3:
+        log.debug("Color image -> Splitting the image to its three channels")
+        red, green, blue = image[:, :, 0], image[:, :, 1], image[:, :, 2]
+        return calculate_histogram(image=red, normalize=normalize), \
+               calculate_histogram(image=green, normalize=normalize), \
+               calculate_histogram(image=blue, normalize=normalize)
+
+    log.debug("Scaling the image to have a histogram with integer values")
+    image = scale_image(image=image, scale_factor=255)
+
+    log.debug("Initializing the histogram")
+    histogram = np.zeros(256)
+
+    log.debug("Calculating the histogram")
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            histogram[image[row][col]] += 1
+
+    if normalize:
+        log.debug("Normalizing the histogram")
+        histogram /= (image.shape[0] * image.shape[1])
+
+    return histogram
 
 
 def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE) -> ndarray:
@@ -154,6 +193,7 @@ def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
 def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
+    TODO: Optimize function runtime.
 
     :param image: The image to be convolved.
     :param kernel: Kernel matrix.
@@ -177,8 +217,14 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAUL
             sub_image = extract_sub_image(image=padded_image, position=(row, col),
                                           sub_image_size=convolution_matrix_size)
             for color_index in range(image.shape[2]):
-                convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2, color_index] =\
-                    np.sum(sub_image[:, :, color_index] * kernel)
+                if len(image.shape) == 3:
+                    # Color image.
+                    convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2, color_index] =\
+                        np.sum(sub_image[:, :, color_index] * kernel)
+                else:
+                    # Grayscale image.
+                    convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2] = \
+                        np.sum(sub_image[:, :] * kernel)
 
     return convolution_image
 

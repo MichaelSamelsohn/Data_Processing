@@ -7,15 +7,13 @@ Created by Michael Samelsohn, 12/05/22
 """
 
 # Imports #
-import copy
-
 import matplotlib.image as im
 import matplotlib.pyplot as plt
 
-import Common
+from Common import *
 from Intensity_Transformations import *
-from Segmentation import line_detection, kirsch_edge_detection, laplacian_gradient, global_thresholding
-from Spatial_Filtering import box_filter
+from Segmentation import *
+from Spatial_Filtering import *
 from Utilities import Settings
 from Utilities.Logging import Logger
 
@@ -98,6 +96,8 @@ class Image:
         else:
             # Color image.
             plt.imshow(self.__image)
+
+        plt.title("Image")
         plt.show()
 
     def compare_to_original(self):
@@ -114,14 +114,26 @@ class Image:
         else:
             # Color image.
             axs[1].imshow(self.__image)
+
+        plt.title("Image Comparison")
+        # TODO: Add titles for the different images.
+        plt.show()
+
+    def display_histogram(self, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION):
+        # TODO: Handle color image histogram display.
+        histogram = calculate_histogram(image=self.__image, normalize=normalize)
+        plt.title("Image Histogram")
+        plt.xlabel("Pixel Intensity")
+        plt.ylabel("Pixel Count")
+        plt.bar(range(256), histogram)
         plt.show()
 
     def test(self):
-        self.__image = global_thresholding(image=self.__image, initial_threshold=0.1,
-                                           delta_t=Settings.DEFAULT_DELTA_T)
+        self.__image = convert_to_grayscale(image=self.__image)
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
     obj.test()
-    obj.compare_to_original()
+    obj.display_histogram(normalize=True)
+    # obj.compare_to_original()
