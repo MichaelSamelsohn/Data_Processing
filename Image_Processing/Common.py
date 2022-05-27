@@ -8,6 +8,7 @@ Created by Michael Samelsohn, 12/05/22
 
 # Imports #
 import copy
+import math
 import os
 import numpy as np
 from numpy import ndarray
@@ -129,35 +130,46 @@ def calculate_histogram(image: ndarray, normalize=Settings.DEFAULT_HISTOGRAM_NOR
     return histogram
 
 
-def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE) -> ndarray:
-    """
+def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE, **kwargs) \
+        -> ndarray:
+    f"""
 
     :param filter_type: The type of filter to be generated.
     :param filter_size: The size of the filter to be generated. Can be either an integer or a tuple of integers.
     Types of filters:
         * Box filter - An all ones filter (with normalization).
+        * Gaussian filter - Based on  the formula 3-46 in page 167 {Settings.GONZALES_WOODS_BOOK} (with normalization).
     :return: Matrix array with the specified dimensions and based on the selected filter type
     """
 
     # Asserting that filter size is an odd number and filter is symmetrical.
+    filter_size_square = 1
     if type(filter_size) == int:
         if filter_size % 2 == 0:
-            log.warning("Filter size is an even number. Filters should be odd number size")
+            log.raise_exception(message="Filter size is an even number. Filters should be odd number size",
+                                exception=ValueError)
         else:
-            filter_size = (filter_size, filter_size)
-    elif type(filter_size) == tuple:
-        if len(filter_size) != 2:
-            log.raise_exception(message="Filter size is not defined well", exception=IndexError)
-        elif filter_size[0] != filter_size[1]:
-            log.warning("Filter size is not symmetrical")
+            filter_size_square = (filter_size, filter_size)
 
-    image_filter = np.zeros(shape=filter_size)
+    image_filter = np.zeros(shape=filter_size_square)
     log.debug("Identifying the filter type and generating it")
-    match filter_type:
-        case Settings.BOX_FILTER:
-            log.debug("Box type filter selected")
-            image_filter = np.ones(shape=filter_size)
-            image_filter /= np.sum(image_filter)  # Normalize.
+    try:
+        match filter_type:
+            case Settings.BOX_FILTER:
+                log.debug("Box type filter selected")
+                image_filter = np.ones(shape=filter_size_square)
+                image_filter /= np.sum(image_filter)  # Normalize.
+            case Settings.GAUSSIAN_FILTER:
+                log.debug("Gaussian type filter selected")
+                center_position = filter_size // 2
+                for row in range(filter_size):
+                    for col in range(filter_size):
+                        r_squared = math.pow(row - center_position, 2) + math.pow(col - center_position, 2)
+                        image_filter[row][col] = kwargs["K"] * math.exp(
+                            -r_squared / (2 * math.pow(kwargs["Sigma"], 2)))
+                image_filter /= np.sum(image_filter)  # Normalize.
+    except KeyError:
+        log.raise_exception("Missing arguments for filter generation", exception=KeyError)
 
     return image_filter
 
@@ -176,9 +188,9 @@ def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
     """
 
     log.debug("Generating image with extended boundaries")
-    padded_image = np.zeros(shape=(image.shape[0] + 2 * padding_size,
-                                   image.shape[1] + 2 * padding_size,
-                                   image.shape[2]))
+    rows = image.shape[0] + 2 * padding_size
+    cols = image.shape[1] + 2 * padding_size
+    padded_image = np.zeros(shape=(rows, cols, 3)) if len(image.shape) == 3 else np.zeros(shape=(rows, cols))
 
     log.debug("Identifying the padding type and applying it")
     match padding_type:
@@ -190,14 +202,15 @@ def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
 
 
 @measure_runtime
-def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
+                   contrast_stretch=Settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
     """
     Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
-    TODO: Optimize function runtime.
 
     :param image: The image to be convolved.
     :param kernel: Kernel matrix.
     :param padding_type: The padding type used for extending the image boundaries.
+    :param contrast_stretch: Perform contrast stretching on the image.
     :return: Convolution of the image with the convolution object.
     """
 
@@ -216,17 +229,12 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAUL
         for col in range(convolution_matrix_size // 2, image.shape[1] + convolution_matrix_size // 2):
             sub_image = extract_sub_image(image=padded_image, position=(row, col),
                                           sub_image_size=convolution_matrix_size)
-            for color_index in range(image.shape[2]):
-                if len(image.shape) == 3:
-                    # Color image.
-                    convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2, color_index] =\
-                        np.sum(sub_image[:, :, color_index] * kernel)
-                else:
-                    # Grayscale image.
-                    convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2] = \
-                        np.sum(sub_image[:, :] * kernel)
+            convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2] = [
+                np.sum(sub_image[:, :, 0] * kernel),
+                np.sum(sub_image[:, :, 1] * kernel),
+                np.sum(sub_image[:, :, 2] * kernel)] if len(image.shape) == 3 else np.sum(sub_image * kernel)
 
-    return convolution_image
+    return convolution_image if not contrast_stretch else contrast_stretching(image=convolution_image)
 
 
 def extract_sub_image(image: ndarray, position: tuple[int, int], sub_image_size: int) -> ndarray:
@@ -256,3 +264,26 @@ def extract_sub_image(image: ndarray, position: tuple[int, int], sub_image_size:
     sub_image = image[row_start:row_end, col_start:col_end]
 
     return sub_image
+
+
+def contrast_stretching(image: ndarray) -> ndarray:
+    """
+    Perform contrast stretching on an image. Contrast stretching is useful only when the image has values which are
+    outside the normal range [0, 1]. This normally happens when performing high-pass filtering (image sharpening).
+
+    :param image: The image for contrast stretching.
+    :return: Image with pixels values stretched to range [0, 1].
+    """
+
+    max_value = np.max(image)
+    log.debug(f"Maximum value is - {max_value}")
+    min_value = np.min(image)
+    log.debug(f"Minimum value is - {min_value}")
+
+    log.debug("Calculating the slope")
+    m = 1 / (max_value - min_value)
+    log.debug(f"Slope is - {m}")
+
+    log.debug("Performing contrast stretch on the image")
+    log.warning("Assuming that the normal pixel value range for the image is - [0, 1]")
+    return m * (image[:, :] - min_value)

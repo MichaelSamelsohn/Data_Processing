@@ -20,9 +20,7 @@ Created by Michael Samelsohn, 20/05/22
 # Imports #
 import os
 
-import numpy as np
 from numpy import ndarray
-
 from Common import generate_filter, convolution_2d
 from Segmentation import laplacian_gradient
 from Utilities import Settings
@@ -33,17 +31,21 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def box_filter(image: ndarray, filter_size=Settings.DEFAULT_FILTER_SIZE, padding_type=Settings.DEFAULT_PADDING_TYPE) \
+@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+                     reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
+def blur_image(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE,
+               filter_size=Settings.DEFAULT_FILTER_SIZE, padding_type=Settings.DEFAULT_PADDING_TYPE) \
         -> ndarray:
     """
-    Use box filter on an image.
+    Apply a low pass filter (blur) on an image.
 
     :param image: The image to be filtered.
+    :param filter_type: The filter type.
     :param filter_size: The filter size.
     :param padding_type: The padding type used for the convolution.
     :return: Filtered image.
     """
-    kernel = generate_filter(filter_type=Settings.BOX_FILTER, filter_size=filter_size)
+    kernel = generate_filter(filter_type=filter_type, filter_size=filter_size)
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
 
 
@@ -69,6 +71,8 @@ def laplacian_image_sharpening(image: ndarray, padding_type=Settings.DEFAULT_PAD
     return image + (c * post_laplacian_image)
 
 
+@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+                     reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.182-184")
 def high_boost_filter(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE,
                       padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
@@ -81,12 +85,8 @@ def high_boost_filter(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE, 
     :return: Sharpened image.
     """
 
-    blurred_image = np.zeros(image.shape)
-
     log.debug("Blurring the image")
-    match filter_type:
-        case Settings.BOX_FILTER:
-            blurred_image = box_filter(image=image, filter_size=filter_size, padding_type=padding_type)
+    blurred_image = blur_image(image=image, filter_type=filter_type, filter_size=filter_size, padding_type=padding_type)
 
     log.debug("Subtracting the blurred image from the original one -> Mask")
     mask = image - blurred_image

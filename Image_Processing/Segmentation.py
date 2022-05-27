@@ -128,13 +128,15 @@ def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRES
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.175-182")
 def laplacian_gradient(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
-                       include_diagonal_terms=Settings.DEFAULT_INCLUDE_DIAGONAL_TERMS) -> ndarray:
+                       include_diagonal_terms=Settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                       contrast_stretch=Settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
     """
     TODO: Add more documentation.
 
     :param image: TODO: Add parameter description.
     :param padding_type: TODO: Add parameter description.
     :param include_diagonal_terms: TODO: Add parameter description.
+    :param contrast_stretch: TODO: Add parameter description.
     :return: TODO: Add parameter description.
     """
 
@@ -142,7 +144,8 @@ def laplacian_gradient(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYP
         else LAPLACIAN_KERNELS["WITH_DIAGONAL_TERMS"]
 
     log.debug("Filtering the image")
-    return convolution_2d(image=image, kernel=laplacian_kernel, padding_type=padding_type)
+    return convolution_2d(image=image, kernel=laplacian_kernel, padding_type=padding_type,
+                          contrast_stretch=contrast_stretch)
 
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,

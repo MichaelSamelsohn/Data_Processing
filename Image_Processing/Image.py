@@ -129,7 +129,12 @@ class Image:
         plt.show()
 
     def test(self):
-        self.__image = high_boost_filter(image=self.__image)
+        # self.__original_image = convert_to_grayscale(image=self.__original_image)
+        self.__original_image = laplacian_gradient(image=self.__original_image, padding_type=Settings.DEFAULT_PADDING_TYPE,
+                                                   include_diagonal_terms=False, contrast_stretch=False)
+        # self.__image = convert_to_grayscale(image=self.__image)
+        self.__image = laplacian_gradient(image=self.__image, padding_type=Settings.DEFAULT_PADDING_TYPE,
+                                          include_diagonal_terms=False, contrast_stretch=True)
 
 
 if __name__ == "__main__":
@@ -137,3 +142,7 @@ if __name__ == "__main__":
     obj.test()
     # obj.display_histogram(normalize=True)
     obj.compare_to_original()
+
+
+# TODO: Optimize function (concolution_2d) runtime. Try to adjust the shape of the kernel to fit the image (Size x Size x 1 for grayscale and Size x Size x 3 for color).
+# TODO: Morphological operations.
