@@ -214,22 +214,22 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAUL
     :return: Convolution of the image with the convolution object.
     """
 
-    log.debug("Asserting that convolution matrix is symmetrical")
-    convolution_matrix_size = kernel.shape[0]
+    log.debug("Asserting that kernel is symmetrical")
+    kernel_size = kernel.shape[0]
     if kernel.shape[0] != kernel.shape[1]:
-        log.raise_exception(message="Convolution matrix is not symmetrical", exception=ValueError)
+        log.raise_exception(message="Kernel is not symmetrical", exception=ValueError)
 
-    log.debug(f"Convolution matrix size is - {convolution_matrix_size}")
+    log.debug(f"Kernel size is - {kernel_size}")
     log.debug("Padding the image")
-    padded_image = pad_image(image=image, padding_type=padding_type, padding_size=convolution_matrix_size // 2)
+    padded_image = pad_image(image=image, padding_type=padding_type, padding_size=kernel_size // 2)
 
-    log.debug("Performing the convolution between the image and the convolution matrix")
+    log.debug("Performing the convolution between the image and the kernel")
     convolution_image = np.zeros(shape=image.shape)
-    for row in range(convolution_matrix_size // 2, image.shape[0] + convolution_matrix_size // 2):
-        for col in range(convolution_matrix_size // 2, image.shape[1] + convolution_matrix_size // 2):
+    for row in range(kernel_size // 2, image.shape[0] + kernel_size // 2):
+        for col in range(kernel_size // 2, image.shape[1] + kernel_size // 2):
             sub_image = extract_sub_image(image=padded_image, position=(row, col),
-                                          sub_image_size=convolution_matrix_size)
-            convolution_image[row - convolution_matrix_size // 2, col - convolution_matrix_size // 2] = [
+                                          sub_image_size=kernel_size)
+            convolution_image[row - kernel_size // 2, col - kernel_size // 2] = [
                 np.sum(sub_image[:, :, 0] * kernel),
                 np.sum(sub_image[:, :, 1] * kernel),
                 np.sum(sub_image[:, :, 2] * kernel)] if len(image.shape) == 3 else np.sum(sub_image * kernel)
