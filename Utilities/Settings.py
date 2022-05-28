@@ -62,6 +62,13 @@ GAUSSIAN_FILTER = "gaussian"
 # Padding Types #
 ZERO_PADDING = "zero_padding"
 
+# Morphological Operations #
+EROSION = "erosion"
+DILATION = "dilation"
+OPENING = "opening"
+CLOSING = "closing"
+
+
 # Common #
 DEFAULT_SCALING_FACTOR = 255
 DEFAULT_PADDING_SIZE = 1

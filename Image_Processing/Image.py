@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 
 from Common import *
 from Intensity_Transformations import *
+from Morphological_Operations import morphological_erosion, morphological_dilation, morphological_opening, \
+    morphological_closing, boundary_extraction
 from Segmentation import *
 from Spatial_Filtering import *
 from Utilities import Settings
@@ -115,7 +117,6 @@ class Image:
             # Color image.
             axs[1].imshow(self.__image)
 
-        plt.title("Image Comparison")
         # TODO: Add titles for the different images.
         plt.show()
 
@@ -129,20 +130,13 @@ class Image:
         plt.show()
 
     def test(self):
-        # self.__original_image = convert_to_grayscale(image=self.__original_image)
-        self.__original_image = laplacian_gradient(image=self.__original_image, padding_type=Settings.DEFAULT_PADDING_TYPE,
-                                                   include_diagonal_terms=False, contrast_stretch=False)
-        # self.__image = convert_to_grayscale(image=self.__image)
-        self.__image = laplacian_gradient(image=self.__image, padding_type=Settings.DEFAULT_PADDING_TYPE,
-                                          include_diagonal_terms=False, contrast_stretch=True)
+        self.__image = boundary_extraction(image=self.__image,
+                                           structuring_element=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
+                                           threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
+                                           padding_type=Settings.DEFAULT_PADDING_TYPE)
 
 
 if __name__ == "__main__":
     obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
     obj.test()
-    # obj.display_histogram(normalize=True)
     obj.compare_to_original()
-
-
-# TODO: Optimize function (concolution_2d) runtime. Try to adjust the shape of the kernel to fit the image (Size x Size x 1 for grayscale and Size x Size x 3 for color).
-# TODO: Morphological operations.
