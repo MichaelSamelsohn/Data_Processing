@@ -56,8 +56,8 @@ def download_image_url(api_type, image_url_list, image_suffix=""):
         case 1:  # Single image, no indexing required.
             log.debug(f"Image URL is - {image_url_list[0]}")
             output = subprocess.run(
-                f"{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['DOWNLOAD_METHOD']} "
-                f"{api_type}{image_suffix}.{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['IMAGE_FORMAT']} {image_url_list[0]}",
+                f"curl -o "
+                f"{api_type}{image_suffix}.{Settings.API_IMAGE_DOWNLOAD_FORMATS[api_type]} {image_url_list[0]}",
                 shell=True, check=True, capture_output=True)
             log.print_data(data=output.stderr.decode("utf-8").split("\n"))
             log.info("Image downloaded successfully")
@@ -66,8 +66,8 @@ def download_image_url(api_type, image_url_list, image_suffix=""):
             for url in image_url_list:
                 log.debug(f"{image_index}) Image URL is - {url} ")
                 output = subprocess.run(
-                    f"{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['DOWNLOAD_METHOD']} "
-                    f"{api_type}{image_suffix}_{image_index}.{Settings.IMAGE_DOWNLOAD_SETTINGS[api_type]['IMAGE_FORMAT']} {url}",
+                    f"curl -o "
+                    f"{api_type}{image_suffix}_{image_index}.{Settings.API_IMAGE_DOWNLOAD_FORMATS[api_type]} {url}",
                     shell=True, check=True, capture_output=True)
                 log.print_data(data=output.stderr.decode("utf-8").split("\n"))
                 log.info("Image downloaded successfully")
@@ -96,7 +96,7 @@ class NASA_API:
         try:
             log.debug("Changing working directory to given one")
             os.chdir(self.__image_directory)
-        except FileNotFoundError:
+        except (FileNotFoundError, OSError):
             log.error(f"The specified directory, {self.__image_directory}, doesn't exist")
             log.debug("Saving the image to the images directory")
             self.__image_directory = Settings.DEFAULT_IMAGE_DIRECTORY

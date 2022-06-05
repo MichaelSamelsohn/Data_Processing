@@ -14,11 +14,11 @@ CONNECTION_CHECK_URL = "https://www.google.com/"
 CONNECTION_CHECK_TIMEOUT = 5
 API_KEY = "api_key=fymalkzvEUpMBhhBIpi39IQu0zqsjMy7K2AYhiwJ"
 DEFAULT_IMAGE_DIRECTORY = os.path.abspath('../Images')
-IMAGE_DOWNLOAD_SETTINGS = {
-    "APOD": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
-    "EPIC": {"DOWNLOAD_METHOD": "curl -o", "IMAGE_FORMAT": "png"},
-    "MARS": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
-    "NIL": {"DOWNLOAD_METHOD": "wget -O", "IMAGE_FORMAT": "JPG"},
+API_IMAGE_DOWNLOAD_FORMATS = {
+    "APOD": "JPG",
+    "EPIC": "png",
+    "MARS": "JPG",
+    "NIL": "JPG",
 }
 
 # APOD (Astronomy Picture Of the Day) #
