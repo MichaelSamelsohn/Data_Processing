@@ -42,9 +42,12 @@ def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_THRESHOLD_VALU
     """
 
     log.debug(f"The provided threshold is - {threshold_value}")
-    log.warning("If provided threshold is not in acceptable range, [0, 1], "
-                "it will be assigned to closest acceptable value")
-    threshold_value = 0 if threshold_value < 0 else 1 if threshold_value > 1 else threshold_value
+    try:
+        assert 0 < threshold_value < 1
+    except AssertionError:
+        log.warning("Provided threshold is not in acceptable range, [0, 1], "
+                    "it will be assigned to closest acceptable value")
+        threshold_value = 0 if threshold_value < 0 else 1
 
     log.debug("Performing image thresholding")
     return (image > threshold_value).astype(float)
@@ -113,8 +116,7 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=Settings.DEFAUL
     if type(degree_of_reduction) is not int:
         log.error("The selected bit plane is not of type integer. Will reset to default")
         degree_of_reduction = Settings.DEFAULT_DEGREE_OF_REDUCTION
-    log.warning("If provided degree of reduction is not in acceptable range, [0, 7], "
-                "it will be assigned to closest acceptable value")
+    # If provided degree of reduction is not in acceptable range, [0, 7], it will be assigned to closest acceptable value.
     degree_of_reduction = 0 if degree_of_reduction < 0 else 7 if degree_of_reduction > 7 else degree_of_reduction
     reduction_factor = np.power(2, degree_of_reduction)
     log.debug(f"The reduction factor is - {reduction_factor}")
@@ -150,8 +152,7 @@ def bit_plane_slicing(image: ndarray, bit_plane=Settings.DEFAULT_BIT_PLANE) -> n
     """
 
     log.debug(f"The chosen bit plane is - {bit_plane}")
-    log.warning("If provided bit plane is not in acceptable range, [0, 7], "
-                "it will be assigned to closest acceptable value")
+    # If provided bit plane is not in acceptable range, [0, 7], it will be assigned to the closest acceptable value.
     bit_plane = 0 if bit_plane < 0 else 7 if bit_plane > 7 else bit_plane
     mask = 1 << bit_plane  # Mask to filter the bits not belonging to selected bit plane.
     log.debug(f"Using the following mask - {mask}")

@@ -129,6 +129,12 @@ class Image:
         plt.bar(range(256), histogram)
         plt.show()
 
+    def convert_to_grayscale(self):
+        """
+        Convert the image to grayscale.
+        """
+        self.__image = convert_to_grayscale(image=self.__image)
+
     def test(self):
         self.__image = boundary_extraction(image=self.__image,
                                            structuring_element=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
