@@ -47,7 +47,7 @@ RESET = "\x1b[0m"
 
 
 class Logger:
-    def __init__(self, module, file_name, log_level=logging.DEBUG, format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s"):
+    def __init__(self, module, file_name, log_level=logging.DEBUG, format_string="%(asctime)s - %(levelname)s - %(name)s - %(message)s"):
         # Set class parameters.
         self.__module = module
         self.__file_name = file_name
