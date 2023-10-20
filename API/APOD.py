@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 05/05/22
 # Imports #
 import os
 
-from NASA_API import NASA_API, get_request, download_image_url
+from API.NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger

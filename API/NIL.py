@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 09/05/22
 # Imports #
 import os
 
-from NASA_API import NASA_API, get_request, download_image_url
+from API.NASA_API import NASA_API, get_request, download_image_url
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
@@ -88,7 +88,7 @@ class NIL(NASA_API):
         """
 
         log.debug(f"Selected search years - {self.__search_years[0]}-{self.__search_years[1]}")
-        if type(self.__search_years) == list:
+        if type(self.__search_years) != list:
             log.error("Search years is not of type list, will reset to default")
             self.__search_years = Settings.NIL_DEFAULT_SEARCH_YEARS
             return False

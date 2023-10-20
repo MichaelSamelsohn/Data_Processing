@@ -13,7 +13,7 @@ import os
 CONNECTION_CHECK_URL = "https://www.google.com/"
 CONNECTION_CHECK_TIMEOUT = 5
 API_KEY = "api_key=fymalkzvEUpMBhhBIpi39IQu0zqsjMy7K2AYhiwJ"
-DEFAULT_IMAGE_DIRECTORY = os.path.abspath('../Images')
+DEFAULT_IMAGE_DIRECTORY = os.path.abspath('./Images')
 API_IMAGE_DOWNLOAD_FORMATS = {
     "APOD": "JPG",
     "EPIC": "png",

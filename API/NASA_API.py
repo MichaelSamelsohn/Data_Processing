@@ -96,7 +96,7 @@ class NASA_API:
         try:
             log.debug("Changing working directory to given one")
             os.chdir(self.__image_directory)
-        except (FileNotFoundError, OSError):
+        except (FileNotFoundError, OSError, TypeError):
             log.error(f"The specified directory, {self.__image_directory}, doesn't exist")
             log.debug("Saving the image to the images directory")
             self.__image_directory = Settings.DEFAULT_IMAGE_DIRECTORY
