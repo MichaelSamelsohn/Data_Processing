@@ -150,9 +150,3 @@ class NIL(NASA_API):
         # Download and save the image to the relevant directory.
         download_image_url(api_type="NIL", image_url_list=self.__image_url_list,
                            image_suffix=f"_{self.query.replace(' ', '_')}")
-
-
-if __name__ == "__main__":
-    obj = NIL(image_directory="", query="Crab Nebula")
-    obj.log_class_parameters()
-    obj.nasa_image_library_query()

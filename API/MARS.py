@@ -239,9 +239,3 @@ class MARS(NASA_API):
         log.print_data(data=rover_information)
 
         return rover_information
-
-
-if __name__ == "__main__":
-    obj = MARS(image_directory="", number_of_images=0)
-    obj.log_class_parameters()
-    obj.mars_rover_images()

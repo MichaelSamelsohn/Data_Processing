@@ -19,23 +19,6 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-def reformat_images_url(image_date: str):
-    """
-    Extract the date and time to later form the correct image URL.
-
-    :param image_date: The date of the image (from the request response dictionary).
-    :return: Tuple of year, month and date of the image.
-    """
-
-    log.debug("Extracting date and time information for image URL")
-    date_and_time = image_date.split(" ")
-    date_only = date_and_time[0].split("-")
-    year = date_only[0]
-    month = date_only[1]
-    day = date_only[2]
-    return year, month, day
-
-
 class EPIC(NASA_API):
     def __init__(self, image_directory: str, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
@@ -134,14 +117,25 @@ class EPIC(NASA_API):
         for i in range(0, min(self.__number_of_images, len(response_information))):
             log.debug("Current image number is - {}".format(i + 1))
             image = response_information[i]
-            year, month, day = reformat_images_url(image["date"])
+            year, month, day = self.reformat_images_url(image["date"])
             image_url_list.append(Settings.EPIC_URL_PREFIX + "archive/natural/" + year + "/" + month + "/" + day +
                                   "/png/" + image["image"] + ".png")
 
         return image_url_list
 
+    @staticmethod
+    def reformat_images_url(image_date: str):
+        """
+        Extract the date and time to later form the correct image URL.
 
-if __name__ == "__main__":
-    obj = EPIC(image_directory="", number_of_images=0)
-    obj.log_class_parameters()
-    obj.earth_polychromatic_imaging_camera()
+        :param image_date: The date of the image (from the request response dictionary).
+        :return: Tuple of year, month and date of the image.
+        """
+
+        log.debug("Extracting date and time information for image URL")
+        date_and_time = image_date.split(" ")
+        date_only = date_and_time[0].split("-")
+        year = date_only[0]
+        month = date_only[1]
+        day = date_only[2]
+        return year, month, day

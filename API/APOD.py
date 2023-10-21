@@ -144,9 +144,3 @@ class APOD(NASA_API):
 
         # Download and save the image to the relevant directory.
         download_image_url(api_type="APOD", image_url_list=self.__image_url_list, image_suffix=f"_{self.__date}")
-
-
-if __name__ == "__main__":
-    obj = APOD(image_directory="", date="", hd=False)
-    obj.log_class_parameters()
-    obj.astronomy_picture_of_the_day()
