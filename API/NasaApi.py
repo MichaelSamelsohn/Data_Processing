@@ -92,7 +92,7 @@ class NasaApi:
     def download_image_url(api_type, image_url_list, image_suffix=""):
         """
         Download the images based on the compiled URLs list and the API type.
-        TODO: Figure out how to make the function protected.
+        TODO: Need to add better image naming.
 
         :param api_type: The API type used for the images.
         :param image_url_list: List with all image URLs.
