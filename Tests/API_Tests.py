@@ -39,7 +39,7 @@ class TestSystem:
         1) Download the APOD image using the relevant API.
         2) Assert image was downloaded successfully.
 
-        :return: True if image downloaded successfully, false otherwise.
+        :return: True if image downloaded successfully, assertion otherwise.
         """
 
         apod_date = "1996-04-27"
@@ -50,6 +50,7 @@ class TestSystem:
         log.debug("Asserting the path of the downloaded image")
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
         log.info("Image downloaded successfully")
+        return True
 
     def test_epic(self, resource):
         """
@@ -57,7 +58,7 @@ class TestSystem:
         1) Download the EPIC image using the relevant API.
         2) Assert image was downloaded successfully.
 
-        :return: True if image downloaded successfully, false otherwise.
+        :return: True if image downloaded successfully, assertion otherwise.
         """
 
         epic = EPIC(image_directory=IMAGE_DIRECTORY_PATH, number_of_images=1)
@@ -67,6 +68,7 @@ class TestSystem:
         log.debug("Asserting the path of the downloaded image")
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, "EPIC.png"))
         log.info("Image downloaded successfully")
+        return True
 
     def test_mars(self, resource):
         """
@@ -74,7 +76,7 @@ class TestSystem:
         1) Download the MARS image using the relevant API.
         2) Assert image was downloaded successfully.
 
-        :return: True if image downloaded successfully, false otherwise.
+        :return: True if image downloaded successfully, assertion otherwise.
         """
 
         mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover="Opportunity", date="2012-01-01", number_of_images=1)
@@ -84,6 +86,7 @@ class TestSystem:
         log.debug("Asserting the path of the downloaded image")
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, "MARS.JPG"))
         log.info("Image downloaded successfully")
+        return True
 
     def test_nil(self, resource):
         """
@@ -91,7 +94,7 @@ class TestSystem:
         1) Download the NIL image using the relevant API.
         2) Assert image was downloaded successfully.
 
-        :return: True if image downloaded successfully, false otherwise.
+        :return: True if image downloaded successfully, assertion otherwise.
         """
 
         query = "Crab Nebula"
