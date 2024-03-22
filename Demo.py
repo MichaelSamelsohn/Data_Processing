@@ -32,12 +32,14 @@ def nasa_api_demo():
     apod_date = input("Enter APOD date (acceptable format is - YYYY-MM-DD): ")
     apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=apod_date)
     apod.astronomy_picture_of_the_day()
+    apod.log_class_parameters()
     image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
     image.display_original_image()
 
     # EPIC (Earth Polychromatic Imaging Camera) demo.
     epic = EPIC(image_directory=IMAGE_DIRECTORY_PATH, number_of_images=1)
     epic.earth_polychromatic_imaging_camera()
+    epic.log_class_parameters()
     image = Image(os.path.join(IMAGE_DIRECTORY_PATH, "EPIC.png"))
     image.display_original_image()
 
@@ -46,6 +48,7 @@ def nasa_api_demo():
     mars_date = input("Enter rover date (acceptable format is - YYYY-MM-DD): ")
     mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover=mars_rover, date=mars_date,  number_of_images=1)
     mars.mars_rover_images()
+    mars.log_class_parameters()
     image = Image(os.path.join(IMAGE_DIRECTORY_PATH, "MARS.JPG"))
     image.display_image()
 
@@ -53,6 +56,7 @@ def nasa_api_demo():
     nil_query = input("Enter query: ")
     nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=nil_query)
     nil.nasa_image_library_query()
+    nil.log_class_parameters()
     image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{nil_query.replace(' ', '_')}.JPG"))
     image.display_image()
 

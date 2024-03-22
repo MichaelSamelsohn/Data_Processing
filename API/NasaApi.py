@@ -66,6 +66,7 @@ class NasaApi:
         """
         Log the class parameters (mainly for debugging purposes).
         """
+        log.info("Class parameters:")
         log.debug(f"The image directory is - {self.__image_directory}")
 
     @staticmethod
