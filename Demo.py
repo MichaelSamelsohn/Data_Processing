@@ -18,14 +18,6 @@ from NIL import NIL
 # Demo constants #
 IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Images"
 
-# Demo parameters #
-APOD_DATE = "2012-06-27"  # Acceptable format is - YYYY-MM-DD.
-
-MARS_ROVER = "Curiosity"
-MARS_ROVER_DATE = "2023-06-27"  # Acceptable format is - YYYY-MM-DD.
-
-NIL_QUERY = "Crab Nebula"
-
 
 def nasa_api_demo():
     """
@@ -37,9 +29,10 @@ def nasa_api_demo():
     """
 
     # APOD (Astronomy Picture Of the Day) demo.
-    apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=APOD_DATE)
+    apod_date = input("Enter APOD date (acceptable format is - YYYY-MM-DD): ")
+    apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=apod_date)
     apod.astronomy_picture_of_the_day()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{APOD_DATE}.JPG"))
+    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
     image.display_original_image()
 
     # EPIC (Earth Polychromatic Imaging Camera) demo.
@@ -49,15 +42,18 @@ def nasa_api_demo():
     image.display_original_image()
 
     # Mars rovers images demo.
-    mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover=MARS_ROVER, date=MARS_ROVER_DATE,  number_of_images=1)
+    mars_rover = input("Enter rover name (options are - Spirit/Curiosity/Opportunity): ")
+    mars_date = input("Enter rover date (acceptable format is - YYYY-MM-DD): ")
+    mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover=mars_rover, date=mars_date,  number_of_images=1)
     mars.mars_rover_images()
     image = Image(os.path.join(IMAGE_DIRECTORY_PATH, "MARS.JPG"))
     image.display_image()
 
     # NIL (NASA Imaging Library) demo.
-    nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=NIL_QUERY)
+    nil_query = input("Enter query: ")
+    nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=nil_query)
     nil.nasa_image_library_query()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{NIL_QUERY.replace(' ', '_')}.JPG"))
+    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{nil_query.replace(' ', '_')}.JPG"))
     image.display_image()
 
 
