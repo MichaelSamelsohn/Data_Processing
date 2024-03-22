@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 09/05/22
 # Imports #
 import os
 
-from API.NASA_API import NASA_API, get_request, download_image_url
+from API.NasaApi import NasaApi
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
@@ -19,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-class NIL(NASA_API):
+class NIL(NasaApi):
     def __init__(self, image_directory: str, query: str, media_type=Settings.NIL_DEFAULT_MEDIA_TYPE,
                  search_years=Settings.NIL_DEFAULT_SEARCH_YEARS):
         """
@@ -133,8 +133,9 @@ class NIL(NASA_API):
         log.debug("Retrieving queried image form the NASA imaging library")
 
         # Perform the API request.
-        json_object = get_request(url=f"{Settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self.__media_type}"
-                                      f"&year_start={self.__search_years[0]}&year_end={self.__search_years[1]}")
+        json_object = self.get_request(
+            url=f"{Settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self.__media_type}"
+                f"&year_start={self.__search_years[0]}&year_end={self.__search_years[1]}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False
@@ -148,5 +149,5 @@ class NIL(NASA_API):
             return False
 
         # Download and save the image to the relevant directory.
-        download_image_url(api_type="NIL", image_url_list=self.__image_url_list,
-                           image_suffix=f"_{self.query.replace(' ', '_')}")
+        self.download_image_url(api_type="NIL", image_url_list=self.__image_url_list,
+                                image_suffix=f"_{self.query.replace(' ', '_')}")

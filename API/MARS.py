@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 08/05/22
 # Imports #
 import os
 
-from API.NASA_API import NASA_API, get_request, download_image_url
+from API.NasaApi import NasaApi
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
@@ -19,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-class MARS(NASA_API):
+class MARS(NasaApi):
     def __init__(self, image_directory: str, rover=Settings.MARS_DEFAULT_ROVER, date=Settings.MARS_DEFAULT_DATE,
                  number_of_images=Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
@@ -182,9 +182,11 @@ class MARS(NASA_API):
 
         # Perform the API request.
         if type(self.__date) == str:
-            json_object = get_request(url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?earth_date={self.__date}&{Settings.API_KEY}")
+            json_object = self.get_request(
+                url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?earth_date={self.__date}&{Settings.API_KEY}")
         else:  # Date is of type integer.
-            json_object = get_request(url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?sol={self.__date}&{Settings.API_KEY}")
+            json_object = self.get_request(
+                url=f"{Settings.MARS_URL_PREFIX}rovers/{self.__rover}/photos?sol={self.__date}&{Settings.API_KEY}")
         if json_object is None:  # API request failed.
             self.__mars_rover_manifest()  # For debugging purposes.
             log.error("Check logs for more information on the failed API request")
@@ -194,7 +196,7 @@ class MARS(NASA_API):
         self.__image_url_list = self.__process_response_information(response_information=json_object)
 
         # Download and save the image to the relevant directory.
-        download_image_url(api_type="MARS", image_url_list=self.__image_url_list)
+        self.download_image_url(api_type="MARS", image_url_list=self.__image_url_list)
 
     def __process_response_information(self, response_information: dict):
         """
@@ -222,7 +224,7 @@ class MARS(NASA_API):
         """
 
         # Perform the API request to get the rover manifest.
-        rover_manifest = get_request(url=f"{Settings.MARS_URL_PREFIX}manifests/{self.__rover}?{Settings.API_KEY}")
+        rover_manifest = self.get_request(url=f"{Settings.MARS_URL_PREFIX}manifests/{self.__rover}?{Settings.API_KEY}")
         if rover_manifest is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False

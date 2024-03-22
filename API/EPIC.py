@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 07/05/22
 # Imports #
 import os
 
-from API.NASA_API import NASA_API, get_request, download_image_url
+from API.NasaApi import NasaApi
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
@@ -19,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-class EPIC(NASA_API):
+class EPIC(NasaApi):
     def __init__(self, image_directory: str, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
@@ -91,7 +91,7 @@ class EPIC(NASA_API):
         log.debug("Retrieving EPIC (Earth Polychromatic Imaging Camera) image(s)")
 
         # Perform the API request.
-        json_object = get_request(url=f"{Settings.EPIC_URL_PREFIX}{Settings.EPIC_URL_SUFFIX}")
+        json_object = self.get_request(url=f"{Settings.EPIC_URL_PREFIX}{Settings.EPIC_URL_SUFFIX}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False
@@ -100,7 +100,7 @@ class EPIC(NASA_API):
         self.__image_url_list = self.__process_response_information(response_information=json_object)
 
         # Download and save the image(s) to the relevant directory.
-        download_image_url(api_type="EPIC", image_url_list=self.__image_url_list)
+        self.download_image_url(api_type="EPIC", image_url_list=self.__image_url_list)
 
     def __process_response_information(self, response_information: list):
         """

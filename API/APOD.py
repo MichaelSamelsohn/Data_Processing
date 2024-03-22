@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 05/05/22
 # Imports #
 import os
 
-from API.NASA_API import NASA_API, get_request, download_image_url
+from API.NasaApi import NasaApi
 from Utilities import Settings
 from Utilities.Decorators import check_connection
 from Utilities.Logging import Logger
@@ -19,7 +19,7 @@ from Utilities.Logging import Logger
 log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
-class APOD(NASA_API):
+class APOD(NasaApi):
     def __init__(self, image_directory: str, date=Settings.APOD_DEFAULT_DATE, hd=Settings.APOD_DEFAULT_HD):
         """
         :param image_directory: The directory where the image is to be saved at.
@@ -38,7 +38,7 @@ class APOD(NASA_API):
         self.__check_hd_value()
 
     @property  # Read only.
-    def image_url_list(self):
+    def image_url_list(self) -> list:
         """
         Get the image URL list.
         :return: List with all the image URLs.
@@ -130,7 +130,7 @@ class APOD(NASA_API):
         log.debug("Retrieving APOD (Astronomy Picture Of the Day) image")
 
         # Perform the API request.
-        json_object = get_request(url=f"{Settings.APOD_URL_PREFIX}date={self.__date}&{Settings.API_KEY}")
+        json_object = self.get_request(url=f"{Settings.APOD_URL_PREFIX}date={self.__date}&{Settings.API_KEY}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False
@@ -143,4 +143,4 @@ class APOD(NASA_API):
         self.__image_url_list = [json_object["hdurl"] if self.__hd else json_object["url"]]
 
         # Download and save the image to the relevant directory.
-        download_image_url(api_type="APOD", image_url_list=self.__image_url_list, image_suffix=f"_{self.__date}")
+        self.download_image_url(api_type="APOD", image_url_list=self.__image_url_list, image_suffix=f"_{self.__date}")
