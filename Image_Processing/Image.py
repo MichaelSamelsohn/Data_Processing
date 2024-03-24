@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 
 from Common import *
 from Intensity_Transformations import *
-from Morphological_Operations import morphological_erosion, morphological_dilation, morphological_opening, \
-    morphological_closing, boundary_extraction
 from Segmentation import *
 from Spatial_Filtering import *
 from Utilities import Settings
@@ -27,6 +25,7 @@ class Image:
     def __init__(self, image_path=Settings.DEFAULT_IMAGE_LENA):
         # TODO: Add support for initialization using image array.
         # TODO: Add support for grayscale images.
+        # TODO: Add explanation how the class works.
 
         self.__original_image = None
 
@@ -51,6 +50,14 @@ class Image:
             self.__image_path = Settings.DEFAULT_IMAGE_LENA
             self.__original_image = im.imread(fname=self.__image_path)
             return False
+
+    @property
+    def image(self):
+        """
+        Get the image pixel array.
+        :return: The image pixel array.
+        """
+        return self.__image
 
     @property
     def image_path(self):
@@ -135,14 +142,5 @@ class Image:
         """
         self.__image = convert_to_grayscale(image=self.__image)
 
-    def test(self):
-        self.__image = boundary_extraction(image=self.__image,
-                                           structuring_element=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
-                                           threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                                           padding_type=Settings.DEFAULT_PADDING_TYPE)
-
-
-if __name__ == "__main__":
-    obj = Image("/Users/michaelsamelsohn/PycharmProjects/Data_Processing/Images/Lena.png")
-    obj.test()
-    obj.compare_to_original()
+    def transform_image(self, transformation_type, *args, **kwargs):
+        self.__image = globals()[transformation_type](*args, **kwargs)

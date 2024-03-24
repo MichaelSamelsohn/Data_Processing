@@ -14,9 +14,11 @@ from EPIC import EPIC
 from Image import Image
 from MARS import MARS
 from NIL import NIL
+from Intensity_Transformations import *
 
 # Demo constants #
 IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Images"
+LENA_IMAGE_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Images\\Lena.png"
 
 
 def nasa_api_demo():
@@ -33,14 +35,14 @@ def nasa_api_demo():
     apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=apod_date)
     apod.astronomy_picture_of_the_day()
     apod.log_class_parameters()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
+    image = Image(image_path=os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
     image.display_original_image()
 
     # EPIC (Earth Polychromatic Imaging Camera) demo.
     epic = EPIC(image_directory=IMAGE_DIRECTORY_PATH, number_of_images=1)
     epic.earth_polychromatic_imaging_camera()
     epic.log_class_parameters()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, "EPIC.png"))
+    image = Image(image_path=os.path.join(IMAGE_DIRECTORY_PATH, "EPIC.png"))
     image.display_original_image()
 
     # Mars rovers images demo.
@@ -49,7 +51,7 @@ def nasa_api_demo():
     mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover=mars_rover, date=mars_date,  number_of_images=1)
     mars.mars_rover_images()
     mars.log_class_parameters()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, "MARS.JPG"))
+    image = Image(image_path=os.path.join(IMAGE_DIRECTORY_PATH, "MARS.JPG"))
     image.display_image()
 
     # NIL (NASA Imaging Library) demo.
@@ -57,9 +59,27 @@ def nasa_api_demo():
     nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=nil_query)
     nil.nasa_image_library_query()
     nil.log_class_parameters()
-    image = Image(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{nil_query.replace(' ', '_')}.JPG"))
+    image = Image(image_path=os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{nil_query.replace(' ', '_')}.JPG"))
     image.display_image()
 
 
+def intensity_transformations_demo():
+    # Conversion to greyscale and histogram display.
+    lena = Image(image_path=LENA_IMAGE_PATH)
+    lena.convert_to_grayscale()
+    lena.compare_to_original()
+    lena.display_histogram()
+
+    # Showcase different transforms.
+    # TODO: Add a detailed explanation on all the available transforms.
+    transformation_type = input("Enter the transform type: ")
+    lena.transform_image(transformation_type=transformation_type, image=lena.image)
+    lena.compare_to_original()
+
+
 if __name__ == '__main__':
+    # NASA API demo.
     nasa_api_demo()
+
+    # Image processing demo.
+    intensity_transformations_demo()
