@@ -71,8 +71,47 @@ def intensity_transformations_demo():
     lena.display_histogram()
 
     # Showcase different transforms.
-    # TODO: Add a detailed explanation on all the available transforms.
-    transformation_type = input("Enter the transform type: ")
+    log.info("Please specify the following rubric - <transformation_type> <additional parameters>")
+    log.info("If no additional parameters are specified, default ones will be used")
+    log.info("")
+
+    log.info("Available transformation types are:")
+    log.info("Intensity transformations category - Changes made on a single pixel basis, as opposed to pixel "
+             "neighbourhood based operations")
+    log.info("\tthresholding - Transforming the image to its binary version using the provided threshold")
+    log.info("\tnegative - Perform image negative")
+    log.info("\tgamma_correction - Perform Gamma correction on an image")
+    log.info("\tbit_plane_reconstruction - Bit plane reconstruction. The degree of reduction indicates how many bit "
+             "planes we dismiss from the LSB")
+    log.info("\tbit_plane_slicing - Bit plane slicing, shows the contribution of each bit plane")
+    log.info("")
+
+    log.info("Spatial filtering category - Perform spatial (pixel neighbourhood based) filtering on an image")
+    log.info("\tblur_image - Apply a low pass filter (blur) on an image")
+    log.info("\tlaplacian_image_sharpening - Perform image sharpening using the laplacian operator")
+    log.info("\thigh_boost_filter - Use a high boost filter (un-sharp masking) to sharpen the image")
+    log.info("")
+
+    log.info("Segmentation - ??")
+    log.info("\tglobal_thresholding - ??")
+    log.info("\tlaplacian_gradient - ??")
+    log.info("\tisolated_point_detection - ??")
+    log.info("\tline_detection - ??")
+    log.info("\tkirsch_edge_detection - ??")
+    log.info("")
+
+    log.info("Morphological - Convolution with a custom structuring element")
+    log.info("\tmorphological_erosion - ??")
+    log.info("\tmorphological_dilation - ??")
+    log.info("\tmorphological_opening - ??")
+    log.info("\tmorphological_closing - ??")
+    log.info("\tboundary_extraction - ??")
+    log.info("\tmorphological_convolution - ??")
+    log.info("\tmorphological_opening - ??")
+    log.info("")
+
+    transformation_type = input("Transformation type: ")
+    log.info(f"Selected transformation type is - {transformation_type}")
     lena.transform_image(transformation_type=transformation_type, image=lena.image)
     lena.compare_to_original()
 

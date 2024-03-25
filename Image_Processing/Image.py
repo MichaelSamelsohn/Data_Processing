@@ -143,4 +143,12 @@ class Image:
         self.__image = convert_to_grayscale(image=self.__image)
 
     def transform_image(self, transformation_type, *args, **kwargs):
+        """
+        Transformation function for the image provided in the *args.
+
+        :param transformation_type: The name of the method to be used.
+        :param args: ??
+        :param kwargs: ??
+        """
+
         self.__image = globals()[transformation_type](*args, **kwargs)
