@@ -27,37 +27,24 @@ class Image:
         # TODO: Add support for grayscale images.
         # TODO: Add explanation how the class works.
 
-        self.__original_image = None
-
         self.__image_path = image_path
-        self.__load_original_image()
-
-        self.__image = im.imread(fname=self.__image_path)
-
-    def __load_original_image(self):
-        """
-        Check if image path exists. If not, use default image (Lena).
-        Once path is established, load the image.
-        """
-
         log.debug(f"The selected directory is - {self.__image_path}")
+
+        log.debug("Asserting that image path exists")
         if os.path.exists(path=self.__image_path):
             log.info(f"Image, {self.__image_path}, exists")
             self.__original_image = im.imread(fname=self.__image_path)
-            return True
+            log.info("Custom image loaded successfully")
         else:
             log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image")
             self.__image_path = Settings.DEFAULT_IMAGE_LENA
             self.__original_image = im.imread(fname=self.__image_path)
-            return False
+            log.info("'Lena' image loaded successfully")
 
-    @property
-    def image(self):
-        """
-        Get the image pixel array.
-        :return: The image pixel array.
-        """
-        return self.__image
+        self.__images = [{"Name": "Original", "Image": self.__original_image}]
+        self.__image = copy.deepcopy(self.__original_image)
+
+    # Properties #
 
     @property
     def image_path(self):
@@ -67,14 +54,15 @@ class Image:
         """
         return self.__image_path
 
-    @image_path.setter
-    def image_path(self, new_image_path):
+    @property
+    def image(self):
         """
-        Set the image path.
-        :param new_image_path: The new image path.
+        Get the image pixel array.
+        :return: The image pixel array.
         """
-        self.__image_path = new_image_path
-        self.__load_original_image()
+        return self.__image
+
+    # Basic operations #
 
     def reset_to_original_image(self):
         """
@@ -83,6 +71,20 @@ class Image:
 
         log.warning("Resetting the edited image to original one")
         self.__image = copy.deepcopy(self.__original_image)
+
+    def transform_image(self, transformation_type: str, *args, **kwargs):
+        """
+        Transformation function for the image provided in the *args.
+
+        :param transformation_type: The name of the method to be used.
+        :param args: ??
+        :param kwargs: ??
+        """
+
+        self.__image = globals()[transformation_type](*args, **kwargs)
+        self.__images.append({"Name": transformation_type, "Image": self.__image})
+
+    # Image(s) display #
 
     def display_original_image(self):
         """
@@ -115,16 +117,15 @@ class Image:
         """
 
         log.debug("Displaying the original and edited images side-by-side for comparison")
-        figure, axs = plt.subplots(1, 2)
-        axs[0].imshow(self.__original_image)
-        if len(self.__image.shape) == 2:
-            # Grayscale image.
-            axs[1].imshow(self.__image, cmap='gray')
-        else:
-            # Color image.
-            axs[1].imshow(self.__image)
+        plt.subplot(1, 2, 1)
+        plt.title("original")
+        plt.imshow(self.__original_image)
 
-        # TODO: Add titles for the different images.
+        plt.subplot(1, 2, 2)
+        plt.title(self.__images[-1]["Name"])
+        plt.imshow(self.__images[-1]["Image"], cmap='gray') if len(self.__image.shape) == 2 \
+            else plt.imshow(self.__images[-1]["Image"])
+
         plt.show()
 
     def display_histogram(self, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION):
@@ -136,19 +137,23 @@ class Image:
         plt.bar(range(256), histogram)
         plt.show()
 
-    def convert_to_grayscale(self):
-        """
-        Convert the image to grayscale.
-        """
-        self.__image = convert_to_grayscale(image=self.__image)
+    def display_all_images(self):
+        log.debug("Displaying all available images in the buffer")
 
-    def transform_image(self, transformation_type, *args, **kwargs):
-        """
-        Transformation function for the image provided in the *args.
+        # Understand how many plots there are and rows/cols accordingly.
+        number_of_images = len(self.__images)
+        log.debug(f"Number of images found in buffer - {number_of_images}")
 
-        :param transformation_type: The name of the method to be used.
-        :param args: ??
-        :param kwargs: ??
-        """
+        # Displaying original image.
+        plt.subplot(1, number_of_images, 1)
+        plt.title("original")
+        plt.imshow(self.__original_image)
 
-        self.__image = globals()[transformation_type](*args, **kwargs)
+        # Displaying the rest of the images found in the buffer.
+        for i in range(1, number_of_images):
+            plt.subplot(1, number_of_images, i + 1)
+            plt.imshow(self.__images[i]["Image"], cmap='gray') if len(self.__image.shape) == 2 \
+                else plt.imshow(self.__images[i]["Image"])
+            plt.title(self.__images[i]["Name"])
+
+        plt.show()

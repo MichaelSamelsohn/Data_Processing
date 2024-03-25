@@ -66,7 +66,7 @@ def nasa_api_demo():
 def intensity_transformations_demo():
     # Conversion to greyscale and histogram display.
     lena = Image(image_path=LENA_IMAGE_PATH)
-    lena.convert_to_grayscale()
+    lena.transform_image(transformation_type="convert_to_grayscale", image=lena.image)
     lena.compare_to_original()
     lena.display_histogram()
 
