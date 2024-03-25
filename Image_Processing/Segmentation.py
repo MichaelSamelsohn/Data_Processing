@@ -90,11 +90,10 @@ def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRES
 
     log.debug(f"Setting the global threshold to initial (default) value - {initial_threshold}")
     global_threshold = np.round(initial_threshold, 3)
+    thresholds = []
 
     log.debug("Starting the search for global threshold")
-    iteration_counter = 0
     while True:
-        iteration_counter += 1  # Update iteration counter.
 
         # Thresholding the image using the current global threshold.
         boolean_image = grayscale_image > global_threshold
@@ -112,12 +111,14 @@ def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRES
         below_threshold_mean = np.sum(below_threshold_image) / below_threshold_pixel_count
 
         # Calculating the new global threshold.
-        new_global_threshold = 0.5 * (above_threshold_mean + below_threshold_mean)
+        new_global_threshold = np.round(0.5 * (above_threshold_mean + below_threshold_mean), 3)
+        thresholds.append(new_global_threshold)
 
         # Checking stopping condition (the difference between the two latest thresholds is lower than defined delta).
         if np.abs(new_global_threshold - global_threshold) < delta_t:
             log.info(f"Global threshold reached - {np.round(global_threshold, 3)} (initial threshold value - {initial_threshold})")
-            log.info(f"Iterations to reach global threshold - {iteration_counter}")
+            log.info(f"List of the calculated global thresholds - {thresholds}")
+            log.info(f"Iterations to reach global threshold - {len(thresholds)}")
             break
         else:
             global_threshold = np.round(new_global_threshold, 3)

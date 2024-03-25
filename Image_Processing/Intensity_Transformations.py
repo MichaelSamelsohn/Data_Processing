@@ -116,7 +116,8 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=Settings.DEFAUL
     if type(degree_of_reduction) is not int:
         log.error("The selected bit plane is not of type integer. Will reset to default")
         degree_of_reduction = Settings.DEFAULT_DEGREE_OF_REDUCTION
-    # If provided degree of reduction is not in acceptable range, [0, 7], it will be assigned to closest acceptable value.
+    # If provided degree of reduction is not in acceptable range, [0, 7], it will be assigned to the closest acceptable
+    # value.
     degree_of_reduction = 0 if degree_of_reduction < 0 else 7 if degree_of_reduction > 7 else degree_of_reduction
     reduction_factor = np.power(2, degree_of_reduction)
     log.debug(f"The reduction factor is - {reduction_factor}")
