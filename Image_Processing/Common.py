@@ -24,6 +24,9 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 def convert_to_grayscale(image: ndarray) -> ndarray:
     """
     Convert a color image to grayscale.
+    The RGB values are converted to grayscale using the NTSC formula: 0.299 ∙ Red + 0.587 ∙ Green + 0.114 ∙ Blue.
+    This formula closely represents the average person's relative perception of the brightness of red, green, and blue
+    light.
 
     :param image: Color image for conversion. If image is grayscale, it is returned as is.
     :return: Grayscale image.
@@ -53,7 +56,7 @@ def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
     table.
     """
 
-    new_image = copy.deepcopy(image)
+    new_image = copy.deepcopy(image)  # Deep copy, so the original is not altered.
     log.debug("Applying lookup table to the image")
     new_image[:, :] = lookup_table[image[:, :]]
     return new_image
@@ -87,7 +90,7 @@ def scale_image(image: ndarray, scale_factor=Settings.DEFAULT_SCALING_FACTOR) ->
 
     log.debug(f"Scale factor is - {scale_factor}")
     log.debug("Scaling the image")
-    scaled_image = copy.deepcopy(image * scale_factor)
+    scaled_image = copy.deepcopy(image * scale_factor)  # Deep copy, so the original is not altered.
 
     if scale_factor == 255:
         log.debug("Scale factor is 255 -> Setting the image as int type")

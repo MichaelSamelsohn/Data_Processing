@@ -22,10 +22,13 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 
 
 class Image:
+    """
+    TODO: Add explanation how the class works.
+    """
+
     def __init__(self, image_path=Settings.DEFAULT_IMAGE_LENA):
         # TODO: Add support for initialization using image array.
         # TODO: Add support for grayscale images.
-        # TODO: Add explanation how the class works.
 
         self.__image_path = image_path
         log.debug(f"The selected directory is - {self.__image_path}")
@@ -129,6 +132,13 @@ class Image:
         plt.show()
 
     def display_histogram(self, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION):
+        """
+        Display image histogram. Histogram is a graph showing the pixel count per pixel value. It provides an insight of
+        the dominant pixel values in the image.
+
+        :param normalize: TODO: Complete.
+        """
+
         # TODO: Handle color image histogram display.
         histogram = calculate_histogram(image=self.__image, normalize=normalize)
         plt.title("Image Histogram")
@@ -138,6 +148,10 @@ class Image:
         plt.show()
 
     def display_all_images(self):
+        """
+        Show all accumulated images in the buffer. The first image is always the original one.
+        """
+
         log.debug("Displaying all available images in the buffer")
 
         # Understand how many plots there are and rows/cols accordingly.

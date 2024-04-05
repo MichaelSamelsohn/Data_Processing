@@ -78,11 +78,15 @@ LAPLACIAN_KERNELS = {
 def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRESHOLD_VALUE,
                         delta_t=Settings.DEFAULT_DELTA_T) -> ndarray:
     """
-    TODO: Add more documentation.
+    When the intensity distributions of objects and background pixels are sufficiently distinct, it is possible to use a
+    single (global) threshold applicable over the entire image. In most applications, there is usually enough
+    variability between images that, even if global thresholding is a suitable approach, an algorithm capable of
+    estimating the threshold value for each image is required.
 
-    :param image: The image for thresholding.
-    :param initial_threshold: TODO: Add parameter description.
-    :param delta_t: TODO: Add parameter description.
+    :param image: The image for global thresholding.
+    :param initial_threshold: Threshold seed.
+    :param delta_t: The minimal interval between following threshold values (when the next iteration is less than the
+    interval value, the algorithm stops).
     :return: Threshold image.
     """
 
@@ -90,9 +94,9 @@ def global_thresholding(image: ndarray, initial_threshold=Settings.DEFAULT_THRES
 
     log.debug(f"Setting the global threshold to initial (default) value - {initial_threshold}")
     global_threshold = np.round(initial_threshold, 3)
-    thresholds = []
+    thresholds = []  # Dictionary that appends all threshold values (useful for debug purposes).
 
-    log.debug("Starting the search for global threshold")
+    log.debug("Starting the search for the global threshold")
     while True:
 
         # Thresholding the image using the current global threshold.
@@ -132,13 +136,13 @@ def laplacian_gradient(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYP
                        include_diagonal_terms=Settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                        contrast_stretch=Settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
     """
-    TODO: Add more documentation.
+    TODO: Complete the docstring.
 
-    :param image: TODO: Add parameter description.
-    :param padding_type: TODO: Add parameter description.
-    :param include_diagonal_terms: TODO: Add parameter description.
+    :param image: The image for applying a Laplacian gradient.
+    :param padding_type: The type of border padding (available types are - ??).
+    :param include_diagonal_terms: Boolean determining if diagonal terms are included in the gradient.
     :param contrast_stretch: TODO: Add parameter description.
-    :return: TODO: Add parameter description.
+    :return: Sharpened image (using Laplacian gradient).
     """
 
     laplacian_kernel = LAPLACIAN_KERNELS["WITHOUT_DIAGONAL_TERMS"] if not include_diagonal_terms \

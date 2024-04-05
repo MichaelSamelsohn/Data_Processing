@@ -7,7 +7,6 @@ Created by Michael Samelsohn, 22/03/24
 """
 
 # Imports #
-import os
 
 from APOD import APOD
 from EPIC import EPIC
@@ -67,53 +66,51 @@ def intensity_transformations_demo():
     # Conversion to greyscale and histogram display.
     lena = Image(image_path=LENA_IMAGE_PATH)
     lena.transform_image(transformation_type="convert_to_grayscale", image=lena.image)
-    lena.compare_to_original()
-    lena.display_histogram()
 
     # Showcase different transforms.
     log.info("Please specify the following rubric - <transformation_type> <additional parameters>")
     log.info("If no additional parameters are specified, default ones will be used")
     log.info("")
 
-    log.info("Available transformation types are:")
-    log.info("Intensity transformations category - Changes made on a single pixel basis, as opposed to pixel "
-             "neighbourhood based operations")
-    log.info("\tthresholding - Transforming the image to its binary version using the provided threshold")
-    log.info("\tnegative - Perform image negative")
-    log.info("\tgamma_correction - Perform Gamma correction on an image")
-    log.info("\tbit_plane_reconstruction - Bit plane reconstruction. The degree of reduction indicates how many bit "
-             "planes we dismiss from the LSB")
-    log.info("\tbit_plane_slicing - Bit plane slicing, shows the contribution of each bit plane")
-    log.info("")
+    log.debug("Available transformation types are:")
+    log.debug("Intensity transformations category - Changes made on a single pixel basis, as opposed to pixel "
+              "neighbourhood based operations")
+    log.debug("\tthresholding - Transforming the image to its binary version using the provided threshold")
+    log.debug("\tnegative - Perform image negative")
+    log.debug("\tgamma_correction - Perform Gamma correction on an image")
+    log.debug("\tbit_plane_reconstruction - Bit plane reconstruction. The degree of reduction indicates how many bit "
+              "planes we dismiss from the LSB")
+    log.debug("\tbit_plane_slicing - Bit plane slicing, shows the contribution of each bit plane")
+    log.debug("")
 
-    log.info("Spatial filtering category - Perform spatial (pixel neighbourhood based) filtering on an image")
-    log.info("\tblur_image - Apply a low pass filter (blur) on an image")
-    log.info("\tlaplacian_image_sharpening - Perform image sharpening using the laplacian operator")
-    log.info("\thigh_boost_filter - Use a high boost filter (un-sharp masking) to sharpen the image")
-    log.info("")
+    log.debug("Spatial filtering category - Perform spatial (pixel neighbourhood based) filtering on an image")
+    log.debug("\tblur_image - Apply a low pass filter (blur) on an image")
+    log.debug("\tlaplacian_image_sharpening - Perform image sharpening using the laplacian operator")
+    log.debug("\thigh_boost_filter - Use a high boost filter (un-sharp masking) to sharpen the image")
+    log.debug("")
 
-    log.info("Segmentation - ??")
-    log.info("\tglobal_thresholding - ??")
-    log.info("\tlaplacian_gradient - ??")
-    log.info("\tisolated_point_detection - ??")
-    log.info("\tline_detection - ??")
-    log.info("\tkirsch_edge_detection - ??")
-    log.info("")
+    log.debug("Segmentation - ??")
+    log.debug("\tglobal_thresholding - ??")
+    log.debug("\tlaplacian_gradient - ??")
+    log.debug("\tisolated_point_detection - ??")
+    log.debug("\tline_detection - ??")
+    log.debug("\tkirsch_edge_detection - ??")
+    log.debug("")
 
-    log.info("Morphological - Convolution with a custom structuring element")
-    log.info("\tmorphological_erosion - ??")
-    log.info("\tmorphological_dilation - ??")
-    log.info("\tmorphological_opening - ??")
-    log.info("\tmorphological_closing - ??")
-    log.info("\tboundary_extraction - ??")
-    log.info("\tmorphological_convolution - ??")
-    log.info("\tmorphological_opening - ??")
-    log.info("")
+    # TODO: To be implemented.
+    # log.debug("Morphological - Convolution with a custom structuring element")
+    # log.debug("\tmorphological_erosion - ??")
+    # log.debug("\tmorphological_dilation - ??")
+    # log.debug("\tmorphological_opening - ??")
+    # log.debug("\tmorphological_closing - ??")
+    # log.debug("\tboundary_extraction - ??")
+    # log.debug("\tmorphological_convolution - ??")
+    # log.debug("\tmorphological_opening - ??")
+    # log.debug("")
 
     transformation_type = input("Transformation type: ")
-    log.info(f"Selected transformation type is - {transformation_type}")
     lena.transform_image(transformation_type=transformation_type, image=lena.image)
-    lena.compare_to_original()
+    lena.display_all_images()
 
 
 if __name__ == '__main__':
