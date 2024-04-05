@@ -1,8 +1,17 @@
 # Imports #
 import time
-import os
 import shutil
+import os
 import pytest
+import requests
+
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.options import PageLoadStrategy
+from webdriver_manager.chrome import ChromeDriverManager
 
 from APOD import APOD
 from EPIC import EPIC
@@ -17,6 +26,28 @@ log = Logger(module=os.path.basename(__file__), file_name=None)
 IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Tests\\Test_Images"
 
 
+def clean_directory_contents(directory_path: str):
+    """
+    Clean directory contents.
+
+    :param directory_path: Path of the directory to be cleaned.
+    :return: True if no exception occurred.
+    """
+
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            log.error(f"Failed to delete {file_path} due to {e}")
+            return False
+
+    return True
+
+
 @pytest.fixture()
 def resource():
     """
@@ -29,11 +60,31 @@ def resource():
     assert not os.listdir(IMAGE_DIRECTORY_PATH)
     log.info("Tests images directory is clean")
 
-    yield
+
+@pytest.fixture()
+def driver():
+    log.debug("Setting the browser options")
+    # This option allows the browser to remain open once the script ends.
+    options = Options()
+    options.add_experimental_option("detach", True)
+    options.page_load_strategy = PageLoadStrategy.none  # No need to wait until the page loads completely.
+
+    log.debug("Opening the browser")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    # An implicit wait tells WebDriver to poll the DOM for a certain amount of time when trying to find any element (or
+    # elements) not immediately available.
+    driver.implicitly_wait(5)  # Seconds.
+    driver.maximize_window()
+    driver.get("https://apod.nasa.gov/apod/")
+    time.sleep(2)  # Buffer time to allow the page to load.
+    assert driver.title == "Astronomy Picture of the Day"
+    log.info("Browser loaded successfully")
+
+    return driver
 
 
 class TestSystem:
-    def test_apod(self, resource):
+    def test_apod_functionality(self, resource):
         """
         System test for the APOD class. The test process is as follows:
         1) Download the APOD image using the relevant API.
@@ -50,6 +101,38 @@ class TestSystem:
         log.debug("Asserting the path of the downloaded image")
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.JPG"))
         log.info("Image downloaded successfully")
+        return True
+
+    def test_apod_image_correctness(self, resource, driver):
+        """
+        Purpose of the test is to assert that correct image is downloaded using the APOD class in comparison with the
+        downloaded image from the APOD website.
+        1) Download APOD image from the relevant website - https://apod.nasa.gov/apod/.
+        2) Download APOD image using the REST API.
+        3) Compare the downloaded images for bit-exactness.
+
+        :return: True if image downloaded successfully, assertion otherwise.
+        """
+
+        downloaded_image_path = os.path.join(IMAGE_DIRECTORY_PATH, "downloaded_image.jpg")
+
+        log.debug("Downloading the image")
+        image_element = driver.find_element(By.XPATH, "/html/body/center[1]/p[2]/a/img")
+        image_data = requests.get(image_element.get_attribute(name="src")).content
+        with open(downloaded_image_path, 'wb') as handler:
+            handler.write(image_data)
+        log.debug("Closing the browser")
+        driver.close()
+
+        apod_date = datetime.today().strftime('%Y-%m-%d')
+        log.debug(f"Today's date - {apod_date}")
+        apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=apod_date)
+        apod.astronomy_picture_of_the_day()
+
+        log.debug("Comparing the images for bit exactness")
+        assert (open(downloaded_image_path, "rb").read() ==
+                open(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.jpg"), "rb").read()), "Images are not identical"
+        log.info("Images are identical")
         return True
 
     def test_epic(self, resource):
@@ -106,26 +189,3 @@ class TestSystem:
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{query.replace(' ', '_')}.JPG"))
         log.info("Image downloaded successfully")
         return True
-
-
-def clean_directory_contents(directory_path: str):
-    """
-    Clean directory contents.
-
-    :param directory_path: Path of the directory to be cleaned.
-    :return: True if no exception occurred.
-    """
-
-    for filename in os.listdir(directory_path):
-        file_path = os.path.join(directory_path, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            log.error(f"Failed to delete {file_path} due to {e}")
-            return False
-
-    return True
-
