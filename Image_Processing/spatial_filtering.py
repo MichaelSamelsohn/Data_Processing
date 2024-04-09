@@ -1,5 +1,5 @@
 """
-Script Name - Spatial_Filtering.py
+Script Name - spatial_filtering.py
 
 Purpose - Perform spatial filtering on an image. Intensity transformations refer to changes based on a neighbourhood (as
 opposed to intensity transformations, pixel based operations).
@@ -21,11 +21,11 @@ Created by Michael Samelsohn, 20/05/22
 import os
 
 from numpy import ndarray
-from Common import generate_filter, convolution_2d
-from Segmentation import laplacian_gradient
+from common import generate_filter, convolution_2d
+from segmentation import laplacian_gradient
 from Utilities import Settings
-from Utilities.Decorators import book_implementation
-from Utilities.Logging import Logger
+from Utilities.decorators import book_implementation
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

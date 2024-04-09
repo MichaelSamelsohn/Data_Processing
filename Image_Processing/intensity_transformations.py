@@ -1,5 +1,5 @@
 """
-Script Name - Intensity_Transformations.py
+Script Name - intensity_transformations.py
 
 Purpose - Perform intensity transformations on an image. Intensity transformations refer to changes per pixel (as
 opposed to pixel neighbourhood operations).
@@ -21,10 +21,10 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from Common import use_lookup_table, scale_pixel_values
+from common import use_lookup_table, scale_pixel_values
 from Utilities import Settings
-from Utilities.Decorators import book_implementation
-from Utilities.Logging import Logger
+from Utilities.decorators import book_implementation
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

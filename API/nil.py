@@ -1,5 +1,5 @@
 """
-Script Name - NIL.py
+Script Name - nil.py
 
 Purpose - Download images from NIL (NASA Images Library).
 For full API documentation - https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf
@@ -10,10 +10,10 @@ Created by Michael Samelsohn, 09/05/22
 # Imports #
 import os
 
-from API.NasaApi import NasaApi
+from API.nasa import NasaApi
 from Utilities import Settings
-from Utilities.Decorators import check_connection
-from Utilities.Logging import Logger
+from Utilities.decorators import check_connection
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)
@@ -35,29 +35,21 @@ class NIL(NasaApi):
 
         self.query = query
 
-        self.__media_type = media_type
+        self._media_type = media_type
         self.__check_media_type_availability()
 
-        self.__search_years = search_years
+        self._search_years = search_years
         self.__check_search_years_correctness()
-
-    @property  # Read only.
-    def image_url_list(self):
-        """
-        Get the image URL list.
-        :return: List with all the image URLs.
-        """
-        return self.__image_url_list
 
     def __check_media_type_availability(self):
         """
         Check that selected media type is available. If not, set to default value.
         """
 
-        log.debug(f"Selected media type is - {self.__media_type}")
-        if self.__media_type not in Settings.NIL_MEDIA_TYPES:
-            log.error(f"The selected media type, {self.__media_type}, is not available, setting default value")
-            self.__media_type = Settings.NIL_DEFAULT_MEDIA_TYPE
+        log.debug(f"Selected media type is - {self._media_type}")
+        if self._media_type not in Settings.NIL_MEDIA_TYPES:
+            log.error(f"The selected media type, {self._media_type}, is not available, setting default value")
+            self._media_type = Settings.NIL_DEFAULT_MEDIA_TYPE
             return False
 
         log.info("Selected media type is available")
@@ -69,7 +61,7 @@ class NIL(NasaApi):
         Get the media type.
         :return: The media type.
         """
-        return self.__media_type
+        return self._media_type
 
     @media_type.setter
     def media_type(self, new_media_type: str):
@@ -77,7 +69,7 @@ class NIL(NasaApi):
         Set the rover name.
         :param new_media_type: The new rover name.
         """
-        self.__media_type = new_media_type
+        self._media_type = new_media_type
         self.__check_media_type_availability()
 
     def __check_search_years_correctness(self):
@@ -87,14 +79,14 @@ class NIL(NasaApi):
         TODO: Check if search years have non-integer values and handle such cases.
         """
 
-        log.debug(f"Selected search years - {self.__search_years[0]}-{self.__search_years[1]}")
-        if type(self.__search_years) != list:
+        log.debug(f"Selected search years - {self._search_years[0]}-{self._search_years[1]}")
+        if type(self._search_years) != list:
             log.error("Search years is not of type list, will reset to default")
-            self.__search_years = Settings.NIL_DEFAULT_SEARCH_YEARS
+            self._search_years = Settings.NIL_DEFAULT_SEARCH_YEARS
             return False
-        if self.__search_years[0] > self.__search_years[1]:
+        if self._search_years[0] > self._search_years[1]:
             log.error("The search years are in reversed order, therefore, switching them")
-            self.__search_years[0], self.__search_years[1] = self.__search_years[1], self.__search_years[0]
+            self._search_years[0], self._search_years[1] = self._search_years[1], self._search_years[0]
             return False
 
         log.info("Selected search years are in order")
@@ -106,7 +98,7 @@ class NIL(NasaApi):
         Get the query search years.
         :return: The query search years.
         """
-        return self.__search_years
+        return self._search_years
 
     @search_years.setter
     def search_years(self, new_search_years: list):
@@ -114,14 +106,14 @@ class NIL(NasaApi):
         Set the query search years.
         :param new_search_years: The new query search years.
         """
-        self.__search_years = new_search_years
+        self._search_years = new_search_years
         self.__check_search_years_correctness()
 
     def log_class_parameters(self):
         super().log_class_parameters()
         log.debug(f"The selected Mars rover is - {self.query}")
-        log.debug(f"The selected media type is - {self.__media_type}")
-        log.debug(f"The selected search years are - {self.__search_years[0]}-{self.__search_years[1]}")
+        log.debug(f"The selected media type is - {self._media_type}")
+        log.debug(f"The selected search years are - {self._search_years[0]}-{self._search_years[1]}")
 
     @check_connection
     def nasa_image_library_query(self):
@@ -134,8 +126,8 @@ class NIL(NasaApi):
 
         # Perform the API request.
         json_object = self.get_request(
-            url=f"{Settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self.__media_type}"
-                f"&year_start={self.__search_years[0]}&year_end={self.__search_years[1]}")
+            url=f"{Settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self._media_type}"
+                f"&year_start={self._search_years[0]}&year_end={self._search_years[1]}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False

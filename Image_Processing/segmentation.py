@@ -1,5 +1,5 @@
 """
-Script Name - Segmentation.py
+Script Name - segmentation.py
 
 Purpose - ??
 
@@ -11,11 +11,11 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from Common import convolution_2d, convert_to_grayscale
-from Intensity_Transformations import thresholding
+from common import convolution_2d, convert_to_grayscale
+from intensity_transformations import thresholding
 from Utilities import Settings
-from Utilities.Decorators import book_implementation
-from Utilities.Logging import Logger
+from Utilities.decorators import book_implementation
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

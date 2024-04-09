@@ -103,7 +103,7 @@ Bessel filter:
 import os
 import numpy as np
 from matplotlib import pyplot as plt, style
-from Utilities.Logging import Logger
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)
@@ -329,3 +329,15 @@ class Signal:
         plt.show()
 
         return self.t, derivative
+
+
+if __name__ == '__main__':
+    signal1 = Signal()
+    signal1.sine(sampling_rate=2001, frequency=5)
+    signal1.log_parameters()
+
+    signal2 = Signal()
+    # signal2.sine(sampling_rate=2001, frequency=25)
+
+    # signal1.convolve(impulse_signal=signal2)
+    signal1.signal_derivative()

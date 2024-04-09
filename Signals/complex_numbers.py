@@ -6,7 +6,7 @@ TODO: Complete the docstring.
 import os
 import numpy as np
 from matplotlib import pyplot as plt
-from Utilities.Logging import Logger
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

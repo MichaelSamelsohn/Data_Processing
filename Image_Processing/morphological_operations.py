@@ -1,5 +1,5 @@
 """
-Script Name - Morphological_Operations.py
+Script Name - morphological_operations.py
 
 TODO: Add page reference for all the functions.
 
@@ -21,11 +21,11 @@ import os
 import numpy as np
 from numpy import ndarray
 
-from Common import pad_image, extract_sub_image, convert_to_grayscale
-from Intensity_Transformations import thresholding
+from common import pad_image, extract_sub_image, convert_to_grayscale
+from intensity_transformations import thresholding
 from Utilities import Settings
-from Utilities.Decorators import measure_runtime
-from Utilities.Logging import Logger
+from Utilities.decorators import measure_runtime
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

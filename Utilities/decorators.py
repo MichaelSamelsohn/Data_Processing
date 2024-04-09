@@ -4,7 +4,7 @@ import requests
 import os
 
 from Utilities import Settings
-from Utilities.Logging import Logger
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

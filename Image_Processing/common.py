@@ -1,5 +1,5 @@
 """
-Script Name - Common.py
+Script Name - common.py
 
 Purpose - Commonly used functions.
 
@@ -14,8 +14,8 @@ import numpy as np
 from numpy import ndarray
 
 from Utilities import Settings
-from Utilities.Decorators import measure_runtime
-from Utilities.Logging import Logger
+from Utilities.decorators import measure_runtime
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

@@ -13,7 +13,7 @@ import requests
 
 from abc import abstractmethod
 from Utilities import Settings
-from Utilities.Logging import Logger
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)
@@ -25,7 +25,7 @@ class NasaApi:
         :param image_directory: The directory where the image is to be saved at.
         """
 
-        self.__image_directory = image_directory
+        self._image_directory = image_directory
         self.__check_directory_existence()
 
     def __check_directory_existence(self):
@@ -34,15 +34,15 @@ class NasaApi:
         If specified path does not exist, default to 'Images' directory.
         """
 
-        log.debug(f"The selected directory is - {self.__image_directory}")
+        log.debug(f"The selected directory is - {self._image_directory}")
         try:
             log.debug("Changing working directory to given one")
-            os.chdir(self.__image_directory)
+            os.chdir(self._image_directory)
         except (FileNotFoundError, OSError, TypeError):
-            log.error(f"The specified directory, {self.__image_directory}, doesn't exist")
+            log.error(f"The specified directory, {self._image_directory}, doesn't exist")
             log.debug("Saving the image to the images directory")
-            self.__image_directory = Settings.DEFAULT_IMAGE_DIRECTORY
-            os.chdir(path=self.__image_directory)
+            self._image_directory = Settings.DEFAULT_IMAGE_DIRECTORY
+            os.chdir(path=self._image_directory)
 
     @property
     def image_directory(self):
@@ -50,7 +50,7 @@ class NasaApi:
         Get the image directory.
         :return: The directory where the image is to be saved at.
         """
-        return self.__image_directory
+        return self._image_directory
 
     @image_directory.setter
     def image_directory(self, new_directory):
@@ -58,7 +58,7 @@ class NasaApi:
         Set the image directory.
         :param new_directory: The new directory where the image is to be saved at.
         """
-        self.__image_directory = new_directory
+        self._image_directory = new_directory
         self.__check_directory_existence()
 
     @abstractmethod
@@ -67,7 +67,7 @@ class NasaApi:
         Log the class parameters (mainly for debugging purposes).
         """
         log.info("Class parameters:")
-        log.debug(f"The image directory is - {self.__image_directory}")
+        log.debug(f"The image directory is - {self._image_directory}")
 
     @staticmethod
     def get_request(url):

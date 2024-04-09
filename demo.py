@@ -1,5 +1,5 @@
 """
-Script Name - Demo.py
+Script Name - demo.py
 
 Purpose - Demo showcasing of the project.
 
@@ -8,12 +8,12 @@ Created by Michael Samelsohn, 22/03/24
 
 # Imports #
 
-from APOD import APOD
-from EPIC import EPIC
-from Image import Image
-from MARS import MARS
-from NIL import NIL
-from Intensity_Transformations import *
+from apod import APOD
+from epic import EPIC
+from image import Image
+from mars_rovers import MARS
+from nil import NIL
+from intensity_transformations import *
 
 # Demo constants #
 IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Images"

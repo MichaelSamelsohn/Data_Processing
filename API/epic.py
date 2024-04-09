@@ -1,5 +1,5 @@
 """
-Script Name - EPIC.py
+Script Name - epic.py
 
 Purpose - Download the EPIC (Earth Polychromatic Imaging Camera) image(s).
 For full API documentation - https://epic.gsfc.nasa.gov/about/api.
@@ -10,10 +10,10 @@ Created by Michael Samelsohn, 07/05/22
 # Imports #
 import os
 
-from API.NasaApi import NasaApi
+from API.nasa import NasaApi
 from Utilities import Settings
-from Utilities.Decorators import check_connection
-from Utilities.Logging import Logger
+from Utilities.decorators import check_connection
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)
@@ -30,16 +30,8 @@ class EPIC(NasaApi):
 
         self.__image_url_list = []
 
-        self.__number_of_images = number_of_images
+        self._number_of_images = number_of_images
         self.__check_number_of_images_value()
-
-    @property  # Read only.
-    def image_url_list(self):
-        """
-        Get the image URL list.
-        :return: List with all the image URLs.
-        """
-        return self.__image_url_list
 
     def __check_number_of_images_value(self):
         """
@@ -47,14 +39,14 @@ class EPIC(NasaApi):
         If not, set to default value.
         """
 
-        log.debug(f"Number of images is - {self.__number_of_images}")
-        if type(self.__number_of_images) != int:
+        log.debug(f"Number of images is - {self._number_of_images}")
+        if type(self._number_of_images) != int:
             log.error("Number of images must be an int value, will reset to default")
-            self.__number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
-        if self.__number_of_images < 1:
+        if self._number_of_images < 1:
             log.error("Number of images must be a positive integer value, will reset to default")
-            self.__number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
 
         log.info("Selected number of images is within acceptable range")
@@ -66,7 +58,7 @@ class EPIC(NasaApi):
         Get the number of images.
         :return: The number of images.
         """
-        return self.__number_of_images
+        return self._number_of_images
 
     @number_of_images.setter
     def number_of_images(self, new_number_of_images: int):
@@ -74,12 +66,12 @@ class EPIC(NasaApi):
         Set the number of images.
         :param new_number_of_images: The new number of images.
         """
-        self.__number_of_images = new_number_of_images
+        self._number_of_images = new_number_of_images
         self.__check_number_of_images_value()
 
     def log_class_parameters(self):
         super().log_class_parameters()
-        log.debug(f"The selected number of images is - {self.__number_of_images}")
+        log.debug(f"The selected number of images is - {self._number_of_images}")
 
     @check_connection
     def earth_polychromatic_imaging_camera(self):
@@ -110,21 +102,21 @@ class EPIC(NasaApi):
         :return: List of the image URLs.
         """
 
-        if self.__number_of_images > len(response_information):
-            log.warning(f"Selected number of images, {self.__number_of_images}, "
+        if self._number_of_images > len(response_information):
+            log.warning(f"Selected number of images, {self._number_of_images}, "
                         f"is more than the actual amount - {len(response_information)}")
         image_url_list = []
-        for i in range(0, min(self.__number_of_images, len(response_information))):
+        for i in range(0, min(self._number_of_images, len(response_information))):
             log.debug("Current image number is - {}".format(i + 1))
             image = response_information[i]
-            year, month, day = self.reformat_images_url(image["date"])
+            year, month, day = self.__reformat_images_url(image["date"])
             image_url_list.append(Settings.EPIC_URL_PREFIX + "archive/natural/" + year + "/" + month + "/" + day +
                                   "/png/" + image["image"] + ".png")
 
         return image_url_list
 
     @staticmethod
-    def reformat_images_url(image_date: str):
+    def __reformat_images_url(image_date: str):
         """
         Extract the date and time to later form the correct image URL.
 

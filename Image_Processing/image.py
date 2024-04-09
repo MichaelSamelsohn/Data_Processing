@@ -1,5 +1,5 @@
 """
-Script Name - Image.py
+Script Name - image.py
 
 Purpose - Class for image representation.
 
@@ -10,12 +10,12 @@ Created by Michael Samelsohn, 12/05/22
 import matplotlib.image as im
 import matplotlib.pyplot as plt
 
-from Common import *
-from Intensity_Transformations import *
-from Segmentation import *
-from Spatial_Filtering import *
+from common import *
+from intensity_transformations import *
+from segmentation import *
+from spatial_filtering import *
 from Utilities import Settings
-from Utilities.Logging import Logger
+from Utilities.logger import Logger
 
 # Logger #
 log = Logger(module=os.path.basename(__file__), file_name=None)

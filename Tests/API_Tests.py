@@ -13,10 +13,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.options import PageLoadStrategy
 from webdriver_manager.chrome import ChromeDriverManager
 
-from APOD import APOD
-from EPIC import EPIC
-from MARS import MARS
-from NIL import NIL
+from apod import APOD
+from epic import EPIC
+from mars_rovers import MARS
+from nil import NIL
 from Utilities.Logging import Logger
 
 # Logger #
