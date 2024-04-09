@@ -75,9 +75,6 @@ def driver():
     # elements) not immediately available.
     driver.implicitly_wait(5)  # Seconds.
     driver.maximize_window()
-    driver.get("https://apod.nasa.gov/apod/")
-    time.sleep(2)  # Buffer time to allow the page to load.
-    assert driver.title == "Astronomy Picture of the Day"
     log.info("Browser loaded successfully")
 
     return driver
@@ -117,6 +114,11 @@ class TestSystem:
         downloaded_image_path = os.path.join(IMAGE_DIRECTORY_PATH, "downloaded_image.jpg")
 
         log.debug("Downloading the image")
+        # Loading the APOD home page.
+        driver.get("https://apod.nasa.gov/apod/")
+        time.sleep(2)  # Buffer time to allow the page to load.
+        assert driver.title == "Astronomy Picture of the Day"
+
         image_element = driver.find_element(By.XPATH, "/html/body/center[1]/p[2]/a/img")
         image_data = requests.get(image_element.get_attribute(name="src")).content
         with open(downloaded_image_path, 'wb') as handler:
@@ -131,7 +133,8 @@ class TestSystem:
 
         log.debug("Comparing the images for bit exactness")
         assert (open(downloaded_image_path, "rb").read() ==
-                open(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.jpg"), "rb").read()), "Images are not identical"
+                open(os.path.join(IMAGE_DIRECTORY_PATH, f"APOD_{apod_date}.jpg"), "rb").read()), \
+            "Images are not identical"
         log.info("Images are identical")
         return True
 
@@ -188,4 +191,55 @@ class TestSystem:
         log.debug("Asserting the path of the downloaded image")
         assert os.path.exists(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{query.replace(' ', '_')}.JPG"))
         log.info("Image downloaded successfully")
+        return True
+
+    def test_nil_image_correctness(self, resource, driver):
+        """
+        Purpose of the test is to assert that correct image is downloaded using the APOD class in comparison with the
+        downloaded image from the APOD website.
+        1) Download NIL image ("crab nebula") from the relevant website - https://www.nasa.gov/images/.
+        2) Download NIL image ("crab nebula") using the REST API.
+        3) Compare the downloaded images for bit-exactness.
+
+        :return: True if image downloaded successfully, assertion otherwise.
+        """
+
+        downloaded_image_path = os.path.join(IMAGE_DIRECTORY_PATH, "downloaded_image.jpg")
+        query = "Crab Nebula"
+
+        log.debug("Downloading the image")
+        # Loading the NIL home page.
+        driver.get("https://images.nasa.gov/")
+        time.sleep(5)  # Buffer time to allow the page to load.
+        assert driver.title == "NASA Image and Video Library"
+
+        (driver.find_element(By.XPATH, "/html/body/app-root/div/div/div/landing/div/header/div/div["
+                                       "2]/div/search-form/form/div/input").send_keys(query))
+        driver.find_element(By.XPATH, "/html/body/app-root/div/div/div/landing/div/header/div/div["
+                                      "2]/div/search-form/form/div/div/button").click()
+        time.sleep(5)
+        driver.find_element(By.XPATH, "/html/body/app-root/div/div/div/search/div/main/div/div/div/div[2]/div[5]/div["
+                                      "1]/ngx-masonry/div[2]/a/div[1]/div").click()
+        time.sleep(3)
+        driver.find_element(By.XPATH, "/html/body/app-root/div/div/div/detail/div/main/div/div[2]/div[2]/div["
+                                      "1]/button/div").click()
+        time.sleep(2)
+        driver.find_element(By.XPATH, "/html/body/app-root/div/div/div/detail/div/main/div/div[2]/div[2]/div["
+                                      "1]/ul/li[1]/a").click()
+
+        driver.switch_to.window(driver.window_handles[1])  # Shift focus to the image tab.
+        image_data = requests.get(driver.current_url).content
+        with open(downloaded_image_path, 'wb') as handler:
+            handler.write(image_data)
+        log.debug("Closing the browser")
+        driver.close()
+
+        nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=query)
+        nil.nasa_image_library_query()
+
+        log.debug("Comparing the images for bit exactness")
+        assert (open(downloaded_image_path, "rb").read() ==
+                open(os.path.join(IMAGE_DIRECTORY_PATH, f"NIL_{query.replace(' ', '_')}.JPG"), "rb").read()), \
+            "Images are not identical"
+        log.info("Images are identical")
         return True
