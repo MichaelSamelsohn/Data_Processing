@@ -9,5 +9,7 @@ Created by - Michael Samelsohn, 08/04/2024
 
 # Imports #
 from datetime import datetime
+from Utilities.logger import Logger
+log = Logger()
 
 TIME = datetime.now().strftime("%Y-%m-%d_%H%M")

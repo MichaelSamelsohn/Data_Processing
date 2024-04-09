@@ -25,10 +25,7 @@ from common import pad_image, extract_sub_image, convert_to_grayscale
 from intensity_transformations import thresholding
 from Utilities import Settings
 from Utilities.decorators import measure_runtime
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 def morphological_erosion(image: ndarray, structuring_element: ndarray,

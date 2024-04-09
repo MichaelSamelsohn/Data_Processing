@@ -103,10 +103,7 @@ Bessel filter:
 import os
 import numpy as np
 from matplotlib import pyplot as plt, style
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 class Signal:

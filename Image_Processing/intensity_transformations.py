@@ -24,10 +24,7 @@ from numpy import ndarray
 from common import use_lookup_table, scale_pixel_values
 from Utilities import Settings
 from Utilities.decorators import book_implementation
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 def thresholding(image: ndarray, threshold_value=Settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:

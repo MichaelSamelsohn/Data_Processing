@@ -15,10 +15,7 @@ from intensity_transformations import *
 from segmentation import *
 from spatial_filtering import *
 from Utilities import Settings
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 class Image:

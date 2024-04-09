@@ -15,10 +15,7 @@ from common import convolution_2d, convert_to_grayscale
 from intensity_transformations import thresholding
 from Utilities import Settings
 from Utilities.decorators import book_implementation
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 # Constants #
 LINE_DETECTION_KERNELS = {

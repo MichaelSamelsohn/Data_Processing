@@ -13,10 +13,7 @@ import requests
 
 from abc import abstractmethod
 from Utilities import Settings
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 class NasaApi:

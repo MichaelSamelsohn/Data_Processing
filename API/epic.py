@@ -13,10 +13,7 @@ import os
 from API.nasa import NasaApi
 from Utilities import Settings
 from Utilities.decorators import check_connection
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 class EPIC(NasaApi):

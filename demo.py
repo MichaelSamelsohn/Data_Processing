@@ -115,7 +115,7 @@ def intensity_transformations_demo():
 
 if __name__ == '__main__':
     # NASA API demo.
-    nasa_api_demo()
+    # nasa_api_demo()
 
     # Image processing demo.
     intensity_transformations_demo()

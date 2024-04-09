@@ -15,10 +15,7 @@ from numpy import ndarray
 
 from Utilities import Settings
 from Utilities.decorators import measure_runtime
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 def convert_to_grayscale(image: ndarray) -> ndarray:

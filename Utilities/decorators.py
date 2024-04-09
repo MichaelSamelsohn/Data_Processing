@@ -4,10 +4,7 @@ import requests
 import os
 
 from Utilities import Settings
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 def check_connection(func):

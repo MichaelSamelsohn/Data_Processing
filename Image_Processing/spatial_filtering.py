@@ -25,10 +25,7 @@ from common import generate_filter, convolution_2d
 from segmentation import laplacian_gradient
 from Utilities import Settings
 from Utilities.decorators import book_implementation
-from Utilities.logger import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 
 @book_implementation(book=Settings.GONZALES_WOODS_BOOK,
