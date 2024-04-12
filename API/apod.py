@@ -8,17 +8,18 @@ Created by Michael Samelsohn, 05/05/22
 """
 
 # Imports #
-import os
-
+import re
 from API.nasa import NasaApi
-from Utilities import Settings
+from Settings import api_settings
 from Utilities.decorators import check_connection
 from Settings.settings import log
 
 
 class APOD(NasaApi):
-    def __init__(self, image_directory: str, date=Settings.APOD_DEFAULT_DATE, hd=Settings.APOD_DEFAULT_HD):
+    def __init__(self, image_directory: str, date=api_settings.APOD_DEFAULT_DATE, hd=api_settings.APOD_DEFAULT_HD):
         """
+        Subclass for downloading APOD (Astronomy Picture Of the Day) images.
+
         :param image_directory: The directory where the image is to be saved at.
         :param date: Date of the image. Acceptable format is - "YYYY-MM-DD".
         :param hd: Boolean indicating the quality of the image.
@@ -26,42 +27,28 @@ class APOD(NasaApi):
 
         super().__init__(image_directory)
 
-        self.__image_url_list = []
-
-        self._date = date
-        self.__check_date_format()
+        self._date = self.__check_date_format(date=date)
 
         self._hd = hd
         self.__check_hd_value()
 
-    @property  # Read only.
-    def image_url_list(self) -> list:
+    @staticmethod
+    def __check_date_format(date: str) -> str:
         """
-        Get the image URL list.
-        :return: List with all the image URLs.
-        """
-        return self.__image_url_list
-
-    def __check_date_format(self):
-        """
-        Check for date format correctness. Acceptable format is - "YYYY-MM-DD".
+        Check for date format correctness. Acceptable format is - "YYYY-MM-DD". The following regular expression is used
+        for the check - Year between [1900-2099], no leap year check, month 02 is limited to 29 days.
         """
 
-        log.debug(f"Selected date is - {self._date}")
-        split_date = self._date.split("-")
-
-        if len(split_date) != 3:
-            log.error("Date is not a three part string separated by a '-'. Will reset to default")
-            self._date = Settings.APOD_DEFAULT_DATE
-            return False
-        if len(split_date[0]) != 4 or len(split_date[1]) != 2 or len(split_date[2]) != 2:
-            log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each. "
-                      "Will reset to default")
-            self._date = Settings.APOD_DEFAULT_DATE
-            return False
-
-        log.info("Selected date is of correct format")
-        return True
+        log.debug(f"Selected date is - {date}")
+        # For an explanation of the regex, see the docstring of this function.
+        if re.search(
+                pattern=r"^((19\d{2})|(20\d{2}))-(((02)-(0[1-9]|[1-2][0-9]))|(((0(1|[3-9]))|(1[0-2]))-(0[1-9]|[1-2][0-9"
+                        r"]|30))|((01|03|05|07|08|10|12)-(31)))$",
+                string=date):
+            return date
+        else:
+            log.warning("Selected date doesn't match the expected pattern - YYYY-MM-DD")
+            return api_settings.APOD_DEFAULT_DATE
 
     @property
     def date(self):
@@ -77,8 +64,7 @@ class APOD(NasaApi):
         Set the image date.
         :param new_date: The new image date.
         """
-        self._date = new_date
-        self.__check_date_format()
+        self._date = self.__check_date_format(new_date)
 
     def __check_hd_value(self):
         """
@@ -87,9 +73,10 @@ class APOD(NasaApi):
         """
 
         log.debug(f"HD version of the image - {self._hd}")
-        if type(self._hd) != bool:
+        # if type(self._hd) != bool:
+        if not isinstance(self._hd, bool):
             log.error("hd must be a boolean value, will reset to default value")
-            self._hd = Settings.APOD_DEFAULT_HD
+            self._hd = api_settings.APOD_DEFAULT_HD
             return False
 
         log.info("HD status is acceptable")
@@ -112,8 +99,8 @@ class APOD(NasaApi):
         self._hd = new_hd
         self.__check_hd_value()
 
-    def log_class_parameters(self):
-        super().log_class_parameters()
+    def _log_class_parameters(self):
+        super()._log_class_parameters()
         log.debug(f"The selected image date is - {self._date}")
         log.debug(f"The selected image HD status is - {self._hd}")
 
@@ -127,7 +114,7 @@ class APOD(NasaApi):
         log.debug("Retrieving APOD (Astronomy Picture Of the Day) image")
 
         # Perform the API request.
-        json_object = self.get_request(url=f"{Settings.APOD_URL_PREFIX}date={self._date}&{Settings.API_KEY}")
+        json_object = self.get_request(url=f"{api_settings.APOD_URL_PREFIX}date={self._date}&{api_settings.API_KEY}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False
@@ -136,8 +123,7 @@ class APOD(NasaApi):
         log.debug("IMAGE INFORMATION:")
         log.print_data(data=json_object)
 
-        # Process the response information.
-        self.__image_url_list = [json_object["hdurl"] if self._hd else json_object["url"]]
-
         # Download and save the image to the relevant directory.
-        self.download_image_url(api_type="APOD", image_url_list=self.__image_url_list, image_suffix=f"_{self._date}")
+        self.download_image_url(api_type="APOD",
+                                image_url_list=[json_object["hdurl"] if self._hd else json_object["url"]],
+                                image_suffix=f"_{self._date}")

@@ -8,17 +8,15 @@ Created by Michael Samelsohn, 09/05/22
 """
 
 # Imports #
-import os
-
 from API.nasa import NasaApi
-from Utilities import Settings
+from Settings import api_settings
 from Utilities.decorators import check_connection
 from Settings.settings import log
 
 
 class NIL(NasaApi):
-    def __init__(self, image_directory: str, query: str, media_type=Settings.NIL_DEFAULT_MEDIA_TYPE,
-                 search_years=Settings.NIL_DEFAULT_SEARCH_YEARS):
+    def __init__(self, image_directory: str, query: str, media_type=api_settings.NIL_DEFAULT_MEDIA_TYPE,
+                 search_years=api_settings.NIL_DEFAULT_SEARCH_YEARS):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param query: The rover to inspect for images.
@@ -44,9 +42,9 @@ class NIL(NasaApi):
         """
 
         log.debug(f"Selected media type is - {self._media_type}")
-        if self._media_type not in Settings.NIL_MEDIA_TYPES:
+        if self._media_type not in api_settings.NIL_MEDIA_TYPES:
             log.error(f"The selected media type, {self._media_type}, is not available, setting default value")
-            self._media_type = Settings.NIL_DEFAULT_MEDIA_TYPE
+            self._media_type = api_settings.NIL_DEFAULT_MEDIA_TYPE
             return False
 
         log.info("Selected media type is available")
@@ -77,9 +75,9 @@ class NIL(NasaApi):
         """
 
         log.debug(f"Selected search years - {self._search_years[0]}-{self._search_years[1]}")
-        if type(self._search_years) != list:
+        if not isinstance(self._search_years, list):
             log.error("Search years is not of type list, will reset to default")
-            self._search_years = Settings.NIL_DEFAULT_SEARCH_YEARS
+            self._search_years = api_settings.NIL_DEFAULT_SEARCH_YEARS
             return False
         if self._search_years[0] > self._search_years[1]:
             log.error("The search years are in reversed order, therefore, switching them")
@@ -106,8 +104,8 @@ class NIL(NasaApi):
         self._search_years = new_search_years
         self.__check_search_years_correctness()
 
-    def log_class_parameters(self):
-        super().log_class_parameters()
+    def _log_class_parameters(self):
+        super()._log_class_parameters()
         log.debug(f"The selected Mars rover is - {self.query}")
         log.debug(f"The selected media type is - {self._media_type}")
         log.debug(f"The selected search years are - {self._search_years[0]}-{self._search_years[1]}")
@@ -123,7 +121,7 @@ class NIL(NasaApi):
 
         # Perform the API request.
         json_object = self.get_request(
-            url=f"{Settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self._media_type}"
+            url=f"{api_settings.NIL_URL_PREFIX}q={self.query.replace(' ', '%20')}&media_type={self._media_type}"
                 f"&year_start={self._search_years[0]}&year_end={self._search_years[1]}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")

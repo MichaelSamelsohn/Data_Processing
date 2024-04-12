@@ -11,14 +11,14 @@ Created by Michael Samelsohn, 08/05/22
 import os
 
 from API.nasa import NasaApi
-from Utilities import Settings
+from Settings import api_settings
 from Utilities.decorators import check_connection
 from Settings.settings import log
 
 
 class MARS(NasaApi):
-    def __init__(self, image_directory: str, rover=Settings.MARS_DEFAULT_ROVER, date=Settings.MARS_DEFAULT_DATE,
-                 number_of_images=Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
+    def __init__(self, image_directory: str, rover=api_settings.MARS_DEFAULT_ROVER, date=api_settings.MARS_DEFAULT_DATE,
+                 number_of_images=api_settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param rover: The rover to inspect for images.
@@ -44,9 +44,9 @@ class MARS(NasaApi):
         """
 
         log.debug(f"Selected rover is - {self._rover}")
-        if self._rover not in Settings.MARS_ROVERS:
+        if self._rover not in api_settings.MARS_ROVERS:
             log.error(f"The selected rover, {self._rover}, is not available, setting default value")
-            self._rover = Settings.MARS_DEFAULT_ROVER
+            self._rover = api_settings.MARS_DEFAULT_ROVER
             return False
 
         log.info("Selected rover is available")
@@ -84,12 +84,12 @@ class MARS(NasaApi):
 
             if len(split_date) != 3:
                 log.error("Date is not a three part string separated by a '-'")
-                self._date = Settings.APOD_DEFAULT_DATE
+                self._date = api_settings.APOD_DEFAULT_DATE
                 log.warning("Date has been changed to default one")
                 return False
             if len(split_date[0]) != 4 or len(split_date[1]) != 2 or len(split_date[2]) != 2:
                 log.error("Year does not consist of 4 digits, or, month and day does not consist of 2 digits each")
-                self._date = Settings.APOD_DEFAULT_DATE
+                self._date = api_settings.APOD_DEFAULT_DATE
                 log.warning("Date has been changed to default one")
                 return False
         elif type(self._date) == int:
@@ -128,11 +128,11 @@ class MARS(NasaApi):
         log.debug(f"Number of images is - {self._number_of_images}")
         if type(self._number_of_images) != int:
             log.error("Number of images must be an int value, will reset to default")
-            self._number_of_images = Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = api_settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
         if self._number_of_images < 1:
             log.error("Number of images must be a positive integer value, will reset to default")
-            self._number_of_images = Settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = api_settings.MARS_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
 
         log.info("Selected number of images is within acceptable range")
@@ -155,8 +155,8 @@ class MARS(NasaApi):
         self._number_of_images = new_number_of_images
         self.__check_number_of_images_value()
 
-    def log_class_parameters(self):
-        super().log_class_parameters()
+    def _log_class_parameters(self):
+        super()._log_class_parameters()
         log.debug(f"The selected Mars rover is - {self._rover}")
         log.debug(f"The selected image date is - {self._date}")
 
@@ -172,10 +172,10 @@ class MARS(NasaApi):
         # Perform the API request.
         if type(self._date) == str:
             json_object = self.get_request(
-                url=f"{Settings.MARS_URL_PREFIX}rovers/{self._rover}/photos?earth_date={self._date}&{Settings.API_KEY}")
+                url=f"{api_settings.MARS_URL_PREFIX}rovers/{self._rover}/photos?earth_date={self._date}&{api_settings.API_KEY}")
         else:  # Date is of type integer.
             json_object = self.get_request(
-                url=f"{Settings.MARS_URL_PREFIX}rovers/{self._rover}/photos?sol={self._date}&{Settings.API_KEY}")
+                url=f"{api_settings.MARS_URL_PREFIX}rovers/{self._rover}/photos?sol={self._date}&{api_settings.API_KEY}")
         if json_object is None:  # API request failed.
             self.__mars_rover_manifest()  # For debugging purposes.
             log.error("Check logs for more information on the failed API request")
@@ -213,7 +213,7 @@ class MARS(NasaApi):
         """
 
         # Perform the API request to get the rover manifest.
-        rover_manifest = self.get_request(url=f"{Settings.MARS_URL_PREFIX}manifests/{self._rover}?{Settings.API_KEY}")
+        rover_manifest = self.get_request(url=f"{api_settings.MARS_URL_PREFIX}manifests/{self._rover}?{api_settings.API_KEY}")
         if rover_manifest is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False

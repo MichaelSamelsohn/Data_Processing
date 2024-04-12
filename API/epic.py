@@ -11,13 +11,13 @@ Created by Michael Samelsohn, 07/05/22
 import os
 
 from API.nasa import NasaApi
-from Utilities import Settings
+from Settings import api_settings
 from Utilities.decorators import check_connection
 from Settings.settings import log
 
 
 class EPIC(NasaApi):
-    def __init__(self, image_directory: str, number_of_images=Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
+    def __init__(self, image_directory: str, number_of_images=api_settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT):
         """
         :param image_directory: The directory where the image is to be saved at.
         :param number_of_images: Number of images to collect.
@@ -37,13 +37,13 @@ class EPIC(NasaApi):
         """
 
         log.debug(f"Number of images is - {self._number_of_images}")
-        if type(self._number_of_images) != int:
+        if not isinstance(self._number_of_images, int):
             log.error("Number of images must be an int value, will reset to default")
-            self._number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = api_settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
         if self._number_of_images < 1:
             log.error("Number of images must be a positive integer value, will reset to default")
-            self._number_of_images = Settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
+            self._number_of_images = api_settings.EPIC_DEFAULT_NUMBER_OF_PHOTOS_TO_COLLECT
             return False
 
         log.info("Selected number of images is within acceptable range")
@@ -66,8 +66,8 @@ class EPIC(NasaApi):
         self._number_of_images = new_number_of_images
         self.__check_number_of_images_value()
 
-    def log_class_parameters(self):
-        super().log_class_parameters()
+    def _log_class_parameters(self):
+        super()._log_class_parameters()
         log.debug(f"The selected number of images is - {self._number_of_images}")
 
     @check_connection
@@ -80,7 +80,7 @@ class EPIC(NasaApi):
         log.debug("Retrieving EPIC (Earth Polychromatic Imaging Camera) image(s)")
 
         # Perform the API request.
-        json_object = self.get_request(url=f"{Settings.EPIC_URL_PREFIX}{Settings.EPIC_URL_SUFFIX}")
+        json_object = self.get_request(url=f"{api_settings.EPIC_URL_PREFIX}{api_settings.EPIC_URL_SUFFIX}")
         if json_object is None:  # API request failed.
             log.error("Check logs for more information on the failed API request")
             return False
@@ -107,7 +107,7 @@ class EPIC(NasaApi):
             log.debug("Current image number is - {}".format(i + 1))
             image = response_information[i]
             year, month, day = self.__reformat_images_url(image["date"])
-            image_url_list.append(Settings.EPIC_URL_PREFIX + "archive/natural/" + year + "/" + month + "/" + day +
+            image_url_list.append(api_settings.EPIC_URL_PREFIX + "archive/natural/" + year + "/" + month + "/" + day +
                                   "/png/" + image["image"] + ".png")
 
         return image_url_list

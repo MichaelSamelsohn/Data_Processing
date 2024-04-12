@@ -1,9 +1,8 @@
 # Imports #
 import time
 import requests
-import os
 
-from Utilities import Settings
+from Settings import api_settings
 from Settings.settings import log
 
 
@@ -11,7 +10,7 @@ def check_connection(func):
     def inner(*args, **kwargs):
         try:
             log.debug("Checking connection")
-            request = requests.get(Settings.CONNECTION_CHECK_URL, timeout=Settings.CONNECTION_CHECK_TIMEOUT)
+            request = requests.get(api_settings.CONNECTION_CHECK_URL, timeout=api_settings.CONNECTION_CHECK_TIMEOUT)
             log.info("Connection found")
         except (requests.ConnectionError, requests.Timeout):
             log.error("No internet connection")

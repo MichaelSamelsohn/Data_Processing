@@ -23,14 +23,14 @@ from numpy import ndarray
 
 from common import pad_image, extract_sub_image, convert_to_grayscale
 from intensity_transformations import thresholding
-from Utilities import Settings
+from Settings import image_settings
 from Utilities.decorators import measure_runtime
 from Settings.settings import log
 
 
 def morphological_erosion(image: ndarray, structuring_element: ndarray,
-                          threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                          padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                          threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                          padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Perform a morphological erosion operation on an image using the structuring element.
 
@@ -42,13 +42,13 @@ def morphological_erosion(image: ndarray, structuring_element: ndarray,
     """
 
     return morphological_convolution(image=image, structuring_element=structuring_element,
-                                     operation_type=Settings.EROSION, threshold_value=threshold_value,
+                                     operation_type=image_settings.EROSION, threshold_value=threshold_value,
                                      padding_type=padding_type)
 
 
 def morphological_dilation(image: ndarray, structuring_element: ndarray,
-                           threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                           padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                           threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                           padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Perform a morphological dilation operation on an image using the structuring element.
 
@@ -60,13 +60,13 @@ def morphological_dilation(image: ndarray, structuring_element: ndarray,
     """
 
     return morphological_convolution(image=image, structuring_element=structuring_element,
-                                     operation_type=Settings.DILATION, threshold_value=threshold_value,
+                                     operation_type=image_settings.DILATION, threshold_value=threshold_value,
                                      padding_type=padding_type)
 
 
 def morphological_opening(image: ndarray, structuring_element: ndarray,
-                          threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                          padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                          threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                          padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
 
     :param image: The image to be opened.
@@ -77,17 +77,17 @@ def morphological_opening(image: ndarray, structuring_element: ndarray,
     """
 
     eroded_image = morphological_convolution(image=image, structuring_element=structuring_element,
-                                             operation_type=Settings.EROSION, threshold_value=threshold_value,
+                                             operation_type=image_settings.EROSION, threshold_value=threshold_value,
                                              padding_type=padding_type)
 
     return morphological_convolution(image=eroded_image, structuring_element=structuring_element,
-                                     operation_type=Settings.DILATION, threshold_value=threshold_value,
+                                     operation_type=image_settings.DILATION, threshold_value=threshold_value,
                                      padding_type=padding_type)
 
 
 def morphological_closing(image: ndarray, structuring_element: ndarray,
-                          threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                          padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                          threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                          padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
 
     :param image: The image to be closed.
@@ -98,16 +98,16 @@ def morphological_closing(image: ndarray, structuring_element: ndarray,
     """
 
     dilated_image = morphological_convolution(image=image, structuring_element=structuring_element,
-                                              operation_type=Settings.DILATION, threshold_value=threshold_value,
+                                              operation_type=image_settings.DILATION, threshold_value=threshold_value,
                                               padding_type=padding_type)
 
     return morphological_convolution(image=dilated_image, structuring_element=structuring_element,
-                                     operation_type=Settings.EROSION, threshold_value=threshold_value,
+                                     operation_type=image_settings.EROSION, threshold_value=threshold_value,
                                      padding_type=padding_type)
 
 
-def boundary_extraction(image: ndarray, structuring_element: ndarray, threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                        padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def boundary_extraction(image: ndarray, structuring_element: ndarray, threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                        padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
 
     :param image: The image for boundary extraction.
@@ -118,7 +118,7 @@ def boundary_extraction(image: ndarray, structuring_element: ndarray, threshold_
     """
 
     eroded_image = morphological_convolution(image=image, structuring_element=structuring_element,
-                                             operation_type=Settings.EROSION, threshold_value=threshold_value,
+                                             operation_type=image_settings.EROSION, threshold_value=threshold_value,
                                              padding_type=padding_type)
 
     return thresholding(image=convert_to_grayscale(image=image), threshold_value=threshold_value) - eroded_image
@@ -126,8 +126,8 @@ def boundary_extraction(image: ndarray, structuring_element: ndarray, threshold_
 
 @measure_runtime
 def morphological_convolution(image: ndarray, structuring_element: ndarray, operation_type,
-                              threshold_value=Settings.DEFAULT_THRESHOLD_VALUE,
-                              padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                              threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE,
+                              padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Perform a morphological convolution on an image with a structuring element.
 
@@ -161,7 +161,7 @@ def morphological_convolution(image: ndarray, structuring_element: ndarray, oper
                                           sub_image_size=structuring_element_size)
             post_morphology_image[row - structuring_element_size // 2, col - structuring_element_size // 2] \
                 = morphological_convolution_dilation(sub_image=sub_image,
-                                                     structuring_element=structuring_element) if operation_type == Settings.DILATION \
+                                                     structuring_element=structuring_element) if operation_type == image_settings.DILATION \
                 else morphological_convolution_erosion(sub_image=sub_image, structuring_element=structuring_element)
 
     return post_morphology_image

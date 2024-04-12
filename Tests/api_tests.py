@@ -17,10 +17,7 @@ from apod import APOD
 from epic import EPIC
 from mars_rovers import MARS
 from nil import NIL
-from Utilities.Logging import Logger
-
-# Logger #
-log = Logger(module=os.path.basename(__file__), file_name=None)
+from Settings.settings import log
 
 # Constants #
 IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Tests\\Test_Images"

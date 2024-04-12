@@ -14,7 +14,7 @@ from common import *
 from intensity_transformations import *
 from segmentation import *
 from spatial_filtering import *
-from Utilities import Settings
+from Settings import image_settings
 from Settings.settings import log
 
 
@@ -23,7 +23,7 @@ class Image:
     TODO: Add explanation how the class works.
     """
 
-    def __init__(self, image_path=Settings.DEFAULT_IMAGE_LENA):
+    def __init__(self, image_path=image_settings.DEFAULT_IMAGE_LENA):
         # TODO: Add support for initialization using image array.
         # TODO: Add support for grayscale images.
 
@@ -37,7 +37,7 @@ class Image:
             log.info("Custom image loaded successfully")
         else:
             log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image")
-            self.__image_path = Settings.DEFAULT_IMAGE_LENA
+            self.__image_path = image_settings.DEFAULT_IMAGE_LENA
             self.__original_image = im.imread(fname=self.__image_path)
             log.info("'Lena' image loaded successfully")
 
@@ -128,7 +128,7 @@ class Image:
 
         plt.show()
 
-    def display_histogram(self, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION):
+    def display_histogram(self, normalize=image_settings.DEFAULT_HISTOGRAM_NORMALIZATION):
         """
         Display image histogram. Histogram is a graph showing the pixel count per pixel value. It provides an insight of
         the dominant pixel values in the image.

@@ -23,15 +23,15 @@ import os
 from numpy import ndarray
 from common import generate_filter, convolution_2d
 from segmentation import laplacian_gradient
-from Utilities import Settings
+from Settings import image_settings
 from Utilities.decorators import book_implementation
 from Settings.settings import log
 
 
-@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
-def blur_image(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE,
-               filter_size=Settings.DEFAULT_FILTER_SIZE, padding_type=Settings.DEFAULT_PADDING_TYPE) \
+def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
+               filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE) \
         -> ndarray:
     """
     Apply a low pass filter (blur) on an image.
@@ -46,11 +46,11 @@ def blur_image(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE,
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
 
 
-@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.178-182")
-def laplacian_image_sharpening(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
-                               include_diagonal_terms=Settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                               c=Settings.DEFAULT_CONSTANT) -> ndarray:
+def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                               include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                               c=image_settings.DEFAULT_CONSTANT) -> ndarray:
     """
     Perform image sharpening using the laplacian operator.
 
@@ -68,10 +68,10 @@ def laplacian_image_sharpening(image: ndarray, padding_type=Settings.DEFAULT_PAD
     return image + (c * post_laplacian_image)
 
 
-@book_implementation(book=Settings.GONZALES_WOODS_BOOK,
+@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.182-184")
-def high_boost_filter(image: ndarray, filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE,
-                      padding_type=Settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                      padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Use a high boost filter (un-sharp masking) to sharpen the image.
 

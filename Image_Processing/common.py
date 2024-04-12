@@ -9,11 +9,10 @@ Created by Michael Samelsohn, 12/05/22
 # Imports #
 import copy
 import math
-import os
 import numpy as np
 from numpy import ndarray
 
-from Utilities import Settings
+from Settings import image_settings
 from Utilities.decorators import measure_runtime
 from Settings.settings import log
 
@@ -59,7 +58,7 @@ def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
     return new_image
 
 
-def scale_pixel_values(scale_factor=Settings.DEFAULT_SCALING_FACTOR):
+def scale_pixel_values(scale_factor=image_settings.DEFAULT_SCALING_FACTOR):
     def wrapper(func):
         def inner(*args, **kwargs):
             log.debug(f"Scaling image by a factor of {scale_factor}")
@@ -73,7 +72,7 @@ def scale_pixel_values(scale_factor=Settings.DEFAULT_SCALING_FACTOR):
     return wrapper
 
 
-def scale_image(image: ndarray, scale_factor=Settings.DEFAULT_SCALING_FACTOR) -> ndarray:
+def scale_image(image: ndarray, scale_factor=image_settings.DEFAULT_SCALING_FACTOR) -> ndarray:
     """
     Scale the pixel values of an image by the provided scaling factor.
     This function is useful when the pixel range is [0, 1] and it needs to be converted to integer values (scaling
@@ -96,7 +95,7 @@ def scale_image(image: ndarray, scale_factor=Settings.DEFAULT_SCALING_FACTOR) ->
     return scaled_image
 
 
-def calculate_histogram(image: ndarray, normalize=Settings.DEFAULT_HISTOGRAM_NORMALIZATION) \
+def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGRAM_NORMALIZATION) \
         -> tuple[ndarray, ndarray, ndarray] | ndarray:
     """
     Calculate the histogram of an image. A histogram shows the amount of pixels per pixel intensity value.
@@ -133,7 +132,7 @@ def calculate_histogram(image: ndarray, normalize=Settings.DEFAULT_HISTOGRAM_NOR
     return histogram
 
 
-def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settings.DEFAULT_FILTER_SIZE, **kwargs) \
+def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE, **kwargs) \
         -> ndarray:
     f"""
 
@@ -141,7 +140,7 @@ def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settin
     :param filter_size: The size of the filter to be generated. Can be either an integer or a tuple of integers.
     Types of filters:
         * Box filter - An all ones filter (with normalization).
-        * Gaussian filter - Based on  the formula 3-46 in page 167 {Settings.GONZALES_WOODS_BOOK} (with normalization).
+        * Gaussian filter - Based on  the formula 3-46 in page 167 {image_settings.GONZALES_WOODS_BOOK} (with normalization).
     :return: Matrix array with the specified dimensions and based on the selected filter type
     """
 
@@ -158,11 +157,11 @@ def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settin
     log.debug("Identifying the filter type and generating it")
     try:
         match filter_type:
-            case Settings.BOX_FILTER:
+            case image_settings.BOX_FILTER:
                 log.debug("Box type filter selected")
                 image_filter = np.ones(shape=filter_size_square)
                 image_filter /= np.sum(image_filter)  # Normalize.
-            case Settings.GAUSSIAN_FILTER:
+            case image_settings.GAUSSIAN_FILTER:
                 log.debug("Gaussian type filter selected")
                 center_position = filter_size // 2
                 for row in range(filter_size):
@@ -177,8 +176,8 @@ def generate_filter(filter_type=Settings.DEFAULT_FILTER_TYPE, filter_size=Settin
     return image_filter
 
 
-def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
-              padding_size=Settings.DEFAULT_PADDING_SIZE) -> ndarray:
+def pad_image(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+              padding_size=image_settings.DEFAULT_PADDING_SIZE) -> ndarray:
     """
     Padding the image boundaries.
 
@@ -197,7 +196,7 @@ def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
 
     log.debug("Identifying the padding type and applying it")
     match padding_type:
-        case Settings.ZERO_PADDING:
+        case image_settings.ZERO_PADDING:
             log.debug("Zero padding selected")
             padded_image[padding_size:-padding_size, padding_size:-padding_size] = image[:, :]
 
@@ -205,8 +204,8 @@ def pad_image(image: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
 
 
 @measure_runtime
-def convolution_2d(image: ndarray, kernel: ndarray, padding_type=Settings.DEFAULT_PADDING_TYPE,
-                   contrast_stretch=Settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                   contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
     """
     Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
 
