@@ -34,6 +34,16 @@ class Email:
         :param server_port: The port of the server host/domain.
         :param sender_address: The sender email address.
         :param sender_password: The password of the sender email address.
+        Note - Important: To create an app password, you need 2-Step Verification on your Google Account:
+            1) Go to your Google Account.
+            2) Select Security.
+            3) Under "How you sign in to Google," select 2-Step Verification.
+            4) At the bottom of the page, select App passwords.
+            5) Enter a name that helps you remember where you’ll use the app password.
+            6) Select Generate.
+            7) To enter the app password, follow the instructions on your screen. The app password is the 16-character
+               code that generates on your device.
+            8) Select Done.
 
         :param subject: The subject of the email.
         :param body: The body of the email.
