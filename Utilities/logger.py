@@ -72,14 +72,13 @@ class MaskedFilter(logging.Filter):
 
 
 class Logger:
-    def __init__(self, module=os.path.basename(__file__), log_level=logging.DEBUG, color_scheme=False,
+    def __init__(self, log_level=logging.DEBUG, color_scheme=False,
                  format_string="%(asctime)s - %(levelname)s - %(message)s", format_time="%H:%M:%S",
-                 masked_patterns=None, stream_handler=True, file_handler=True,
+                 masked_patterns=None, stream_handler=True, file_handler=False,
                  file_name=f"log_{datetime.now().strftime('%Y-%m-%d_%H%M')}.txt"):
         """
         Logger class used to define all the logging parameters and print log messages.
 
-        :param module: Name or path of the script that calls the logger.
         :param log_level: The minimal log level that is displayed during the run.
         :param color_scheme: The color scheme to be used. False=Black, True=White.
         :param format_string: The log message format rubric (default: time - log_level - log_message).
@@ -136,50 +135,162 @@ class Logger:
         """
 
         # Set class parameters.
-        self.module = module
-        self.log_level = log_level
-        self.color_scheme = color_scheme
-        self.format_string = format_string
-        self.format_time = format_time
-        self.stream_handler = stream_handler
-        self.file_handler = file_handler
-        self.file_name = file_name
+        self._log_level = log_level
+        self._color_scheme = color_scheme
+        self._format_string = format_string
+        self._format_time = format_time
+        self._stream_handler = stream_handler
+        self._file_handler = file_handler
+        self._file_name = file_name
 
         # Note - The accumulator saves log messages that are also below the set log level (which is fine as it is used
         # for internal purposes).
         self.accumulated_log = ""
 
         # Create logger object.
-        self._logger = logging.getLogger(self.module)
+        self._logger = logging.getLogger(os.path.basename(__file__))
         self._logger.setLevel(logging.DEBUG)
 
-        # Create formatter.
-        self._formatter = logging.Formatter(self.format_string, self.format_time)
+        # Set formatter.
+        self._formatter = logging.Formatter(self._format_string, self._format_time)
 
-        # Add handler to logger.
-        if self.stream_handler:
-            self.__add_stream_handler()
-        if self.file_handler:
-            self.__add_file_handler()
+        # Adding the handlers.
+        self.__set_handlers()
 
         # Add a filter to the logger.
         self._masked_patterns = masked_patterns
-        self._logger.addFilter(MaskedFilter(masked_patterns))
+        self._logger.addFilter(MaskedFilter(self._masked_patterns))
 
-    def __add_stream_handler(self):
-        """Create console handler."""
-        stream_handler = logging.StreamHandler(stream=sys.stdout)
-        stream_handler.setLevel(self.log_level)
-        # Set color formatter to the handler.
-        stream_handler.setFormatter(ColorFormatter(self.format_string, self.color_scheme, self.format_time))
-        self._logger.addHandler(stream_handler)
+    @property
+    def log_level(self): return self._log_level
 
-    def __add_file_handler(self):
-        """Create file handler."""
-        file_handler = logging.FileHandler(filename=self.file_name, mode="a", encoding=None, delay=False, errors=None)
-        file_handler.setLevel(self.log_level)
-        file_handler.setFormatter(self._formatter)  # Set formatter to the handler.
-        self._logger.addHandler(file_handler)
+    @log_level.setter
+    def log_level(self, log_level: int):
+        """
+        Set the log level of the logger.
+        :param log_level: Determines the log level (levels below the one set won't be added to the log).
+        This is an integer value according to the native Python logger definitions:
+            * CRITICAL = 50
+            * ERROR = 40
+            * WARNING = 30
+            * INFO = 20
+            * DEBUG = 10
+        """
+
+        self._log_level = log_level
+        self.__set_handlers()
+
+    @property
+    def color_scheme(self): return self._color_scheme
+
+    @color_scheme.setter
+    def color_scheme(self, color_scheme: bool):
+        """
+        Set the color scheme of the logger.
+        :param color_scheme: The color scheme used for the stream handler. The color schemes are adjusted for viewing on
+        different Pycharm IDE settings:
+        False=Black ("Dracula") IDE setting, True=White standard IDE setting.
+        """
+
+        self._color_scheme = color_scheme
+        self.__set_handlers()
+
+    @property
+    def stream_handler(self): return self._stream_handler
+
+    @stream_handler.setter
+    def stream_handler(self, stream_handler: bool):
+        """
+        Decide on the status of the stream handler.
+        :param stream_handler: Boolean value determining whether the log output is printed to the terminal.
+        """
+
+        self._stream_handler = stream_handler
+        self.__set_handlers()
+
+    @property
+    def file_handler(self): return self._file_handler
+
+    @file_handler.setter
+    def file_handler(self, file_handler: bool):
+        """
+        Decide on the status of the file handler.
+        :param file_handler: Boolean value determining whether the log output is printed to the log file.
+        """
+
+        self._file_handler = file_handler
+        self.__set_handlers()
+
+    @property
+    def file_name(self): return self._file_name
+
+    @file_name.setter
+    def file_name(self, file_name: bool):
+        """
+        Set the logger file name.
+        Note - Relevant only if file handler is added.
+        :param file_name: Name of the log file.
+        """
+
+        self._file_name = file_name
+        self.__set_handlers()
+
+    @property
+    def format_string(self): return self._format_string
+
+    @format_string.setter
+    def format_string(self, format_string: str):
+        """
+        Set the format string of the logger. This attribute defines the rubric of the print. Here is an overview of the
+        basic rubric:
+        %(asctime)s - The time of the log message. Can be further modified by the format_time attribute.
+        %(levelname)s - The log level of the message.
+        %(message)s - The message itself.
+        :param format_string: The format string rubric of the logger.
+        """
+
+        self._format_string = format_string
+        self._formatter = logging.Formatter(self._format_string, self._format_time)
+        self.__set_handlers()
+
+    @property
+    def format_time(self): return self._format_string
+
+    @format_time.setter
+    def format_time(self, format_time: str):
+        """
+        Set the format time of the logger. See usage examples of non-default options in the __init__ docstring.
+        Note - Relevant only if %(asctime)s is defined in the format_string attribute.
+        :param format_time: The time rubric of the logger.
+        """
+
+        self._format_time = format_time
+        self._formatter = logging.Formatter(self._format_string, self._format_time)
+        self.__set_handlers()
+
+    def __set_handlers(self):
+        """
+        Method for setting the handlers. The two available handlers are file and stream.
+        """
+
+        # Reset the handlers.
+        self._logger.handlers.clear()
+
+        # Add handlers to logger.
+        if self._stream_handler:
+            # Adding the stream handler.
+            stream_handler = logging.StreamHandler(stream=sys.stdout)
+            stream_handler.setLevel(self._log_level)
+            # Set color formatter to the handler.
+            stream_handler.setFormatter(ColorFormatter(self._format_string, self._color_scheme, self._format_time))
+            self._logger.addHandler(stream_handler)
+        if self._file_handler:
+            # Adding the file handler.
+            file_handler = logging.FileHandler(filename=self._file_name, mode="a", encoding=None, delay=False,
+                                               errors=None)
+            file_handler.setLevel(self._log_level)
+            file_handler.setFormatter(self._formatter)  # Set formatter to the handler.
+            self._logger.addHandler(file_handler)
 
     def debug(self, message: str):
         """Log debug level message."""
@@ -206,19 +317,19 @@ class Logger:
         self._logger.critical(message)
         self.accumulated_log += f"{message}\n"
 
-    def raise_exception(self, message: str, exception: Exception):
+    def exception(self, message: str, exception: Exception):
         """Log critical level message and raise an exception."""
         self._logger.critical(message)
         self.accumulated_log += f"{message}\n"
         raise exception
 
-    def exit(self, message: str, code: int):
-        """Log critical level message and exit the program."""
+    def exit(self, message: str, code=1):
+        """Log critical level message and end program execution."""
         self._logger.critical(message)
         self.accumulated_log += f"{message}\n"
         exit(code=code)
 
-    def print_data(self, data: str | list | dict, log_level="debug"):
+    def print_data(self, data: int | float | str | list | dict, log_level="debug"):
         """
         Print relatively large data to logs.
         Note - Normally, the data comes from a document or terminal output, therefore, it is a list of strings with '\n'
@@ -230,14 +341,20 @@ class Logger:
 
         if isinstance(data, list):
             for line in data:
-                getattr(self._logger, log_level)(line.strip())
+                getattr(self._logger, log_level)(str(line).strip())
+                self.accumulated_log += f"{str(line).strip()}\n"
         if isinstance(data, dict):
             for key, value in data.items():
                 getattr(self._logger, log_level)(f"{key} - {value}")
+                self.accumulated_log += f"{key} - {value}\n"
         if isinstance(data, str):
             lines = data.split("\n")
             for line in lines:
                 getattr(self._logger, log_level)(f"{line}")
+                self.accumulated_log += f"{line}\n"
+        if isinstance(data, int | float):
+            getattr(self._logger, log_level)(f"{data}")
+            self.accumulated_log += f"{data}\n"
 
 
 class ColorFormatter(logging.Formatter):
