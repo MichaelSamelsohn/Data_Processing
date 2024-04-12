@@ -137,7 +137,7 @@ class Email:
             return False
 
         log.debug("Asserting that sender email address is valid")
-        if not self.__check_email_address_correctness(email_address=self.sender_address) or self.sender_address == "":
+        if not self.__check_email_address_validity(email_address=self.sender_address) or self.sender_address == "":
             log.error(f"Invalid sender email address - {self.sender_address}")
             return False
 
@@ -149,7 +149,7 @@ class Email:
             # Recipient list is not empty.
             bad_emails = []  # Initializing a list of all bad emails.
             for email_address in self.recipients:
-                if not self.__check_email_address_correctness(email_address=email_address):
+                if not self.__check_email_address_validity(email_address=email_address):
                     bad_emails.append(email_address)
 
             if bad_emails:
@@ -161,7 +161,7 @@ class Email:
         return True
 
     @staticmethod
-    def __check_email_address_correctness(email_address: str) -> bool:
+    def __check_email_address_validity(email_address: str) -> bool:
         """
         Assertion method for email address correctness.
         The regular expression that does the check, checks for the validity of the email address (no illegal sequences,

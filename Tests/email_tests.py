@@ -15,6 +15,7 @@ from Settings.settings import log
 # Constants #
 MOCK_EMAIL_ADDRESS = "mock.email@gmail.com"
 MOCK_EMAIL_PASSWORD = "mock_password"
+MOCK_SERVER_PORT = 587
 
 
 class TestClass:
@@ -22,7 +23,7 @@ class TestClass:
         "recipients, expected_outcome",
         [([], False),  # Empty recipient list.
          ([MOCK_EMAIL_ADDRESS], True)])  # Recipient list includes an email.
-    def test_recipients(self, recipients, expected_outcome):
+    def test_recipients_list_empty(self, recipients, expected_outcome):
         """
         Test type - Unit.
         Function under test - Email.__check_essential_parameters().
@@ -48,7 +49,7 @@ class TestClass:
          # Bad email addresses.
          (["invalid..email@gmail.com", "-invalid-email@gmail.com",
            "invalid--email@gmail.com", "niceandsimple@fakedomain.com"], False)])
-    def test_email_addresses_validity(self, recipients, expected_outcome):
+    def test_recipient_email_addresses_validity(self, recipients, expected_outcome):
         """
         Test type - Unit.
         Function under test - Email.__check_essential_parameters().
@@ -65,4 +66,55 @@ class TestClass:
         email = Email(sender_address=MOCK_EMAIL_ADDRESS, sender_password=MOCK_EMAIL_PASSWORD,
                       recipients=recipients, subject="")
         assert email._Email__check_essential_parameters() == expected_outcome
+        return True
+
+    @pytest.mark.parametrize(
+        "port_number, expected_outcome",
+        [(-MOCK_SERVER_PORT, False), (MOCK_SERVER_PORT, True)])
+    def test_server_port_validity(self, port_number, expected_outcome):
+        """
+        Test type - Unit.
+        Function under test - Email.__check_essential_parameters().
+        Test purpose - Check that the function returns False when server port number is invalid, True otherwise.
+        Test steps:
+            1) Create an email object.
+            2) Activate the check essential parameters method.
+            3) Assert that outcome is as expected.
+
+        :return: True if test passes, AssertionError otherwise.
+        """
+
+        email = Email(sender_address=MOCK_EMAIL_ADDRESS, sender_password=MOCK_EMAIL_PASSWORD,
+                      recipients=[MOCK_EMAIL_ADDRESS], subject="", server_port=port_number)
+        assert email._Email__check_essential_parameters() == expected_outcome
+        return True
+
+    @pytest.mark.parametrize(
+        "email_address, expected_outcome",
+        # Valid email addresses:
+        [("niceandsimple@gmail.com", True),
+         ("very.common@gmail.com", True),
+         ("disposable.style.email.with+symbol@gmail.com", True),
+         ("other.email-with-dash@gmail.com", True),
+         # Invalid email addresses:
+         ("invalid..email@gmail.com", False),  # Two dots in a row.
+         ("-invalid-email@gmail.com", False),  # Starts with a dash.
+         ("invalid--email@gmail.com", False),  # Two dashes in a row.
+         ("niceandsimple@fakedomain.com", False)])  # Not Gmail domain.
+    def test_email_address_validity(self, email_address, expected_outcome):
+        """
+        Test type - Unit.
+        Function under test - Email.__check_email_address_validity().
+        Test purpose - Check that the function returns False when email address is invalid, True otherwise.
+        Test steps:
+            1) Create an email object.
+            2) Activate the check email address validity method.
+            3) Assert that outcome is as expected.
+
+        :return: True if test passes, AssertionError otherwise.
+        """
+
+        email = Email(sender_address=MOCK_EMAIL_ADDRESS, sender_password=MOCK_EMAIL_PASSWORD,
+                      recipients=[MOCK_EMAIL_ADDRESS], subject="")
+        assert email._Email__check_email_address_validity(email_address=email_address) == expected_outcome
         return True
