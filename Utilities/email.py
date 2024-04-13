@@ -124,12 +124,24 @@ class Email:
         The following checks are performed:
             * Sender email is valid.
             * Recipient email list is not empty and includes only valid Gmail domains.
-            * TODO: Add a check that server is valid.
+            * Server host is valid.
             * Server port is a non-negative integer.
             * TODO: Add a check for an empty subject? Is there a case where we need an empty subject?
 
         :return: True if all required parameters are defined correctly.
         """
+
+        if not re.search(r"^[a-z0-9]*\.[a-z0-9]*\.[a-z0-9]*$", self.server_host):
+            """
+            ^ - Asserts position at start of the string.
+            ^[a-z0-9]* - Matches any character (a-z, 0-9) between zero and unlimited times, as many times as possible, 
+            giving back as needed (greedy).
+            \. - Matches the character '.' literally (case sensitive).
+            $ - Asserts position at the end of the string, or before the line terminator right at the end of the string 
+            (if any).
+            """
+            log.error(f"Invalid server host - {self.server_host}")
+            return False
 
         log.debug("Asserting that the server port is a non-negative integer")
         if self.server_port <= 0:

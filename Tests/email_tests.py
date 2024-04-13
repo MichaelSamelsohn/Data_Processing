@@ -15,6 +15,7 @@ from Settings.settings import log
 # Constants #
 MOCK_EMAIL_ADDRESS = "mock.email@gmail.com"
 MOCK_EMAIL_PASSWORD = "mock_password"
+MOCK_SERVER_HOST = "mock.server.host"
 MOCK_SERVER_PORT = 587
 
 
@@ -65,6 +66,27 @@ class TestClass:
 
         email = Email(sender_address=MOCK_EMAIL_ADDRESS, sender_password=MOCK_EMAIL_PASSWORD,
                       recipients=recipients, subject="")
+        assert email._Email__check_essential_parameters() == expected_outcome
+        return True
+
+    @pytest.mark.parametrize(
+        "server_host, expected_outcome",
+        [("", False), ("mock.illegal$.host", False), (MOCK_SERVER_HOST, True)])
+    def test_server_host_validity(self, server_host, expected_outcome):
+        """
+        Test type - Unit.
+        Function under test - Email.__check_essential_parameters().
+        Test purpose - Check that the function returns False when server host is invalid, True otherwise.
+        Test steps:
+            1) Create an email object.
+            2) Activate the check essential parameters method.
+            3) Assert that outcome is as expected.
+
+        :return: True if test passes, AssertionError otherwise.
+        """
+
+        email = Email(sender_address=MOCK_EMAIL_ADDRESS, sender_password=MOCK_EMAIL_PASSWORD,
+                      recipients=[MOCK_EMAIL_ADDRESS], subject="", server_host=server_host)
         assert email._Email__check_essential_parameters() == expected_outcome
         return True
 
