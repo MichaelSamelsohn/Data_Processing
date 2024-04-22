@@ -11,8 +11,6 @@ import matplotlib.image as im
 import matplotlib.pyplot as plt
 
 from common import *
-from intensity_transformations import *
-from segmentation import *
 from spatial_filtering import *
 from Settings import image_settings
 from Settings.settings import log
