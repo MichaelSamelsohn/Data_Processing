@@ -30,7 +30,7 @@ class Email:
         Email class used to send an email.
 
         TODO: Probably need to set some default value for the sender details.
-        :param server_host: The server host/domain (example - email.celeno.com).
+        :param server_host: The server host/domain (example - smtp.gmail.com).
         :param server_port: The port of the server host/domain.
         :param sender_address: The sender email address.
         :param sender_password: The password of the sender email address.
@@ -49,8 +49,6 @@ class Email:
         :param body: The body of the email.
         :param attachments: List of attachments to be added to the email.
         :param recipients: List of recipients to receive the email.
-
-        TODO: Add usage examples.
         """
 
         self.server_host = server_host
@@ -131,10 +129,10 @@ class Email:
         :return: True if all required parameters are defined correctly.
         """
 
-        if not re.search(r"^[a-z0-9]*\.[a-z0-9]*\.[a-z0-9]*$", self.server_host):
+        if not re.search(r"^[a-z0-9]+\.[a-z0-9]+\.[a-z0-9]+$", self.server_host):
             """
             ^ - Asserts position at start of the string.
-            ^[a-z0-9]* - Matches any character (a-z, 0-9) between zero and unlimited times, as many times as possible, 
+            ^[a-z0-9]+ - Matches any character (a-z, 0-9) between one and unlimited times, as many times as possible, 
             giving back as needed (greedy).
             \. - Matches the character '.' literally (case sensitive).
             $ - Asserts position at the end of the string, or before the line terminator right at the end of the string 
