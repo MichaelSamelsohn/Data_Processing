@@ -60,6 +60,10 @@ def resource():
 
 @pytest.fixture()
 def driver():
+    """
+    Pytest fixture which sets and creates a web driver for Selenium-based tests.
+    """
+
     log.debug("Setting the browser options")
     # This option allows the browser to remain open once the script ends.
     options = Options()
@@ -110,7 +114,7 @@ class TestSystem:
 
         downloaded_image_path = os.path.join(IMAGE_DIRECTORY_PATH, "downloaded_image.jpg")
 
-        log.debug("Downloading the image")
+        log.debug("Downloading the image from the web")
         # Loading the APOD home page.
         driver.get("https://apod.nasa.gov/apod/")
         time.sleep(2)  # Buffer time to allow the page to load.
@@ -123,6 +127,7 @@ class TestSystem:
         log.debug("Closing the browser")
         driver.close()
 
+        log.debug("Downloading the image using the relevant API")
         apod_date = datetime.today().strftime('%Y-%m-%d')
         log.debug(f"Today's date - {apod_date}")
         apod = APOD(image_directory=IMAGE_DIRECTORY_PATH, date=apod_date)
@@ -144,6 +149,7 @@ class TestSystem:
         :return: True if image downloaded successfully, assertion otherwise.
         """
 
+        log.debug("Downloading the image using the relevant API")
         epic = EPIC(image_directory=IMAGE_DIRECTORY_PATH, number_of_images=1)
         epic.earth_polychromatic_imaging_camera()
 
@@ -162,6 +168,7 @@ class TestSystem:
         :return: True if image downloaded successfully, assertion otherwise.
         """
 
+        log.debug("Downloading the image using the relevant API")
         mars = MARS(image_directory=IMAGE_DIRECTORY_PATH, rover="Opportunity", date="2012-01-01", number_of_images=1)
         mars.mars_rover_images()
 
@@ -180,6 +187,7 @@ class TestSystem:
         :return: True if image downloaded successfully, assertion otherwise.
         """
 
+        log.debug("Downloading the image using the relevant API")
         query = "Crab Nebula"
         nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=query)
         nil.nasa_image_library_query()
@@ -204,7 +212,7 @@ class TestSystem:
         downloaded_image_path = os.path.join(IMAGE_DIRECTORY_PATH, "downloaded_image.jpg")
         query = "Crab Nebula"
 
-        log.debug("Downloading the image")
+        log.debug("Downloading the image from the web")
         # Loading the NIL home page.
         driver.get("https://images.nasa.gov/")
         time.sleep(5)  # Buffer time to allow the page to load.
@@ -231,6 +239,7 @@ class TestSystem:
         log.debug("Closing the browser")
         driver.close()
 
+        log.debug("Downloading the image using the relevant API")
         nil = NIL(image_directory=IMAGE_DIRECTORY_PATH, query=query)
         nil.nasa_image_library_query()
 
