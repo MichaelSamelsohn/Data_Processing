@@ -28,7 +28,6 @@ class APOD(NasaApi):
         super().__init__(image_directory)
 
         self._date = self.__check_date_format(date=date)
-
         self._hd = hd
         self.__check_hd_value()
 

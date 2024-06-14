@@ -199,7 +199,7 @@ class Email:
         # If we got to this point, the email is valid.
         return True
 
-    def _email_parameters(self):
+    def _debug(self):
         """Used for debug, to understand what are the set email parameters"""
         log.info(f"Server details - {self.server_host}:{self.server_port}")
         log.info(f"Sender address - {self.sender_address}")

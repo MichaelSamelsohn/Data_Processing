@@ -42,21 +42,24 @@ import logging
 import os
 import sys
 import re
-
 from datetime import datetime
+import pandas as pd
 
 
 class MaskedFilter(logging.Filter):
     """
-    This class provides an option to filter selected regular expressions.
+    This class provides an option to mask selected regular expressions.
     Especially useful for removing constant prefixes/suffixes or obfuscating passwords.
     """
     def __init__(self, masked_patterns: list):
         """
         Initialize the filtering class.
 
-        :param masked_patterns: List of all the regular expressions to be filtered when logged.
+        :param masked_patterns: List of tuples. The tuple is constructed of the following values:
+            1) The pattern (regular expression) for masking.
+            2) The mask (string).
         """
+
         super().__init__()
         self.masked_patterns = masked_patterns
 
@@ -117,20 +120,22 @@ class Logger:
 
         5) When there are re-occurring instances in the log messages (could be some prefix that runs in the background
         of SSH commands) and it needs to be filtered to avoid log flooding,
-        log = Logger(masked_patterns=[(r'TEST')])
-        log.debug("TEST")  # Filtered due to matching the masked pattern.
+        log = Logger(masked_patterns=[(r'TEST', 'MASK')])
+        log.debug("TEST")  # Masked due to matching the pattern.
         log.debug("TEST2")
+        >> 15:35:31 - DEBUG - MASK
         >> 15:35:31 - DEBUG - TEST2
 
         Example for a combined usage of all the above:
         import logging
         log = Logger(log_level=logging.WARNING, format_string="%(asctime)s - %(message)s", format_time="%H:%M",
-                masked_patterns=(r'Error message'))
+                masked_patterns=(r'Error message', 'Error mask'))
         log.debug("Debug message")  # Filtered due to being below set log level.
         log.warning("Warning message")
-        log.error("Error message")  # Filtered due to matching the masked pattern.
+        log.error("Error message")  # Masked due to matching the pattern.
         log.critical("Critical message")
         >> 15:35 - Warning message
+        >> 15:35 - Error mask
         >> 15:35 - Critical message
         """
 
@@ -142,10 +147,6 @@ class Logger:
         self._stream_handler = stream_handler
         self._file_handler = file_handler
         self._file_name = file_name
-
-        # Note - The accumulator saves log messages that are also below the set log level (which is fine as it is used
-        # for internal purposes).
-        self.accumulated_log = ""
 
         # Create logger object.
         self._logger = logging.getLogger(os.path.basename(__file__))
@@ -254,7 +255,7 @@ class Logger:
         self.__set_handlers()
 
     @property
-    def format_time(self): return self._format_string
+    def format_time(self): return self._format_time
 
     @format_time.setter
     def format_time(self, format_time: str):
@@ -268,6 +269,19 @@ class Logger:
         self._formatter = logging.Formatter(self._format_string, self._format_time)
         self.__set_handlers()
 
+    @property
+    def masked_patterns(self): return self._masked_patterns
+
+    @masked_patterns.setter
+    def masked_patterns(self, masked_patterns: list):
+        self._masked_patterns = masked_patterns
+
+        # Reset the masked patterns.
+        self._logger.filters.clear()
+
+        # Add a filter to the logger.
+        self._logger.addFilter(MaskedFilter(self._masked_patterns))
+
     def __set_handlers(self):
         """
         Method for setting the handlers. The two available handlers are file and stream.
@@ -279,11 +293,13 @@ class Logger:
         # Add handlers to logger.
         if self._stream_handler:
             # Adding the stream handler.
-            stream_handler = logging.StreamHandler(stream=sys.stdout)
-            stream_handler.setLevel(self._log_level)
+            stdout_stream_handler = logging.StreamHandler(stream=sys.stdout)
+            stdout_stream_handler.setLevel(self._log_level)
             # Set color formatter to the handler.
-            stream_handler.setFormatter(ColorFormatter(self._format_string, self._color_scheme, self._format_time))
-            self._logger.addHandler(stream_handler)
+            stdout_stream_handler.setFormatter(ColorFormatter(
+                self._format_string, self._color_scheme, self._format_time))
+
+            self._logger.addHandler(stdout_stream_handler)
         if self._file_handler:
             # Adding the file handler.
             file_handler = logging.FileHandler(filename=self._file_name, mode="a", encoding=None, delay=False,
@@ -295,39 +311,32 @@ class Logger:
     def debug(self, message: str):
         """Log debug level message."""
         self._logger.debug(message)
-        self.accumulated_log += f"{message}\n"
 
     def info(self, message: str):
         """Log info level message."""
         self._logger.info(message)
-        self.accumulated_log += f"{message}\n"
 
     def warning(self, message: str):
         """Log warning level message."""
         self._logger.warning(message)
-        self.accumulated_log += f"{message}\n"
 
     def error(self, message: str):
         """Log error level message."""
         self._logger.error(message)
-        self.accumulated_log += f"{message}\n"
 
     def critical(self, message: str):
         """Log critical level message."""
         self._logger.critical(message)
-        self.accumulated_log += f"{message}\n"
 
     def exception(self, message: str, exception: Exception):
         """Log critical level message and raise an exception."""
         self._logger.critical(message)
-        self.accumulated_log += f"{message}\n"
         raise exception
 
-    def exit(self, message: str, code=1):
+    def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
         self._logger.critical(message)
-        self.accumulated_log += f"{message}\n"
-        exit(code=code)
+        exit(exit_code)
 
     def print_data(self, data: int | float | str | list | dict, log_level="debug"):
         """
@@ -342,19 +351,15 @@ class Logger:
         if isinstance(data, list):
             for line in data:
                 getattr(self._logger, log_level)(str(line).strip())
-                self.accumulated_log += f"{str(line).strip()}\n"
         if isinstance(data, dict):
             for key, value in data.items():
                 getattr(self._logger, log_level)(f"{key} - {value}")
-                self.accumulated_log += f"{key} - {value}\n"
         if isinstance(data, str):
             lines = data.split("\n")
             for line in lines:
                 getattr(self._logger, log_level)(f"{line}")
-                self.accumulated_log += f"{line}\n"
         if isinstance(data, int | float):
             getattr(self._logger, log_level)(f"{data}")
-            self.accumulated_log += f"{data}\n"
 
 
 class ColorFormatter(logging.Formatter):

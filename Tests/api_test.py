@@ -20,7 +20,8 @@ from nil import NIL
 from Settings.settings import log
 
 # Constants #
-IMAGE_DIRECTORY_PATH = "C:\\Users\\Michael\\PycharmProjects\\Data_Processing\\Tests\\Test_Images"
+# TODO: Generalize the path.
+IMAGE_DIRECTORY_PATH = "C:\\Users\\micha\\PycharmProjects\\Data_Processing\\Tests\\Test_Images"
 
 
 def clean_directory_contents(directory_path: str):
