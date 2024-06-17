@@ -43,7 +43,6 @@ import os
 import sys
 import re
 from datetime import datetime
-import pandas as pd
 
 
 class MaskedFilter(logging.Filter):
@@ -74,11 +73,12 @@ class MaskedFilter(logging.Filter):
         return True
 
 
-class Logger:
+class Logger(logging.Logger):
     def __init__(self, log_level=logging.DEBUG, color_scheme=False,
-                 format_string="%(asctime)s - %(levelname)s - %(message)s", format_time="%H:%M:%S",
-                 masked_patterns=None, stream_handler=True, file_handler=False,
-                 file_name=f"log_{datetime.now().strftime('%Y-%m-%d_%H%M')}.txt"):
+                 format_string="%(asctime)s - %(levelname)s (%(module)s:%(funcName)s:%(lineno)d) - %(message)s",
+                 format_time="%H:%M:%S", masked_patterns=None, stream_handler=True,
+                 file_handler=False, file_name=f"log_{datetime.now().strftime('%Y-%m-%d_%H%M')}.txt",
+                 level_name_only=True):
         """
         Logger class used to define all the logging parameters and print log messages.
 
@@ -92,6 +92,8 @@ class Logger:
         Note - If both file_handler and stream_handler are set to False then the logger won't do anything besides
         accumulate all log messages to a string.
         :param file_name: The name of the log file. Relevant only if file_handler=True
+        :param level_name_only: Boolean indicating whether the entire line is colored (False) or only the level name
+        (True).
 
         Usage examples:
         1) Simple use where the developer only wants to print a message,
@@ -139,6 +141,9 @@ class Logger:
         >> 15:35 - Critical message
         """
 
+        # Super call.
+        super().__init__(name="Logger")
+
         # Set class parameters.
         self._log_level = log_level
         self._color_scheme = color_scheme
@@ -147,10 +152,7 @@ class Logger:
         self._stream_handler = stream_handler
         self._file_handler = file_handler
         self._file_name = file_name
-
-        # Create logger object.
-        self._logger = logging.getLogger(os.path.basename(__file__))
-        self._logger.setLevel(logging.DEBUG)
+        self._level_name_only = level_name_only
 
         # Set formatter.
         self._formatter = logging.Formatter(self._format_string, self._format_time)
@@ -160,7 +162,7 @@ class Logger:
 
         # Add a filter to the logger.
         self._masked_patterns = masked_patterns
-        self._logger.addFilter(MaskedFilter(self._masked_patterns))
+        self.addFilter(MaskedFilter(self._masked_patterns))
 
     @property
     def log_level(self): return self._log_level
@@ -277,10 +279,19 @@ class Logger:
         self._masked_patterns = masked_patterns
 
         # Reset the masked patterns.
-        self._logger.filters.clear()
+        self.filters.clear()
 
         # Add a filter to the logger.
-        self._logger.addFilter(MaskedFilter(self._masked_patterns))
+        self.addFilter(MaskedFilter(self._masked_patterns))
+
+    @property
+    def level_name_only(self):
+        return self._level_name_only
+
+    @level_name_only.setter
+    def level_name_only(self, level_name_only: bool):
+        self._level_name_only = level_name_only
+        self.__set_handlers()
 
     def __set_handlers(self):
         """
@@ -288,7 +299,7 @@ class Logger:
         """
 
         # Reset the handlers.
-        self._logger.handlers.clear()
+        self.handlers.clear()
 
         # Add handlers to logger.
         if self._stream_handler:
@@ -297,45 +308,20 @@ class Logger:
             stdout_stream_handler.setLevel(self._log_level)
             # Set color formatter to the handler.
             stdout_stream_handler.setFormatter(ColorFormatter(
-                self._format_string, self._color_scheme, self._format_time))
+                self._format_string, self._color_scheme, self._format_time, self._level_name_only))
 
-            self._logger.addHandler(stdout_stream_handler)
+            self.addHandler(stdout_stream_handler)
         if self._file_handler:
             # Adding the file handler.
             file_handler = logging.FileHandler(filename=self._file_name, mode="a", encoding=None, delay=False,
                                                errors=None)
             file_handler.setLevel(self._log_level)
             file_handler.setFormatter(self._formatter)  # Set formatter to the handler.
-            self._logger.addHandler(file_handler)
-
-    def debug(self, message: str):
-        """Log debug level message."""
-        self._logger.debug(message)
-
-    def info(self, message: str):
-        """Log info level message."""
-        self._logger.info(message)
-
-    def warning(self, message: str):
-        """Log warning level message."""
-        self._logger.warning(message)
-
-    def error(self, message: str):
-        """Log error level message."""
-        self._logger.error(message)
-
-    def critical(self, message: str):
-        """Log critical level message."""
-        self._logger.critical(message)
-
-    def exception(self, message: str, exception: Exception):
-        """Log critical level message and raise an exception."""
-        self._logger.critical(message)
-        raise exception
+            self.addHandler(file_handler)
 
     def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
-        self._logger.critical(message)
+        self.critical(message)
         exit(exit_code)
 
     def print_data(self, data: int | float | str | list | dict, log_level="debug"):
@@ -350,46 +336,57 @@ class Logger:
 
         if isinstance(data, list):
             for line in data:
-                getattr(self._logger, log_level)(str(line).strip())
+                getattr(self, log_level)(str(line).strip())
         if isinstance(data, dict):
             for key, value in data.items():
-                getattr(self._logger, log_level)(f"{key} - {value}")
+                getattr(self, log_level)(f"{key} - {value}")
         if isinstance(data, str):
             lines = data.split("\n")
             for line in lines:
-                getattr(self._logger, log_level)(f"{line}")
+                getattr(self, log_level)(f"{line}")
         if isinstance(data, int | float):
-            getattr(self._logger, log_level)(f"{data}")
+            getattr(self, log_level)(f"{data}")
 
 
 class ColorFormatter(logging.Formatter):
     """This class provides more coloring options other than the default."""
-    def __init__(self, format_string, color_scheme, format_time):
-        super().__init__()
+    def __init__(self, format_string: str, color_scheme: bool, format_time: str, level_name_only: bool):
+        """
+        TODO: Complete the docstring.
+        """
 
+        super().__init__(format_string, format_time)
+
+        self._format_string = format_string
         self._format_time = format_time
         self._color_scheme = color_scheme
+        self._level_name_only = level_name_only
         """
         ANSI escape codes for 8-color, 16-color and 256-color terminals may be found in,
         https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html.
         """
-        debug_color = "\u001b[36m" if color_scheme else "\x1b[38;21m"  # Cyan/Grey.
-        info_color = "\u001b[30m" if color_scheme else "\x1b[38;5;39m"  # Black/Blue.
-        warning_color = "\u001b[33;1m" if color_scheme else "\x1b[38;5;226m"  # Bright Yellow/Yellow.
-        error_color = "\x1b[38;5;196m"  # Red.
-        critical_color = "\x1b[31;1m"  # Bold red.
-        reset_color = "\x1b[0m"
-
-        self._format_string = format_string
-        self._FORMATS = {
-            logging.DEBUG: debug_color + self._format_string + reset_color,
-            logging.INFO: info_color + self._format_string + reset_color,
-            logging.WARNING: warning_color + self._format_string + reset_color,
-            logging.ERROR: error_color + self._format_string + reset_color,
-            logging.CRITICAL: critical_color + self._format_string + reset_color
+        self._COLORS = {
+            logging.DEBUG: "\u001b[36m" if self._color_scheme else "\x1b[38;21m",  # Cyan/Grey.,
+            logging.INFO: "\u001b[30m" if self._color_scheme else "\x1b[38;5;39m",  # Black/Blue.
+            logging.WARNING: "\u001b[33;1m" if self._color_scheme else "\x1b[38;5;226m",  # Bright Yellow/Yellow.
+            logging.ERROR: "\x1b[38;5;196m",  # Red.
+            logging.CRITICAL: "\x1b[31;1m"  # Bold red.
         }
+        self._RESET_COLOR = "\x1b[0m"
 
     def format(self, record):
-        log_fmt = self._FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt, self._format_time)
-        return formatter.format(record)
+        """
+        Format the message for the log. There are two supported modes:
+        1) Level name is the only colored part of the message.
+        2) The whole line is colored.
+        """
+
+        if self._level_name_only:
+            log_color = self._COLORS.get(record.levelno)
+            record.levelname = f"{log_color}{record.levelname}{self._RESET_COLOR}"
+            return super().format(record)
+        else:
+            log_color = self._COLORS.get(record.levelno)
+            log_fmt = log_color + self._format_string + self._RESET_COLOR
+            formatter = logging.Formatter(log_fmt, self._format_time)
+            return formatter.format(record)
