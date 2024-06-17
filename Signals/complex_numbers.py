@@ -14,6 +14,10 @@ class Complex:
         self.re = re
         self.im = im
 
+        # Polar notation.
+        self.magnitude = np.sqrt(self.re ** 2 + self.im ** 2)
+        self.theta = np.arctan(self.im / self.re)
+
     def plot(self):
         """
         Plot the complex number.
@@ -32,15 +36,13 @@ class Complex:
 
         plt.show()
 
-    def polar_notation(self):
-        mag = np.sqrt(self.re**2 + self.im**2)
-        log.info(f"The magnitude is - {mag}")
-        theta = np.arctan(self.im/self.re)
-        log.info(f"The Theta is - {theta}")
-        return mag, theta
+    def __add__(self, other):
+        return Complex(re=self.re + other.re, im=self.im + other.im)
 
+    def __sub__(self, other):
+        return Complex(re=self.re - other.re, im=self.im - other.im)
 
-if __name__ == '__main__':
-    complex = Complex(re=1, im=1)
-    # complex.plot()
-    complex.polar_notation()
+    def __mul__(self, other):
+        # TODO: Finish the implementation.
+        pass
+
