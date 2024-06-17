@@ -104,8 +104,8 @@ class NIL(NasaApi):
         self._search_years = new_search_years
         self.__check_search_years_correctness()
 
-    def _log_class_parameters(self):
-        super()._log_class_parameters()
+    def _debug(self):
+        super()._debug()
         log.debug(f"The selected Mars rover is - {self.query}")
         log.debug(f"The selected media type is - {self._media_type}")
         log.debug(f"The selected search years are - {self._search_years[0]}-{self._search_years[1]}")

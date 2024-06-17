@@ -11,12 +11,12 @@ import os
 import subprocess
 import requests
 
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from Settings import api_settings
 from Settings.settings import log
 
 
-class NasaApi:
+class NasaApi(metaclass=ABCMeta):
     def __init__(self, image_directory=api_settings.DEFAULT_IMAGE_DIRECTORY):
         """
         This class is used as a super class for usage of the NASA API. It includes basic operations such as the GET API
@@ -61,7 +61,7 @@ class NasaApi:
             return api_settings.DEFAULT_IMAGE_DIRECTORY
 
     @abstractmethod
-    def _log_class_parameters(self):
+    def _debug(self):
         """Log the class parameters (mainly for debugging purposes)."""
         log.info("Class parameters:")
         log.debug(f"The image directory is - {self._image_directory}")

@@ -98,8 +98,8 @@ class APOD(NasaApi):
         self._hd = new_hd
         self.__check_hd_value()
 
-    def _log_class_parameters(self):
-        super()._log_class_parameters()
+    def _debug(self):
+        super()._debug()
         log.debug(f"The selected image date is - {self._date}")
         log.debug(f"The selected image HD status is - {self._hd}")
 

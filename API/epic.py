@@ -66,8 +66,8 @@ class EPIC(NasaApi):
         self._number_of_images = new_number_of_images
         self.__check_number_of_images_value()
 
-    def _log_class_parameters(self):
-        super()._log_class_parameters()
+    def _debug(self):
+        super()._debug()
         log.debug(f"The selected number of images is - {self._number_of_images}")
 
     @check_connection

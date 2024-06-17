@@ -155,8 +155,8 @@ class MARS(NasaApi):
         self._number_of_images = new_number_of_images
         self.__check_number_of_images_value()
 
-    def _log_class_parameters(self):
-        super()._log_class_parameters()
+    def _debug(self):
+        super()._debug()
         log.debug(f"The selected Mars rover is - {self._rover}")
         log.debug(f"The selected image date is - {self._date}")
 
