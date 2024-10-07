@@ -18,14 +18,23 @@ Created by Michael Samelsohn, 20/05/22
 """
 
 # Imports #
-import os
-
+import numpy as np
 from numpy import ndarray
-from common import generate_filter, convolution_2d
+from common import generate_filter, convolution_2d, contrast_stretching
 from segmentation import laplacian_gradient
 from Settings import image_settings
 from Utilities.decorators import book_implementation
 from Settings.settings import log
+
+# Constants #
+SOBEL_OPERATORS = {
+    "VERTICAL": np.array([[-1, -2, -1],
+                            [0, 0, 0],
+                            [1, 2, 1]]),
+    "HORIZONTAL": np.array([[-1, 0, 1],
+                          [-2, 0, 2],
+                          [-1, 0, 1]])
+}
 
 
 @book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
@@ -90,3 +99,29 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
 
     log.debug("Adding the mask to the original image")
     return image + mask
+
+
+@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
+                     reference="Chapter 3 - Using first-order derivatives for image sharpening — the gradient, "
+                               "p.184-188")
+def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                 contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+    """
+    Use a sobel operator filter (first-order derivative) to sharpen the image.
+
+    :param image: The image for sharpening.
+    :param padding_type: The padding type used for the convolution.
+    :param contrast_stretch: TODO: Complete the docstring.
+    :return: Sharpened image.
+    """
+
+    log.debug("Calculating the horizontal-directional derivative")
+    gx = convolution_2d(image=image, kernel=SOBEL_OPERATORS["HORIZONTAL"], padding_type=padding_type,
+                        contrast_stretch=False)
+    log.debug("Calculating the vertical-directional derivative")
+    gy = convolution_2d(image=image, kernel=SOBEL_OPERATORS["VERTICAL"], padding_type=padding_type,
+                        contrast_stretch=False)
+
+    log.debug("Calculating the magnitude (length) of the image gradient")
+    magnitude = np.sqrt(np.power(gx, 2) + np.power(gy, 2))
+    return magnitude if not contrast_stretch else contrast_stretching(image=magnitude)
