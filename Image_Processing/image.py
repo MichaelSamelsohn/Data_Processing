@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from common import *
 from spatial_filtering import *
 from corner_detection import *
+from segmentation import *
+from morphological_operations import *
 from intensity_transformations import *
 from Settings import image_settings
 from Settings.settings import log

@@ -40,8 +40,8 @@ SOBEL_OPERATORS = {
 @book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
                      reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
 def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
-               filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE) \
-        -> ndarray:
+               filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+               **kwargs) -> ndarray:
     """
     Apply a low pass filter (blur) on an image.
 
@@ -51,7 +51,7 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
     :param padding_type: The padding type used for the convolution.
     :return: Filtered image.
     """
-    kernel = generate_filter(filter_type=filter_type, filter_size=filter_size)
+    kernel = generate_filter(filter_type=filter_type, filter_size=filter_size, **kwargs)
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
 
 
