@@ -8,14 +8,17 @@ Created by Michael Samelsohn, 12/05/22
 
 # Imports #
 import os
+import traceback
 import matplotlib.image as im
 import matplotlib.pyplot as plt
+from scipy.io import loadmat
 
 from common import *
 from spatial_filtering import *
 from corner_detection import *
 from segmentation import *
 from morphological_operations import *
+from meta_shells import *
 from intensity_transformations import *
 from Settings import image_settings
 from Settings.settings import log
@@ -27,23 +30,35 @@ class Image:
     """
 
     def __init__(self, image_path=image_settings.DEFAULT_IMAGE_LENA):
-        # TODO: Add support for initialization using image array.
         # TODO: Add support for grayscale images.
 
         self.__image_path = image_path
         log.debug(f"The selected directory is - {self.__image_path}")
 
         log.debug("Asserting that image path exists")
-        if os.path.exists(path=self.__image_path):
-            log.info(f"Image, {self.__image_path}, exists")
-            self.__original_image = im.imread(fname=self.__image_path)
-            log.info("Custom image loaded successfully")
-        else:
-            log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image")
-            self.__image_path = image_settings.DEFAULT_IMAGE_LENA
-            self.__original_image = im.imread(fname=self.__image_path)
-            log.info("'Lena' image loaded successfully")
+        log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image") \
+            if not os.path.exists(path=self.__image_path) \
+            else log.info(f"Image, {self.__image_path}, exists")
 
+        log.debug("Loading the image (in accordance to its format)")
+        try:
+            if '.mat' in self.__image_path:
+                log.debug("MATLAB file identified")
+                self.__original_image = loadmat(self.__image_path)
+                log.debug("Searching for ndarray class object")
+                for key in self.__original_image:
+                    if isinstance(self.__original_image[key], ndarray):
+                        self.__original_image = self.__original_image[key]
+                        break  # Image found, no need to continue.
+            else:
+                log.debug("Normal image format identified")
+                self.__original_image = im.imread(fname=self.__image_path)
+            log.info("Custom image loaded successfully")
+        except Exception:  # TODO: Identify potential error types.
+            log.error("Failed to load image")
+            log.print_data(data=traceback.format_exc(), log_level='error')
+
+        log.debug("Deep copying image (for later comparison)")
         self.__images = [{"Name": "Original", "Image": self.__original_image}]
         self.__image = copy.deepcopy(self.__original_image)
 
