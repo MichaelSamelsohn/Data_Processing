@@ -23,7 +23,7 @@ from numpy import ndarray
 from common import generate_filter, convolution_2d, contrast_stretching
 from segmentation import laplacian_gradient
 from Settings import image_settings
-from Utilities.decorators import book_implementation
+from Utilities.decorators import book_reference
 from Settings.settings import log
 
 # Constants #
@@ -37,8 +37,8 @@ SOBEL_OPERATORS = {
 }
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
 def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
                filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                **kwargs) -> ndarray:
@@ -55,8 +55,8 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.178-182")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.178-182")
 def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                                include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                                c=image_settings.DEFAULT_CONSTANT) -> ndarray:
@@ -77,8 +77,8 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
     return image + (c * post_laplacian_image)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.182-184")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.182-184")
 def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
                       padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
@@ -101,8 +101,8 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
     return image + mask
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Using first-order derivatives for image sharpening — the gradient, "
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Using first-order derivatives for image sharpening — the gradient, "
                                "p.184-188")
 def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                  contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:

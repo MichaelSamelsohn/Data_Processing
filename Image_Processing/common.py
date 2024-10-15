@@ -257,13 +257,13 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.
     convolution_image = np.zeros(shape=image.shape)
     for row in range(kernel_size // 2, image.shape[0] + kernel_size // 2):
         for col in range(kernel_size // 2, image.shape[1] + kernel_size // 2):
-            sub_image = extract_sub_image(image=padded_image, position=(row, col),
-                                          sub_image_size=kernel_size)
+            sub_image = extract_sub_image(image=padded_image, position=(row, col), sub_image_size=kernel_size)
             convolution_image[row - kernel_size // 2, col - kernel_size // 2] = [
                 np.sum(sub_image[:, :, 0] * kernel),
                 np.sum(sub_image[:, :, 1] * kernel),
                 np.sum(sub_image[:, :, 2] * kernel)] if len(image.shape) == 3 else np.sum(sub_image * kernel)
 
+    # TODO: Need to remove the padding rows and cols (extract sub image with relevant size).
     return convolution_image if not contrast_stretch else contrast_stretching(image=convolution_image)
 
 

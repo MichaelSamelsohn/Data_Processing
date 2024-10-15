@@ -23,7 +23,7 @@ from numpy import ndarray
 
 from common import use_lookup_table, scale_pixel_values
 from Settings import image_settings
-from Utilities.decorators import book_implementation
+from Utilities.decorators import book_reference
 from Settings.settings import log
 
 
@@ -50,8 +50,8 @@ def thresholding(image: ndarray, threshold_value=image_settings.DEFAULT_THRESHOL
     return (image > threshold_value).astype(float)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.122-123")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.122-123")
 def negative(image: ndarray) -> ndarray:
     """
     Perform image negative. Simply subtract every value of the matrix from the maximal value (1).
@@ -64,8 +64,8 @@ def negative(image: ndarray) -> ndarray:
     return 1 - image
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="??")  # TODO: Add reference.
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="??")  # TODO: Add reference.
 def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -> ndarray:
     """
     Perform Gamma correction on an image.
@@ -89,8 +89,8 @@ def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -
     return np.power(image, gamma)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
 @scale_pixel_values(scale_factor=255)
 def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.DEFAULT_DEGREE_OF_REDUCTION) -> ndarray:
     """
@@ -128,8 +128,8 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.
     return use_lookup_table(image=image, lookup_table=lookup_table)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.131-133")
 @scale_pixel_values(scale_factor=255)
 def bit_plane_slicing(image: ndarray, bit_plane=image_settings.DEFAULT_BIT_PLANE) -> ndarray:
     """

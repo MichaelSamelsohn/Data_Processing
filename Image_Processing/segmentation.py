@@ -14,7 +14,7 @@ from numpy import ndarray
 from common import convolution_2d, convert_to_grayscale
 from intensity_transformations import thresholding
 from Settings import image_settings
-from Utilities.decorators import book_implementation
+from Utilities.decorators import book_reference
 from Settings.settings import log
 
 # Constants #
@@ -70,8 +70,8 @@ LAPLACIAN_KERNELS = {
 }
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 10.3 - Thresholding, p.746-747")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.3 - Thresholding, p.746-747")
 def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT_THRESHOLD_VALUE,
                         delta_t=image_settings.DEFAULT_DELTA_T) -> ndarray:
     """
@@ -127,8 +127,8 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
     return thresholding(image=grayscale_image, threshold_value=np.round(global_threshold, 3))
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.175-182")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3 - Some Basic Intensity Transformation Functions, p.175-182")
 def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                        include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                        contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
@@ -150,8 +150,8 @@ def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDI
                           contrast_stretch=contrast_stretch)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 10.2 - Point, Line, and Edge Detection, p.706-707")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.2 - Point, Line, and Edge Detection, p.706-707")
 def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                              include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                              threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:
@@ -172,8 +172,8 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
     return thresholding(image=np.abs(post_laplacian_image), threshold_value=threshold_value)
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 10.2 - Point, Line, and Edge Detection, p.707-710")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.2 - Point, Line, and Edge Detection, p.707-710")
 def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                    threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> dict:
     """
@@ -203,8 +203,8 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
     return filtered_images_dictionary
 
 
-@book_implementation(book=image_settings.GONZALES_WOODS_BOOK,
-                     reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
 def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> dict:
     """
     Perform Kirsch edge detection on an image. Kirsch's method employs 8 directional 3x3 kernels, where the image is

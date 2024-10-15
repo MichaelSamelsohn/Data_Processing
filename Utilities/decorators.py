@@ -29,11 +29,20 @@ def measure_runtime(func):
     return inner
 
 
-def book_implementation(book, reference):
+def book_reference(book, reference):
     def wrapper(func):
         def inner(*args, **kwargs):
             log.info(f"The following method is referenced from the book - {book}")
             log.info(f"Reference for the implementation - {reference}")
+            return func(*args, **kwargs)
+        return inner
+    return wrapper
+
+
+def article_reference(article):
+    def wrapper(func):
+        def inner(*args, **kwargs):
+            log.info(f"The following method is referenced from the article - {article}")
             return func(*args, **kwargs)
         return inner
     return wrapper
