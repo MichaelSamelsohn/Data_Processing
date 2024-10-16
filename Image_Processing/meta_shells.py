@@ -147,3 +147,76 @@ def thinning_sub_iteration(binary_image: ndarray, sub_iteration: int) -> (ndarra
                 contour_image[row, col] = 1
 
     return binary_image - contour_image, contour_points
+
+
+@measure_runtime
+def extract_skeleton_path(skeleton_image: ndarray) -> list[tuple[int, int]]:
+    """
+    TODO: Complete the docstring.
+
+    Assumptions:
+    1) Only a single connected skeleton exists in the provided image.
+    2) The skeleton is within the image borders.
+    3) The skeleton is of unitary thickness.
+    """
+
+    # Copying the image as to not disturb the original.
+    snake_image = copy.deepcopy(skeleton_image)
+    skeleton_indexes = []  # Return array containing the indexes (rows and columns) of the skeleton.
+
+    log.debug("Finding first skeleton link")
+    link = find_first_link(skeleton_image=skeleton_image)
+    skeleton_indexes.append(link)
+    snake_image[link[0], link[1]] = 0  # Removing the first link from the skeleton.
+
+    log.debug("Connecting skeleton links")
+    while True:
+        # Extract the local 3x3 neighborhood.
+        link_neighborhood = extract_sub_image(image=snake_image, position=link, sub_image_size=3)
+        """
+        Since we are assuming unitary thickness, the closest pixel with value 1 is next link, therefore, the order of 
+        the neighbor pixels is arranged as to have the vertical/horizontal ones checked first as they are the closest, 
+        followed by the diagonal ones. 
+        """
+        link_neighborhood_array = {
+            # Horizontal/Vertical neighbors.
+            (-1, 0): link_neighborhood[0, 1], (0, 1): link_neighborhood[1, 2],
+            (1, 0): link_neighborhood[2, 1], (0, -1): link_neighborhood[1, 0],
+            # Diagonal neighbors.
+            (-1, -1): link_neighborhood[0, 0], (-1, 1): link_neighborhood[0, 2],
+            (1, 1): link_neighborhood[2, 2], (1, -1): link_neighborhood[2, 0]
+        }
+        is_new_link = False  # Used as a check for the stop condition.
+        for position in link_neighborhood_array:
+            if link_neighborhood_array[position] == 1:
+                # Found the closest link.
+                link = (link[0] + position[0], link[1] + position[1])
+                skeleton_indexes.append(link)
+                snake_image[link[0]][link[1]] = 0  # Removing the link from the skeleton.
+                is_new_link = True  # Found new link.
+                break
+
+        # Stop condition check - No new link found (the image is black).
+        if not is_new_link:
+            log.debug("No new link found (skeleton recovered)")
+            log.info(f"Total links in skeleton - {len(skeleton_indexes)}")
+            break
+
+    return skeleton_indexes
+
+
+def find_first_link(skeleton_image: ndarray) -> tuple[int, int]:
+    """
+    Find the first link in a skeleton image by scanning the image for the first pixel with 1 value.
+
+    :param skeleton_image: Binary image (with a unitary thickness skeleton object).
+
+    :return: Tuple containing the row and column values of the first link.
+    """
+
+    for row in range(1, skeleton_image.shape[0] - 1):
+        for col in range(1, skeleton_image.shape[1] - 1):
+            if skeleton_image[row][col] == 1:
+                first_link = (row, col)
+                log.debug(f"Found first skeleton link - {first_link}")
+                return first_link  # Found the first link, no need to continue.
