@@ -150,7 +150,7 @@ def thinning_sub_iteration(binary_image: ndarray, sub_iteration: int) -> (ndarra
 
 
 @measure_runtime
-def extract_skeleton_path(skeleton_image: ndarray) -> list[tuple[int, int]]:
+def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], list[float]):
     """
     TODO: Complete the docstring.
 
@@ -163,6 +163,8 @@ def extract_skeleton_path(skeleton_image: ndarray) -> list[tuple[int, int]]:
     # Copying the image as to not disturb the original.
     snake_image = copy.deepcopy(skeleton_image)
     skeleton_indexes = []  # Return array containing the indexes (rows and columns) of the skeleton.
+    skeleton_distances = [0]  # Return array containing the distances between adjacent links of the skeleton.
+    # The first value is reserved for the distance between the first link and the last one (calculated once found).
 
     log.debug("Finding first skeleton link")
     link = find_first_link(skeleton_image=skeleton_image)
@@ -192,6 +194,7 @@ def extract_skeleton_path(skeleton_image: ndarray) -> list[tuple[int, int]]:
                 # Found the closest link.
                 link = (link[0] + position[0], link[1] + position[1])
                 skeleton_indexes.append(link)
+                skeleton_distances.append(np.sqrt(position[0] ** 2 + position[1] ** 2))
                 snake_image[link[0]][link[1]] = 0  # Removing the link from the skeleton.
                 is_new_link = True  # Found new link.
                 break
@@ -200,12 +203,15 @@ def extract_skeleton_path(skeleton_image: ndarray) -> list[tuple[int, int]]:
         if not is_new_link:
             log.debug("No new link found (skeleton recovered)")
             log.info(f"Total links in skeleton - {len(skeleton_indexes)}")
+            # Calculate the distance from last link to first one.
+            skeleton_distances[0] = (np.sqrt((skeleton_indexes[0][0] - skeleton_indexes[-1][0])**2 +
+                                             (skeleton_indexes[0][1] - skeleton_indexes[-1][1])**2))
             break
 
-    return skeleton_indexes
+    return skeleton_indexes, skeleton_distances
 
 
-def find_first_link(skeleton_image: ndarray) -> tuple[int, int]:
+def find_first_link(skeleton_image: ndarray) -> (int, int):
     """
     Find the first link in a skeleton image by scanning the image for the first pixel with 1 value.
 
