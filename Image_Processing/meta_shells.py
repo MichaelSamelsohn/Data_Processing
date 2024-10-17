@@ -225,3 +225,68 @@ def find_first_link(skeleton_image: ndarray) -> (int, int):
                 first_link = (row, col)
                 log.debug(f"Found first skeleton link - {first_link}")
                 return first_link  # Found the first link, no need to continue.
+
+
+def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, float):
+    """
+    Purpose - Find a point, p3, located on the line connecting p1 and p2, and is at a distance d from p1 located between
+    p1 and p2.
+
+    Assumption - The distance d is smaller than the distance between p1 and p2.
+
+    Solution:
+    Let's denote the two points as: p1 = (x1,y1), p2 = (x2,y2).
+    Equation for the line connecting p1 and p2: y-y1 = m(x-x1) =>
+                                      (1)  y = y1+m(x-x1), m=(y1-y2)/(x1-x2)
+
+    Let's write the conditions that satisfy point p3:
+    Distance equation (2): (x3-x1)^2 + (y3-y1)^2 = d^2
+    Line equation     (3): y3 = y1+m(x3-x1)
+
+    We insert (3) to (2) and receive: (x3-x1)^2 + [y1+m(x3-x1)-y1]^2 = d^2 => (x3-x1)^2 + m^2(x3-x1)^2 = d^2 =>
+    => (x3-x1)^2(1+m^2)=d^2 => (x3-x1)^2=d^2/(1+m^2)
+    Note - 1+m^2 > 0, therefore, we can safely divide by it.
+    To simplify, let's denote C=d^2/(1+m^2) => (x3-x1)^2=C => x3^2 - 2x1x3 + x1^2 = C =>
+                                      (4)   x3^2 - 2x1x3 + (x1^2-C) = 0
+
+    (4) is a quadratic equation with the solutions: x3+=[-b+sqrt(b^2-4ac)]/2a, x3-=[-b-sqrt(b^2-4ac)]/2a,
+    Where a=1, b=-2x1, c=x1^2-C:
+    x3+ = [2x1 + sqrt(4x1^2-4*1*(x1^2-C))]/(2*1) = [2x1 + 2*sqrt(x1^2-x1^2+C)]/2 = x1+sqrt(C) =>
+                                      (5)  x3+=x1+sqrt(C)
+    The same applies for x3-:
+                                      (6)  x3-=x1-sqrt(C)
+    Note - C=d^2/(1+m^2)>0, therefore, sqrt(C) will have two real solutions. This is logical because p3 can be one
+    either side of p1 on the line and at the distance d.
+
+    We use the third condition that p3 is between p1 and p2, meaning that either x1>x3>x2 or x1<x3<x2. This way, we can
+    choose the corresponding solution.
+
+    When there is a vertical line (x1=x2), the calculation of p3 is simplified to x3=x2=x1, y3=y1+d*(y2-y1), where the
+    factor (y2-y1) dictates the direction.
+
+    :param p1: Point p1 (x1,y1).
+    :param p2: Point p2 (x2,y2).
+    :param d: Distance between p1 and p3.
+
+    :return: p3 (x3,y3).
+    """
+
+    # Extracting the x,y coordinates.
+    x1, y1 = p1
+    x2, y2 = p2
+
+    try:
+        # Calculating the constants m and C.
+        m = (p1[1] - p2[1]) / (p1[0] - p2[0])
+        const = d**2 / (1 + m**2)
+
+        # Calculating solution of the quadratic equation (4).
+        x3 = x1 + np.sqrt(const)  # Assuming solution (5).
+        if (x3 > x1 and x3 > x2) or (x3 < x1 and x3 < x2):
+            # Solution (5) doesn't satisfy the third condition.
+            x3 = x1 - np.sqrt(const)  # Applying solution (6).
+        y3 = y1 + m*(x3 - x1)  # Applying equation (3) to find the y coordinate.
+        return x3, y3
+    except ZeroDivisionError:
+        # (p1[0]-p2[0])=0 -> Vertical line (only y changes).
+        return x1, y1 + d*(y2 - y1)
