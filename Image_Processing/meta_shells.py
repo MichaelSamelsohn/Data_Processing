@@ -227,6 +227,52 @@ def find_first_link(skeleton_image: ndarray) -> (int, int):
                 return first_link  # Found the first link, no need to continue.
 
 
+@measure_runtime
+def equal_distance_indexes(number_of_points: int, skeleton_indexes: list[(int, int)], skeleton_distances: list[float]) \
+        -> list[(float, float)]:
+    """
+    Find all equal distance indexes of a skeleton image.
+    Note - The returned indexes aren't necessarily integer values, as interpolation is used to equalize the distance.
+
+    Assumptions:
+    1) number_of_points is smaller than len(skeleton_indexes).
+
+    :param number_of_points: Number of points for extraction.
+    :param skeleton_indexes: Indexes of the links in the skeleton image.
+    :param skeleton_distances: distances between each link in the skeleton image.
+
+    :return: array of indexes of the skeleton spaced with equal distance.
+    """
+
+    # TODO: Assert that len(skeleton_indexes) == len(skeleton_distances).
+
+    result = [skeleton_indexes[0]]  # The first link is the first index.
+
+    total_distance = sum(skeleton_distances)
+    log.debug(f"Total distance of skeleton - {total_distance}")
+
+    interval_distance = total_distance / number_of_points
+    log.debug(f"Interval distance is - {interval_distance}")
+
+    distance = 0  # Used for measuring covered distance.
+    for i in range(len(skeleton_indexes)):
+        distance += skeleton_distances[i]
+        if distance >= interval_distance:
+            # Crossed the interval distance.
+
+            # Calculate the distance needed versus remainder.
+            remainder = distance - interval_distance
+            complementary_distance = skeleton_distances[i] - remainder
+
+            # Calculate and append the exact interpolated points.
+            result.append(interpolate_line_point(p1=skeleton_indexes[i], p2=skeleton_indexes[i + 1],
+                                                     d=complementary_distance))
+
+            distance = remainder  # Reset the distance counter to the remainder.
+
+    return result
+
+
 def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, float):
     """
     Purpose - Find a point, p3, located on the line connecting p1 and p2, and is at a distance d from p1 located between
