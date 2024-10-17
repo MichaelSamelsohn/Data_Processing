@@ -59,7 +59,7 @@ def thinning(binary_image: ndarray) -> ndarray:
         skeleton_image, contour_points = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=1)
         log.debug(f"Contour points found in sub-iteration 1 - {contour_points}")
 
-        log.debug("Stop condition check")
+        # Stop condition check.
         if contour_points == 0:
             log.debug("No new contour points found, process finished")
             break
@@ -68,7 +68,7 @@ def thinning(binary_image: ndarray) -> ndarray:
         skeleton_image, contour_points = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=2)
         log.debug(f"Contour points found in sub-iteration 2 - {contour_points}")
 
-        log.debug("Stop condition check")
+        # Stop condition check.
         if contour_points == 0:
             log.debug("No new contour points found, process finished")
             break
@@ -80,11 +80,11 @@ def thinning_sub_iteration(binary_image: ndarray, sub_iteration: int) -> (ndarra
     """
     Designations of the nine pixels in a 3 x 3 window, where P1 is the pixel under check:
 
-                                        P9  P2  P3
+                                                P9  P2  P3
 
-                                        P8  P1  P4
+                                                P8  P1  P4
 
-                                        P7  P6  P5
+                                                P7  P6  P5
 
     the contour point P1 is deleted from the digital pattern if it satisfies the following conditions:
     (a) 2 <= B(P1) <= 6  # B(P1) is the number of nonzero neighbors of P1 = B(P1) = P2 + P3 + P4 + • • • + P8 + P9.
@@ -163,8 +163,7 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
     # Copying the image as to not disturb the original.
     snake_image = copy.deepcopy(skeleton_image)
     skeleton_indexes = []  # Return array containing the indexes (rows and columns) of the skeleton.
-    skeleton_distances = [0]  # Return array containing the distances between adjacent links of the skeleton.
-    # The first value is reserved for the distance between the first link and the last one (calculated once found).
+    skeleton_distances = []  # Return array containing the distances between adjacent links of the skeleton.
 
     log.debug("Finding first skeleton link")
     link = find_first_link(skeleton_image=skeleton_image)
@@ -202,10 +201,10 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
         # Stop condition check - No new link found (the image is black).
         if not is_new_link:
             log.debug("No new link found (skeleton recovered)")
-            log.info(f"Total links in skeleton - {len(skeleton_indexes)}")
+            log.debug(f"Total links in skeleton - {len(skeleton_indexes)}")
             # Calculate the distance from last link to first one.
-            skeleton_distances[0] = (np.sqrt((skeleton_indexes[0][0] - skeleton_indexes[-1][0])**2 +
-                                             (skeleton_indexes[0][1] - skeleton_indexes[-1][1])**2))
+            skeleton_distances.append((np.sqrt((skeleton_indexes[0][0] - skeleton_indexes[-1][0])**2 +
+                                               (skeleton_indexes[0][1] - skeleton_indexes[-1][1])**2)))
             break
 
     return skeleton_indexes, skeleton_distances
