@@ -56,21 +56,21 @@ def thinning(binary_image: ndarray) -> ndarray:
         log.debug(f"Iteration #{iteration_counter}")
 
         # Sub-iteration 1.
-        skeleton_image, contour_points = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=1)
-        log.debug(f"Contour points found in sub-iteration 1 - {contour_points}")
+        skeleton_image, contour_pixels = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=1)
+        log.debug(f"Contour pixels found in sub-iteration 1 - {contour_pixels}")
 
         # Stop condition check.
-        if contour_points == 0:
-            log.debug("No new contour points found, process finished")
+        if contour_pixels == 0:
+            log.debug("No new contour pixels found, process finished")
             break
 
         # Sub-iteration 2.
-        skeleton_image, contour_points = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=2)
-        log.debug(f"Contour points found in sub-iteration 2 - {contour_points}")
+        skeleton_image, contour_pixels = thinning_sub_iteration(binary_image=skeleton_image, sub_iteration=2)
+        log.debug(f"Contour pixels found in sub-iteration 2 - {contour_pixels}")
 
         # Stop condition check.
-        if contour_points == 0:
-            log.debug("No new contour points found, process finished")
+        if contour_pixels == 0:
+            log.debug("No new contour pixels found, process finished")
             break
 
     return skeleton_image
@@ -165,13 +165,13 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
     """
 
     # Copying the image as to not disturb the original.
-    snake_image = copy.deepcopy(skeleton_image)
-    skeleton_indexes = []  # Return array containing the indexes (rows and columns) of the skeleton.
-    skeleton_distances = []  # Return array containing the distances between adjacent links of the skeleton.
+    snake_image = copy.deepcopy(skeleton_image)  # Helper image.
+    skeleton_links = []  # Return array containing the indexes (rows and columns) of the skeleton.
+    skeleton_link_distances = []  # Return array containing the distances between adjacent links of the skeleton.
 
     log.debug("Finding first skeleton link")
-    link = find_first_link(skeleton_image=skeleton_image)
-    skeleton_indexes.append(link)
+    link = find_first_link_pixel(skeleton_image=skeleton_image)
+    skeleton_links.append(link)
     snake_image[link[0], link[1]] = 0  # Removing the first link from the skeleton.
 
     log.debug("Connecting skeleton links")
@@ -196,8 +196,8 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
             if link_neighborhood_array[position] == 1:
                 # Found the closest link.
                 link = (link[0] + position[0], link[1] + position[1])
-                skeleton_indexes.append(link)
-                skeleton_distances.append(np.sqrt(position[0] ** 2 + position[1] ** 2))
+                skeleton_links.append(link)
+                skeleton_link_distances.append(np.sqrt(position[0] ** 2 + position[1] ** 2))
                 snake_image[link[0]][link[1]] = 0  # Removing the link from the skeleton.
                 is_new_link = True  # Found new link.
                 break
@@ -205,16 +205,16 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
         # Stop condition check - No new link found (the image is black).
         if not is_new_link:
             log.debug("No new link found (skeleton recovered)")
-            log.debug(f"Total links in skeleton - {len(skeleton_indexes)}")
+            log.debug(f"Total links in skeleton - {len(skeleton_links)}")
             # Calculate the distance from last link to first one.
-            skeleton_distances.append((np.sqrt((skeleton_indexes[0][0] - skeleton_indexes[-1][0])**2 +
-                                               (skeleton_indexes[0][1] - skeleton_indexes[-1][1])**2)))
+            skeleton_link_distances.append((np.sqrt((skeleton_links[0][0] - skeleton_links[-1][0])**2 +
+                                                    (skeleton_links[0][1] - skeleton_links[-1][1])**2)))
             break
 
-    return skeleton_indexes, skeleton_distances
+    return skeleton_links, skeleton_link_distances
 
 
-def find_first_link(skeleton_image: ndarray) -> (int, int):
+def find_first_link_pixel(skeleton_image: ndarray) -> (int, int):
     """
     Find the first link in a skeleton image by scanning the image for the first pixel with 1 value.
 
@@ -232,8 +232,8 @@ def find_first_link(skeleton_image: ndarray) -> (int, int):
 
 
 @measure_runtime
-def equal_distance_indexes(number_of_points: int, skeleton_indexes: list[(int, int)], skeleton_distances: list[float]) \
-        -> list[(float, float)]:
+def find_equal_distance_pixels(number_of_pixels: int, skeleton_links: list[(int, int)],
+                               skeleton_link_distances: list[float]) -> list[(float, float)]:
     """
     Find all equal distance indexes of a skeleton image.
     Note - The returned indexes aren't necessarily integer values, as interpolation is used to equalize the distance.
@@ -241,40 +241,43 @@ def equal_distance_indexes(number_of_points: int, skeleton_indexes: list[(int, i
     Assumptions:
     1) number_of_points is smaller than len(skeleton_indexes).
 
-    :param number_of_points: Number of points for extraction.
-    :param skeleton_indexes: Indexes of the links in the skeleton image.
-    :param skeleton_distances: distances between each link in the skeleton image.
+    :param number_of_pixels: Number of pixels for extraction.
+    :param skeleton_links: Indexes of the links in the skeleton image.
+    :param skeleton_link_distances: distances between each link in the skeleton image.
 
     :return: array of indexes of the skeleton spaced with equal distance.
     """
 
     # TODO: Assert that len(skeleton_indexes) == len(skeleton_distances).
 
-    result = [skeleton_indexes[0]]  # The first link is the first index.
+    # TODO: Change the name of the array to something more inherent.
+    pixel_coordinates = [skeleton_links[0]]  # The first link is the first index.
 
-    total_distance = sum(skeleton_distances)
+    # Calculating the total distance.
+    total_distance = sum(skeleton_link_distances)
     log.debug(f"Total distance of skeleton - {total_distance}")
 
-    interval_distance = total_distance / number_of_points
+    # Calculating the interval between each equal distance index.
+    interval_distance = total_distance / number_of_pixels
     log.debug(f"Interval distance is - {interval_distance}")
 
     distance = 0  # Used for measuring covered distance.
-    for i in range(len(skeleton_indexes)):
-        distance += skeleton_distances[i]
+    for i in range(len(skeleton_links)):
+        distance += skeleton_link_distances[i]
         if distance >= interval_distance:
             # Crossed the interval distance.
 
             # Calculate the distance needed versus remainder.
             remainder = distance - interval_distance
-            complementary_distance = skeleton_distances[i] - remainder
+            complementary_distance = skeleton_link_distances[i] - remainder
 
             # Calculate and append the exact interpolated points.
-            result.append(interpolate_line_point(p1=skeleton_indexes[i], p2=skeleton_indexes[i + 1],
-                                                     d=complementary_distance))
+            pixel_coordinates.append(interpolate_line_point(p1=skeleton_links[i], p2=skeleton_links[i + 1],
+                                                 d=complementary_distance))
 
             distance = remainder  # Reset the distance counter to the remainder.
 
-    return result
+    return pixel_coordinates
 
 
 def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, float):
