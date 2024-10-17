@@ -152,12 +152,16 @@ def thinning_sub_iteration(binary_image: ndarray, sub_iteration: int) -> (ndarra
 @measure_runtime
 def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], list[float]):
     """
-    TODO: Complete the docstring.
+    Extract important parameters (link indexes and distances) of the skeleton image.
 
     Assumptions:
     1) Only a single connected skeleton exists in the provided image.
     2) The skeleton is within the image borders.
     3) The skeleton is of unitary thickness.
+
+    :param skeleton_image: Skeleton image.
+
+    :return: Array of link indexes and array of link distances.
     """
 
     # Copying the image as to not disturb the original.
