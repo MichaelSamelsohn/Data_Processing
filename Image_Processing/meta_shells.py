@@ -340,3 +340,53 @@ def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, 
     except ZeroDivisionError:
         # (p1[0]-p2[0])=0 -> Vertical line (only y changes).
         return x1, y1 + d*(y2 - y1)
+
+
+def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coordinates: (float, float)):
+    """
+    Transform image coordinates to spatial space.
+
+    Assumptions:
+    1) The image size is an odd integer (symmetric around the origin).
+    2) scaling_factor is the same for x and y axes.
+
+    Image space versus spatial space:
+
+                                      (0,0) -------(image_size/2)------→ col
+                                        |
+                                        |                y
+                                        |                ↑
+                                        |                |
+                                        |                |
+                                  (image_size/2)       (0,0) -----→ x
+                                        |
+                                        |
+                                        |
+                                        ↓
+                                       row
+
+    The origin point of the spatial space is at the middle of the image space, hence the image space should be a
+    symmetrical size of an odd number.
+    The column-axis in the image space is in the same direction as the x-axis, therefore, x=col-image_size/2.
+    The row-axis in the image space is in opposite direction of the y-axis, therefore, y=image_size/2-row.
+
+    :param image_size: The size of the image axes (odd integer).
+    :param scaling_factor: The scaling factor for the image.
+    :param pixel_coordinates: The pixel coordinates for the transform.
+
+    :return: Array of transformed (translated and scaled) spatial coordinates.
+    """
+
+    # Calculating the translation factor.
+    translation_factor = image_size / 2  # Simplified, because it's used many times throughout the following operations.
+    log.debug(f"Translation factor - {translation_factor}")
+
+    # Calculating the delta factor (pixel distance unit in spatial space).
+    delta_factor = scaling_factor / translation_factor
+    log.debug(f"One pixel unit in spatial space - {delta_factor}")
+
+    # Translate and scale pixel coordinates to spatial ones.
+    spatial_coordinates = [(delta_factor * (i[1] - translation_factor), delta_factor * (translation_factor - i[0]))
+                           for i in pixel_coordinates]
+
+    return spatial_coordinates
