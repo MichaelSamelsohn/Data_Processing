@@ -1,9 +1,8 @@
-import copy
+import cmath
 
 from Utilities.decorators import article_reference
 from common import *
 from spatial_filtering import *
-from corner_detection import *
 from segmentation import *
 from morphological_operations import *
 from intensity_transformations import *
@@ -345,7 +344,8 @@ def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, 
         return x1, y1 + d*(y2 - y1)
 
 
-def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coordinates: (float, float)):
+def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coordinates: (float, float)) \
+        -> list[(float, float)]:
     """
     Transform image coordinates to spatial space.
 
@@ -389,7 +389,25 @@ def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coo
     log.debug(f"One pixel unit in spatial space - {delta_factor}")
 
     # Translate and scale pixel coordinates to spatial ones.
-    spatial_coordinates = [(delta_factor * (i[1] - translation_factor), delta_factor * (translation_factor - i[0]))
-                           for i in pixel_coordinates]
+    spatial_coordinates = [(delta_factor * (col - translation_factor), delta_factor * (translation_factor - row))
+                           for row, col in pixel_coordinates]
 
     return spatial_coordinates
+
+
+def dft_2d(spatial_coordinates: list[(float, float)]):
+    """
+    TODO: Complete the docstring.
+    """
+
+    complex_coordinates = [x+1j*y for x, y in spatial_coordinates]
+
+    fourier_coefficients = []
+    normalization_factor = 1/len(spatial_coordinates)  # Simplified, because it's used many times.
+    for k in range(len(spatial_coordinates)):
+        a = 0  # Resetting the coefficient calculation.
+        for n in range(len(spatial_coordinates)):
+            a += normalization_factor * complex_coordinates[n] * cmath.exp(-1j*2*math.pi*n*k*normalization_factor)
+        fourier_coefficients.append(a)
+
+    return fourier_coefficients
