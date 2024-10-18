@@ -1,3 +1,4 @@
+# Imports #
 import cmath
 
 from Utilities.decorators import article_reference
@@ -6,8 +7,6 @@ from spatial_filtering import *
 from segmentation import *
 from morphological_operations import *
 from intensity_transformations import *
-from Settings import image_settings
-
 from Settings.settings import log
 
 
@@ -249,7 +248,6 @@ def find_equal_distance_pixels(number_of_pixels: int, skeleton_links: list[(int,
 
     # TODO: Assert that len(skeleton_indexes) == len(skeleton_distances).
 
-    # TODO: Change the name of the array to something more inherent.
     pixel_coordinates = [skeleton_links[0]]  # The first link is the first index.
 
     # Calculating the total distance.
@@ -344,6 +342,7 @@ def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, 
         return x1, y1 + d*(y2 - y1)
 
 
+@measure_runtime
 def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coordinates: (float, float)) \
         -> list[(float, float)]:
     """
@@ -395,14 +394,18 @@ def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coo
     return spatial_coordinates
 
 
+@measure_runtime
 def dft_2d(spatial_coordinates: list[(float, float)]):
     """
     TODO: Complete the docstring.
     """
 
+    fourier_coefficients = []
+
+    log.debug("Turning spatial coordinates into complex numbers")
     complex_coordinates = [x+1j*y for x, y in spatial_coordinates]
 
-    fourier_coefficients = []
+    log.debug("Calculating the Fourier coefficients")
     normalization_factor = 1/len(spatial_coordinates)  # Simplified, because it's used many times.
     for k in range(len(spatial_coordinates)):
         a = 0  # Resetting the coefficient calculation.
