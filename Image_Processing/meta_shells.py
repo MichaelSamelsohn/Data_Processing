@@ -10,6 +10,29 @@ from intensity_transformations import *
 from Settings.settings import log
 
 
+@measure_runtime
+def noiseless_doublet(image: ndarray):
+    """
+    TODO: Complete the docstring.
+    """
+
+    log.debug("Stretching the contrast of the image")
+    stretched_image = contrast_stretching(image=image)
+
+    log.debug("Thresholding the image to extract the high intensity contour")
+    high_intensity_contour = thresholding(image=stretched_image, threshold_value=0.75)
+
+    log.debug("Thresholding the negative image to extract the low intensity contour")
+    negative_image = negative(image=stretched_image)
+    low_intensity_contour = thresholding(image=negative_image, threshold_value=0.75)
+
+    log.debug("Blurring the image to join the two intensity contours")
+    blurred = blur_image(image=low_intensity_contour + high_intensity_contour, filter_size=11)
+    log.debug("Thresholding the blurred image to obtain a blob centered on the required line")
+    blob = global_thresholding(image=blurred, initial_threshold=0.1)
+    return blob
+
+
 @article_reference(article="[T. Y. Zhang and C. Y. Suen. A Fast Parallel Algorithm for Thinning Digital Patterns. "
                            "Communications of the ACM, 27(3):236–239, 1984")
 @measure_runtime
