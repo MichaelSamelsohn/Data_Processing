@@ -11,7 +11,7 @@ from Settings.settings import log
 
 
 @measure_runtime
-def noiseless_doublet(image: ndarray):
+def noiseless_doublet(image: ndarray) -> ndarray:
     """
     TODO: Complete the docstring.
     """
@@ -30,6 +30,7 @@ def noiseless_doublet(image: ndarray):
     blurred = blur_image(image=low_intensity_contour + high_intensity_contour, filter_size=11)
     log.debug("Thresholding the blurred image to obtain a blob centered on the required line")
     blob = global_thresholding(image=blurred, initial_threshold=0.1)
+
     return blob
 
 
@@ -52,7 +53,7 @@ def thinning(binary_image: ndarray) -> ndarray:
     need to apply the algorithm to image edges).
     The algorithm presented in this paper requires only simple computations.
 
-    The process continues until no pixels are identified as contour points (only the skeleton remians, nothing else to
+    The process continues until no pixels are identified as contour points (only the skeleton remains, nothing else to
     thin out). Therefore, between each sub-iteration, a check is performed to see how many contour points were
     identified.
 
@@ -228,8 +229,8 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
             log.debug("No new link found (skeleton recovered)")
             log.debug(f"Total links in skeleton - {len(skeleton_links)}")
             # Calculate the distance from last link to first one.
-            skeleton_link_distances.append((np.sqrt((skeleton_links[0][0] - skeleton_links[-1][0])**2 +
-                                                    (skeleton_links[0][1] - skeleton_links[-1][1])**2)))
+            skeleton_link_distances.append((np.sqrt((skeleton_links[0][0] - skeleton_links[-1][0]) ** 2 +
+                                                    (skeleton_links[0][1] - skeleton_links[-1][1]) ** 2)))
             break
 
     return skeleton_links, skeleton_link_distances
@@ -293,7 +294,7 @@ def find_equal_distance_pixels(number_of_pixels: int, skeleton_links: list[(int,
 
             # Calculate and append the exact interpolated points.
             pixel_coordinates.append(interpolate_line_point(p1=skeleton_links[i], p2=skeleton_links[i + 1],
-                                                 d=complementary_distance))
+                                                            d=complementary_distance))
 
             distance = remainder  # Reset the distance counter to the remainder.
 
@@ -351,18 +352,18 @@ def interpolate_line_point(p1: (int, int), p2: (int, int), d: float) -> (float, 
     try:
         # Calculating the constants m and C.
         m = (p1[1] - p2[1]) / (p1[0] - p2[0])
-        const = d**2 / (1 + m**2)
+        const = d ** 2 / (1 + m ** 2)
 
         # Calculating solution of the quadratic equation (4).
         x3 = x1 + np.sqrt(const)  # Assuming solution (5).
         if (x3 > x1 and x3 > x2) or (x3 < x1 and x3 < x2):
             # Solution (5) doesn't satisfy the third condition.
             x3 = x1 - np.sqrt(const)  # Applying solution (6).
-        y3 = y1 + m*(x3 - x1)  # Applying equation (3) to find the y coordinate.
+        y3 = y1 + m * (x3 - x1)  # Applying equation (3) to find the y coordinate.
         return x3, y3
     except ZeroDivisionError:
         # (p1[0]-p2[0])=0 -> Vertical line (only y changes).
-        return x1, y1 + d*(y2 - y1)
+        return x1, y1 + d * (y2 - y1)
 
 
 @measure_runtime
@@ -417,6 +418,29 @@ def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coo
     return spatial_coordinates
 
 
+def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
+    """
+    Generate a multifoil function.
+
+    :param a: Amplitude of the multifoil.
+    :param b: ??
+    :param lobes: Number of lobes the multifoil includes.
+    :param number_of_points: Number of points included in the function.
+
+    :return: Cartesian coordinates of the multifoil function.
+    """
+
+    log.debug("Calculating the polar coordinates")
+    phi = np.linspace(0, 2 * np.pi, number_of_points)
+    r = a * (1 + b * np.cos(lobes * phi))
+
+    log.debug("Converting to Cartesian coordinates")
+    x = [r[i] * np.cos(phi[i]) for i in range(number_of_points)]
+    y = [r[i] * np.sin(phi[i]) for i in range(number_of_points)]
+
+    return x, y
+
+
 @measure_runtime
 def dft_2d(spatial_coordinates: list[(float, float)]):
     """
@@ -426,14 +450,15 @@ def dft_2d(spatial_coordinates: list[(float, float)]):
     fourier_coefficients = []
 
     log.debug("Turning spatial coordinates into complex numbers")
-    complex_coordinates = [x+1j*y for x, y in spatial_coordinates]
+    complex_coordinates = [x + 1j * y for x, y in spatial_coordinates]
 
     log.debug("Calculating the Fourier coefficients")
-    normalization_factor = 1/len(spatial_coordinates)  # Simplified, because it's used many times.
+    normalization_factor = 1 / len(spatial_coordinates)  # Simplified, because it's used many times.
     for k in range(len(spatial_coordinates)):
         a = 0  # Resetting the coefficient calculation.
         for n in range(len(spatial_coordinates)):
-            a += normalization_factor * complex_coordinates[n] * cmath.exp(-1j*2*math.pi*n*k*normalization_factor)
+            a += normalization_factor * complex_coordinates[n] * cmath.exp(
+                -1j * 2 * math.pi * n * k * normalization_factor)
         fourier_coefficients.append(a)
 
     return fourier_coefficients
