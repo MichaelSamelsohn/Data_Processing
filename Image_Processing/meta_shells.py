@@ -404,7 +404,7 @@ def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coo
     """
 
     # Calculating the translation factor.
-    translation_factor = image_size / 2  # Simplified, because it's used many times throughout the following operations.
+    translation_factor = image_size // 2  # Simplified, because it's used many times throughout the following operations.
     log.debug(f"Translation factor - {translation_factor}")
 
     # Calculating the delta factor (pixel distance unit in spatial space).
