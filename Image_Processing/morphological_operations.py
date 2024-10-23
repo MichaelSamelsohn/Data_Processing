@@ -22,10 +22,10 @@ import numpy as np
 from numpy import ndarray
 
 from common import pad_image, extract_sub_image, convert_to_grayscale
-from intensity_transformations import thresholding
 from Settings import image_settings
 from Utilities.decorators import measure_runtime
 from Settings.settings import log
+from segmentation import thresholding
 
 
 def morphological_erosion(image: ndarray, structuring_element: ndarray,

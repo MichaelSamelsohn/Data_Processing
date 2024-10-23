@@ -38,7 +38,7 @@ SOBEL_OPERATORS = {
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
-                reference="Chapter 3 - Smoothing (Lowpass) Spatial Filters, p.164-175")
+                 reference="Chapter 3.5 - Smoothing (Lowpass) Spatial Filters, p.164-175")
 def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
                filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                **kwargs) -> ndarray:
@@ -56,7 +56,39 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
-                reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.178-182")
+                reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.178-182")
+def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                       include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                       contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+    """
+    TODO: Complete the docstring.
+
+    :param image: The image for applying a Laplacian gradient.
+    :param padding_type: The type of border padding (available types are - ??).
+    :param include_diagonal_terms: Boolean determining if diagonal terms are included in the gradient.
+    :param contrast_stretch: TODO: Add parameter description.
+    :return: Sharpened image (using Laplacian gradient).
+    """
+
+    laplacian_kernels = {
+        "WITHOUT_DIAGONAL_TERMS": np.array([[0, 1, 0],
+                                            [1, -4, 1],
+                                            [0, 1, 0]]),
+        "WITH_DIAGONAL_TERMS": np.array([[1, 1, 1],
+                                         [1, -8, 1],
+                                         [1, 1, 1]])
+    }
+
+    laplacian_kernel = laplacian_kernels["WITHOUT_DIAGONAL_TERMS"] if not include_diagonal_terms \
+        else laplacian_kernels["WITH_DIAGONAL_TERMS"]
+
+    log.debug("Filtering the image")
+    return convolution_2d(image=image, kernel=laplacian_kernel, padding_type=padding_type,
+                          contrast_stretch=contrast_stretch)
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.178-182")
 def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                                include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                                c=image_settings.DEFAULT_CONSTANT) -> ndarray:
@@ -70,7 +102,7 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
     :return: Sharpened image.
     """
 
-    log.debug("Segment the image using the Laplacian operator")
+    log.debug("Segmenting the image using the Laplacian operator")
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
                                               include_diagonal_terms=include_diagonal_terms)
 
@@ -78,8 +110,9 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
-                reference="Chapter 3 - Sharpening (Highpass) Spatial Filters, p.182-184")
-def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.182-184")
+def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
+                      filter_size=image_settings.DEFAULT_FILTER_SIZE,
                       padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Use a high boost filter (un-sharp masking) to sharpen the image.
@@ -88,6 +121,7 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
     :param filter_type: The filter used for the image blurring.
     :param filter_size: The filter size used for the image blurring.
     :param padding_type: The padding type used for the convolution.
+
     :return: Sharpened image.
     """
 
@@ -102,8 +136,7 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
-                reference="Chapter 3 - Using first-order derivatives for image sharpening — the gradient, "
-                               "p.184-188")
+                reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.184-188")
 def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                  contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
     """
@@ -112,6 +145,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
     :param image: The image for sharpening.
     :param padding_type: The padding type used for the convolution.
     :param contrast_stretch: TODO: Complete the docstring.
+
     :return: Sharpened image.
     """
 
