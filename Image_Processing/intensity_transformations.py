@@ -19,7 +19,7 @@ Created by Michael Samelsohn, 13/05/22
 import numpy as np
 from numpy import ndarray
 
-from common import use_lookup_table, scale_pixel_values, convolution_2d
+from common import use_lookup_table, scale_pixel_values
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log
@@ -69,7 +69,7 @@ def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -
 @scale_pixel_values(scale_factor=255)
 def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.DEFAULT_DEGREE_OF_REDUCTION) -> ndarray:
     """
-    Bit plane reconstruction. The degree of reduction indicates how many bit planes we dismiss from the LSB.
+    Bit-plane reconstruction. The degree of reduction indicates how many bit planes we dismiss from the LSB.
     If degree of reduction is 0 (minimal value), all bit planes are included (original image).
     If degree of reduction is 1, all bit planes are included excluding the LSB.
     If degree of reduction is 7 (maximal value), only the MSB is included.
@@ -107,7 +107,7 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.
 @scale_pixel_values(scale_factor=255)
 def bit_plane_slicing(image: ndarray, bit_plane=image_settings.DEFAULT_BIT_PLANE) -> ndarray:
     """
-    Bit plane slicing. It comes to show the contribution of each bit plane.
+    Bit-plane slicing. It comes to show the contribution of each bit plane.
     The planes where the bit is equal to 1 will contribute pixel value of 255 (white).
     The planes where the bit is equal to 0 will contribute pixel value of 0 (black).
     Since an image is normally continuous (other than edges), the difference between MSB values of neighbouring pixels

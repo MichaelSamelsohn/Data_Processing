@@ -1,7 +1,45 @@
 """
 Script Name - segmentation.py
 
-Purpose - ??
+A simplified profile, with just enough points to make it possible for us to analyze manually how the first- and
+second-order derivatives behave as they encounter a point, a line, and the edges of objects. In this diagram the
+transition in the ramp spans four pixels, the noise point is a single pixel, the line is three pixels thick, and the
+transition of the step edge takes place between adjacent pixels. The number of intensity levels was limited to eight for
+simplicity.
+                        7                                                                 •  •  •  •
+                        6                             • Isolated point
+                        5  •  •
+                        4        •  Ramp                               Line             Step
+                        3           •                                   •
+                        2              •
+                        1                 •                 Flat     •     •
+                        0                    •  •  •     •  •  •  •           •  •  •  •
+    Intensity values       5  5  4  3  2  1  0  0  0  6  0  0  0  0  1  3  1  0  0  0  0  7  7  7  7
+    First derivative         -1 -1 -1 -1 -1  0  0  6 -6  0  0  0  1  2 -2 -1  0  0  0  0  7  0  0  0
+    Second derivative        -1  0  0  0  0  1  0  6 -12 6  0  0  1  1 -4  1  1  0  0  7 -7  0  0  0
+
+Consider the properties of the first and second derivatives as we traverse the profile from left to right. Initially,
+the first-order derivative is nonzero at the onset and along the entire intensity ramp, while the second-order
+derivative is nonzero only at the onset and end of the ramp. Because the edges of digital images resemble this type of
+transition, we conclude that first-order derivatives produce “thick” edges, and second-order derivatives much thinner
+ones. Next we encounter the isolated noise point. Here, the magnitude of the response at the point is much stronger for
+the second- than for the first-order derivative. This is not unexpected, because a second-order derivative is much more
+aggressive than a first-order derivative in enhancing sharp changes. Thus, we can expect second-order derivatives to
+enhance fine detail (including noise) much more than first-order derivatives. The line in this example is rather thin,
+so it too is fine detail, and we see again that the second derivative has a larger magnitude. Finally, note in both the
+ramp and step edges that the second derivative has opposite signs (negative to positive or positive to negative) as it
+transitions into and out of an edge. This “double-edge” effect is an important characteristic that can be used to locate
+edges, as we will show later in this section. As we move into the edge, the sign of the second derivative is used also
+to determine whether an edge is a transition from light to dark (negative second derivative), or from dark to light
+(positive second derivative).
+
+In summary, we arrive at the following conclusions:
+    (1) First-order derivatives generally produce thicker edges.
+    (2) Second-order derivatives have a stronger response to fine detail, such as thin lines, isolated points, and
+        noise.
+    (3) Second-order derivatives produce a double-edge response at ramp and step transitions in intensity.
+    (4) The sign of the second derivative can be used to determine whether a transition into an edge is from light to
+        dark or dark to light.
 
 Created by Michael Samelsohn, 20/05/22
 """
@@ -23,19 +61,26 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
                              include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                              threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:
     """
-    TODO: Add more documentation.
+    Isolated point detection using the Laplacian kernel (second-derivative).
+    As seen above, second-order derivatives have a stronger response to fine detail, such as thin lines, isolated
+    points, and noise.
 
-    :param image: TODO: Add parameter description.
-    :param padding_type: TODO: Add parameter description.
-    :param include_diagonal_terms: TODO: Add parameter description.
-    :param threshold_value: TODO: Add parameter description.
-    :return: TODO: Add parameter description.
+    :param image: The image for isolated point detection.
+    :param padding_type: Padding type used for applying the kernel.
+    :param include_diagonal_terms: Type of Laplacian kernel used for the isolated point detection.
+    :param threshold_value: Threshold value used for the thresholding of the post Laplacian image (to remove "weak"
+    isolated points).
+
+    :return: Binary image containing the strongest isolated points.
     """
 
-    # TODO: Add logs.
+    log.debug("Detecting isolated points")
+
+    # Step I - Applying Laplacian kernel on the image.
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
                                               include_diagonal_terms=include_diagonal_terms)
 
+    # Step II - Thresholding the remaining values to remove "weak" points.
     return thresholding(image=np.abs(post_laplacian_image), threshold_value=threshold_value)
 
 

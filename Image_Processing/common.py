@@ -60,8 +60,12 @@ def salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
                 salt_pixels += 1
             noisy_image[row][col] = new_pixel
 
-    log.info(f"Pepper pixels - {pepper_pixels} ({round(100*pepper_pixels/(image.shape[0]*image.shape[1]), 2)}% of total pixels)")
-    log.info(f"Salt pixels - {salt_pixels} ({round(100*salt_pixels/(image.shape[0]*image.shape[1]), 2)}% of total pixels)")
+    log.info(
+        f"Pepper pixels - {pepper_pixels} ({round(100 * pepper_pixels / (image.shape[0] * image.shape[1]), 2)}% of "
+        f"total pixels)")
+    log.info(
+        f"Salt pixels - {salt_pixels} ({round(100 * salt_pixels / (image.shape[0] * image.shape[1]), 2)}% of "
+        f"total pixels)")
 
     return noisy_image
 
@@ -139,8 +143,8 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
         log.debug("Color image -> Splitting the image to its three channels")
         red, green, blue = image[:, :, 0], image[:, :, 1], image[:, :, 2]
         return calculate_histogram(image=red, normalize=normalize), \
-               calculate_histogram(image=green, normalize=normalize), \
-               calculate_histogram(image=blue, normalize=normalize)
+            calculate_histogram(image=green, normalize=normalize), \
+            calculate_histogram(image=blue, normalize=normalize)
 
     log.debug("Scaling the image to have a histogram with integer values")
     image = scale_image(image=image, scale_factor=255)
@@ -160,15 +164,17 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
     return histogram
 
 
-def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE, **kwargs) \
-        -> ndarray:
-    f"""
+def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                    **kwargs) -> ndarray:
+    """
+    Types of filters:
+        * Box filter - An all ones filter (with normalization).
+        * Gaussian filter - Based on  the formula 3-46 in page 167 {image_settings.GONZALES_WOODS_BOOK} (with
+          normalization).
 
     :param filter_type: The type of filter to be generated.
     :param filter_size: The size of the filter to be generated. Can be either an integer or a tuple of integers.
-    Types of filters:
-        * Box filter - An all ones filter (with normalization).
-        * Gaussian filter - Based on  the formula 3-46 in page 167 {image_settings.GONZALES_WOODS_BOOK} (with normalization).
+
     :return: Matrix array with the specified dimensions and based on the selected filter type
     """
 
