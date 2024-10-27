@@ -201,8 +201,8 @@ def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=
                 for row in range(filter_size):
                     for col in range(filter_size):
                         r_squared = math.pow(row - center_position, 2) + math.pow(col - center_position, 2)
-                        image_filter[row][col] = kwargs["K"] * math.exp(
-                            -r_squared / (2 * math.pow(kwargs["Sigma"], 2)))
+                        image_filter[row][col] = kwargs["k"] * math.exp(
+                            -r_squared / (2 * math.pow(kwargs["sigma"], 2)))
                 image_filter /= np.sum(image_filter)  # Normalize.
     except KeyError:
         log.raise_exception("Missing arguments for filter generation", exception=KeyError)

@@ -11,7 +11,6 @@ Created by Michael Samelsohn, 20/05/22
 import numpy as np
 from numpy import ndarray
 from common import generate_filter, convolution_2d, contrast_stretching
-from segmentation import laplacian_gradient
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log

@@ -48,11 +48,11 @@ Created by Michael Samelsohn, 20/05/22
 import numpy as np
 from numpy import ndarray
 
-from common import convolution_2d, convert_to_grayscale
+from common import convolution_2d, convert_to_grayscale, extract_sub_image
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log
-from spatial_filtering import laplacian_gradient
+from spatial_filtering import laplacian_gradient, blur_image
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
@@ -97,6 +97,7 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
     :param threshold_value: The threshold value for post filter image normalization.
     Note - The threshold value is important, because it determines the 'strength' of the gradient. This means that
     higher threshold, will display higher contrast lines.
+
     :return: Filtered image in all directions.
     """
 
@@ -134,13 +135,15 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
 def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> dict:
     """
-    Perform Kirsch edge detection on an image. Kirsch's method employs 8 directional 3x3 kernels, where the image is
-    convolved with each one. Once finished, a max value image is generated and compared with each direction. A pixel is
-    marked for a specific direction when the direction image value equals the max value (indicating that the change in
-    that direction is the strongest).
+    Perform Kirsch edge detection on an image.
+
+    Kirsch's method employs 8 directional 3x3 kernels, where the image is convolved with each one. Once finished, a max
+    value image is generated and compared with each direction. A pixel is marked for a specific direction when the
+    direction image value equals the max value (indicating that the change in that direction is the strongest).
 
     :param image: The image for Kirsch edge detection.
     :param padding_type: The padding type used for the convolution.
+
     :return: Filtered image in all directions.
     """
 
@@ -198,7 +201,122 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
     return filtered_images_dictionary
 
 
-# TODO: Implement the Marr-Hildreth edge detector (LoG) - p.724-729.
+"""
+The edge-detection methods implemented in the previous subsections are based on filtering an image with one or more 
+kernels, with no provisions made for edge characteristics and noise content. In this section, we discuss more advanced 
+techniques that attempt to improve on simple edge-detection methods by taking into account factors such as image noise 
+and the nature of edges themselves.
+"""
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.3 - Point, Line, and Edge Detection, p.724-729")
+def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                                 padding_type=image_settings.DEFAULT_PADDING_TYPE, sigma=1,
+                                 include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                                 threshold=0) -> ndarray:
+    """
+    Marr and Hildreth [1980] argued that:
+    1. Intensity changes are not independent of image scale, implying that their detection requires using operators of
+       different sizes
+    2. A sudden intensity change will give rise to a peak or trough in the first derivative or, equivalently, to a zero
+    crossing in the second derivative.
+
+    These ideas suggest that an operator used for edge detection should have two salient features. First and foremost,
+    it should be a differential operator capable of computing a digital approximation of the first or second derivative
+    at every point in the image. Second, it should be capable of being “tuned” to act at any desired scale, so that
+    large operators can be used to detect blurry edges and small operators to detect sharply focused fine detail.
+
+    Marr and Hildreth suggested that the most satisfactory operator fulfilling these conditions is the filter ∇^2G
+    Where ∇^2 is the Laplacian operator and the G stands for the Gaussian 2D function:
+                                            G(x,y) = e[-(x^2+y^2)/2sigma^2]
+    with standard deviation s (sometimes s is called the space constant in this context). We find an expression for ∇^2G
+    by applying the Laplacian:
+        ∇^2G(x,y) = ∂^2G(x,y)/∂x^2 + ∂^2G(x,y)/∂y^2 = • • • = [(x^2+y^2-2sigma^2)/sigma^4] * e[-(x^2+y^2)/2sigma^2]
+    This expression is called the Laplacian of a Gaussian (LoG). The zero crossings of the LoG occur at x^2+y^2=2sigma^2
+    which defines a circle of radius sqrt(2)sigma centered on the peak of the Gaussian function.
+
+    There are two fundamental ideas behind the selection of the operator ∇^2G. First, the Gaussian part of the operator
+    blurs the image, thus reducing the intensity of structures (including noise) at scales much smaller than sigma. The
+    other idea concerns the second derivative properties of the Laplacian operator, ∇^2. Although first derivatives can
+    be used for detecting abrupt changes in intensity, they are directional operators. The Laplacian, on the other hand,
+    has the important advantage of being isotropic (invariant to rotation), which not only corresponds to
+    characteristics of the human visual system but also responds equally to changes in intensity in any kernel
+    direction, thus avoiding having to use multiple kernels to calculate the strongest response at any point in the
+    image.
+
+    The Marr-Hildreth algorithm consists of convolving the LoG kernel with an input image. Because the Laplacian and
+    convolution are linear processes we can smooth the image first with a Gaussian filter and then compute the Laplacian
+    of the result.
+
+    :param image: The image for Kirsch edge detection.
+    :param sigma: Value of the sigma used in the Gaussian kernel.
+    :param filter_size: Size of the filter used for the convolution with the Gaussian kernel.
+    :param padding_type: The padding type used for the convolution with the Gaussian kernel.
+    :param include_diagonal_terms: Boolean value determining which Laplacian kernel is used.
+    :param threshold: Threshold value used to filter "weaker" edge pixels.
+
+    :return: Filtered image with LoG.
+    """
+
+    log.debug("Applying the Marr-Hildreth edge detection method on the image")
+
+    log.debug("Blurring the image with a Gaussian kernel")
+    gaussian_image = blur_image(image=image, filter_type=image_settings.GAUSSIAN_FILTER, filter_size=filter_size,
+                                padding_type=padding_type, k=1, sigma=sigma)
+
+    log.debug("Applying the Laplacian on the Gaussian image")
+    log_image = laplacian_gradient(image=gaussian_image, padding_type=padding_type,
+                                   include_diagonal_terms=include_diagonal_terms, contrast_stretch=False)
+
+    log.debug("Finding the zero crossings of the LoG image")
+    marr_hildreth_image = np.zeros(image.shape)
+    for row in range(1, image.shape[0] - 1):
+        for col in range(1, image.shape[1] - 1):
+            # Extract the sub-image for the zero crossing inspection.
+            sub_image = extract_sub_image(image=log_image, position=(row, col), sub_image_size=3)
+            # Mark the inspected pixel as either 1 (zero crossing above threshold -> edge) or 0.
+            marr_hildreth_image[row][col] = zero_crossing(sub_image=sub_image, threshold=threshold)
+
+    return marr_hildreth_image
+
+
+def zero_crossing(sub_image: ndarray, threshold: float) -> int:
+    """
+    Helper method for Marr Hildreth edge detection.
+
+    One approach for finding the zero crossings at any pixel, p, of the filtered image, g(x,y), is to use a 3×3
+    neighborhood centered at p. A zero crossing at p implies that the signs of at least two of its opposing neighboring
+    pixels must differ. There are four cases to test: left/right, up/down, and the two diagonals. If the values of
+    g(x,y) are being compared against a threshold (a common approach), then not only must the signs of opposing
+    neighbors be different, but the absolute value of their numerical difference must also exceed the threshold before
+    we can call p a zero-crossing pixel.
+
+    :param sub_image: 3×3 sub image (extracted from the LoG one).
+    :param threshold: Threshold value used to filter "weaker" edge pixels.
+
+    :return: 1 if pixel is designated as a zero crossing, 0 otherwise.
+    """
+
+    # Check horizontal line.
+    if (((sub_image[1][0] > 0 > sub_image[1][2]) or (sub_image[1][2] > 0 > sub_image[1][0]))
+            and (np.abs(sub_image[1][2] - sub_image[1][0]) > threshold)):
+        return 1
+    # Check vertical line.
+    elif (((sub_image[0][1] > 0 > sub_image[2][1]) or (sub_image[2][1] > 0 > sub_image[0][1]))
+            and (np.abs(sub_image[2][1] - sub_image[0][1]) > threshold)):
+        return 1
+    # Check forward slash \.
+    elif (((sub_image[0][0] > 0 > sub_image[2][2]) or (sub_image[2][2] > 0 > sub_image[0][0]))
+            and (np.abs(sub_image[2][2] - sub_image[0][0]) > threshold)):
+        return 1
+    # Check backward slash /.
+    elif (((sub_image[0][2] > 0 > sub_image[2][0]) or (sub_image[2][0] > 0 > sub_image[0][2]))
+            and (np.abs(sub_image[2][0] - sub_image[0][2]) > threshold)):
+        return 1
+    else:
+        return 0
+
 # TODO: Implement the Canny edge detector - p.729-735.
 # TODO: Implement the Hough transform - p.737-742.
 
