@@ -50,7 +50,7 @@ from numpy import ndarray
 
 from common import convolution_2d, convert_to_grayscale, extract_sub_image
 from Settings import image_settings
-from Utilities.decorators import book_reference
+from Utilities.decorators import book_reference, article_reference
 from Settings.settings import log
 from spatial_filtering import laplacian_gradient, blur_image
 
@@ -90,7 +90,11 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
                    threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> dict:
     """
     Line detection in an image.
-    TODO: Add more documentation.
+
+    If we are interested in detecting all the lines in an image in the direction defined by a given kernel, we simply
+    run the kernel through the image and threshold the absolute value of the result. The nonzero points remaining after
+    thresholding are the strongest responses which, for lines one pixel thick, correspond closest to the direction
+    defined by the kernel.
 
     :param image: The image used for line detection.
     :param padding_type: The padding type used for the convolution.
@@ -133,6 +137,7 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
+# TODO: Find the article reference.
 def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> dict:
     """
     Perform Kirsch edge detection on an image.
@@ -210,7 +215,9 @@ and the nature of edges themselves.
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
-                reference="Chapter 10.3 - Point, Line, and Edge Detection, p.724-729")
+                reference="Chapter 10.2 - Point, Line, and Edge Detection, p.724-729")
+@article_reference(article="Marr, D.; Hildreth, E. (29 Feb 1980). \"Theory of Edge Detection\". Proceedings of the "
+                           "Royal Society of London. Series B, Biological Sciences. 207 (1167): 187–217")
 def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFAULT_FILTER_SIZE,
                                  padding_type=image_settings.DEFAULT_PADDING_TYPE, sigma=1,
                                  include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,

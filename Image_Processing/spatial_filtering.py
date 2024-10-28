@@ -241,8 +241,9 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.184-188")
+# TODO: Find the article reference.
 def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                 contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+                 contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> (ndarray, ndarray):
     """
     Use a sobel operator filter (first-order derivative) to sharpen the image.
 
@@ -255,7 +256,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
 
     The magnitude (length), denoted as M(x,y) (the vector norm notation f is also used frequently), where:
                                         M(x,y) = sqrt((∂f/∂x)^2 + (∂f/∂y)^2)
-    is the value at (, ) x y of the rate of change in the direction of the gradient vector. Note that M(x,y) is an image
+    is the value at (x,y) of the rate of change in the direction of the gradient vector. Note that M(x,y) is an image
     of the same size as the original, created when x and y are allowed to vary over all pixel locations in f. It is
     common practice to refer to this image as the gradient image (or simply as the gradient when the meaning is clear).
 
@@ -272,10 +273,11 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
     zero in areas of constant intensity, as expected of a derivative operator. As noted earlier, when an image is
     convolved with a kernel whose coefficients sum to zero, the elements of the resulting filtered image sum to zero
     also, so images convolved with the kernels will have negative values in general. The computations of gx and gy are
-    linear operations and are implemented using convolution, as noted above. The nonlinear aspect of sharpening with the
-    gradient is the computation of M(x,y) involving squaring and square roots, or the use of absolute values, all of
-    which are nonlinear operations. These operations are performed after the linear process (convolution) that yields
-    ∂f/∂x and ∂f/∂y.
+    linear operations and are implemented using convolution, as noted above.
+
+    The nonlinear aspect of sharpening with the gradient is the computation of M(x,y) involving squaring and square
+    roots, or the use of absolute values, all of which are nonlinear operations. These operations are performed after
+    the linear process (convolution) that yields ∂f/∂x and ∂f/∂y.
 
     :param image: The image for sharpening.
     :param padding_type: The padding type used for the convolution.
@@ -283,7 +285,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
     Note - When not applying contrast stretch, it is possible for information to get lost, as values below/above the
     cutoff values are rounded to these values.
 
-    :return: Sharpened image.
+    :return: Tuple containing the magnitude (sharpened) and angle images.
     """
 
     log.debug("Calculating the horizontal-directional derivative")
@@ -295,4 +297,17 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
 
     log.debug("Calculating the magnitude (length) of the image gradient")
     magnitude = np.sqrt(np.power(gx, 2) + np.power(gy, 2))
-    return magnitude if not contrast_stretch else contrast_stretching(image=magnitude)
+
+    log.debug("Calculating the direction (angle) of the image gradient")
+    angle = np.zeros(shape=image.shape)
+    for row in range(0, image.shape[0]):
+        for col in range(0, image.shape[1]):
+            if gx[row][col] == 0:
+                angle[row][col] = np.pi/2 if gy[row][col] > 0 else -np.pi/2
+            else:
+                angle[row][col] = np.arctan(gy[row][col]/gx[row][col])
+
+    if contrast_stretch:
+        magnitude = contrast_stretching(image=magnitude)
+        angle = contrast_stretching(image=angle)
+    return magnitude, angle
