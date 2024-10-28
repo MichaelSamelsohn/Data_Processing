@@ -42,10 +42,11 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
     :return: Filtered image.
     """
 
-    log.debug(f"Blurring image with the filter type - {filter_type}")
+    log.info(f"Blurring image with the filter type - {filter_type}")
 
-    log.debug("Generating the kernel")
+    # Generating the kernel.
     kernel = generate_filter(filter_type=filter_type, filter_size=filter_size, **kwargs)
+    # Convolving the image with the generated kernel.
     return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
 
 
@@ -140,7 +141,8 @@ def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDI
     :return: Laplacian (smoothed) image.
     """
 
-    log.debug("Applying the Laplacian kernel on the image")
+    log.info(f"Applying the Laplacian kernel ({'with' if include_diagonal_terms else 'without'} diagonal terms) "
+             f"on the image")
 
     laplacian_kernels = {
         "WITHOUT_DIAGONAL_TERMS": np.array([[0, 1, 0],
@@ -150,12 +152,10 @@ def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDI
                                          [1, -8, 1],
                                          [1, 1, 1]])
     }
-
-    log.debug(f"Include diagonal terms - {include_diagonal_terms}")
     laplacian_kernel = laplacian_kernels["WITHOUT_DIAGONAL_TERMS"] if not include_diagonal_terms \
         else laplacian_kernels["WITH_DIAGONAL_TERMS"]
 
-    log.debug("Applying the kernel on the image")
+    # Convolving the image with the generated kernel.
     return convolution_2d(image=image, kernel=laplacian_kernel, padding_type=padding_type,
                           contrast_stretch=contrast_stretch)
 
@@ -184,9 +184,9 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
     :return: Sharpened image.
     """
 
-    log.debug("Segmenting the image using the Laplacian operator")
+    log.info("Segmenting the image using the Laplacian operator")
 
-    log.debug("Applying the Laplacian kernel on the image")
+    # Applying the Laplacian kernel on the image.
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
                                               include_diagonal_terms=include_diagonal_terms)
 
@@ -227,7 +227,7 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
     :return: Sharpened image.
     """
 
-    log.debug("Performing un-sharp masking") if k == 1 else log.debug("Performing high-boost filtering")
+    log.info("Performing un-sharp masking") if k == 1 else log.info("Performing high-boost filtering")
 
     # Blurring the image.
     blurred_image = blur_image(image=image, filter_type=filter_type, filter_size=filter_size, padding_type=padding_type)
@@ -287,6 +287,8 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
 
     :return: Tuple containing the magnitude (sharpened) and angle images.
     """
+
+    log.info("Applying the Laplacian kernel on the image")
 
     log.debug("Calculating the horizontal-directional derivative")
     gx = convolution_2d(image=image, kernel=SOBEL_OPERATORS["HORIZONTAL"], padding_type=padding_type,

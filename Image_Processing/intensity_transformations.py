@@ -18,7 +18,6 @@ Created by Michael Samelsohn, 13/05/22
 # Imports #
 import numpy as np
 from numpy import ndarray
-
 from common import use_lookup_table, scale_pixel_values
 from Settings import image_settings
 from Utilities.decorators import book_reference
@@ -36,7 +35,7 @@ def negative(image: ndarray) -> ndarray:
     :return: Negative image.
     """
 
-    log.debug("Performing image negative")
+    log.info("Performing image negative")
     return 1 - image
 
 
@@ -58,9 +57,7 @@ def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -
     :return: Gamma-corrected image.
     """
 
-    log.debug("Performing Gamma correction to the image")
-    log.debug(f"Selected Gamma value is - {gamma}")
-
+    log.info(f"Performing Gamma (={gamma}) correction to the image")
     return np.power(image, gamma)
 
 
@@ -85,9 +82,8 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.
     :return: Bit-plane reconstructed image.
     """
 
-    log.debug("Performing image color reduction")
+    log.info(f"Performing image color reduction (degree of reduction = {degree_of_reduction})")
 
-    log.debug(f"The provided degree of reduction is - {degree_of_reduction}")
     # If provided degree of reduction is not in acceptable range, [0, 7], it will be assigned to the closest acceptable
     # value.
     degree_of_reduction = 0 if degree_of_reduction < 0 else 7 if degree_of_reduction > 7 else degree_of_reduction
@@ -99,6 +95,7 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.
     for value in range(256):
         lookup_table.put(value, value // reduction_factor * reduction_factor)
 
+    # Applying the lookup table.
     return use_lookup_table(image=image, lookup_table=lookup_table)
 
 
@@ -124,7 +121,8 @@ def bit_plane_slicing(image: ndarray, bit_plane=image_settings.DEFAULT_BIT_PLANE
     :return: Bit-plane sliced image (see explanation above on what image to expect depending on the selected bit plane).
     """
 
-    log.debug(f"The chosen bit plane is - {bit_plane}")
+    log.info(f"Performing bit-plane ({bit_plane}) slicing")
+
     # If provided bit-plane is not in acceptable range, [0, 7], it will be assigned to the closest acceptable value.
     bit_plane = 0 if bit_plane < 0 else 7 if bit_plane > 7 else bit_plane
     mask = 1 << bit_plane  # Mask to filter the bits not belonging to selected bit plane.
@@ -135,5 +133,5 @@ def bit_plane_slicing(image: ndarray, bit_plane=image_settings.DEFAULT_BIT_PLANE
     for value in range(256):
         lookup_table.put(value, ((value & mask) >> bit_plane) * 255)
 
-    log.debug("Performing bit plane slicing")
+    # Applying the lookup table.
     return use_lookup_table(image=image, lookup_table=lookup_table)

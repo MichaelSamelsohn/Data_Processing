@@ -43,6 +43,7 @@ In summary, we arrive at the following conclusions:
 
 Created by Michael Samelsohn, 20/05/22
 """
+import copy
 
 # Imports #
 import numpy as np
@@ -52,7 +53,7 @@ from common import convolution_2d, convert_to_grayscale, extract_sub_image
 from Settings import image_settings
 from Utilities.decorators import book_reference, article_reference
 from Settings.settings import log
-from spatial_filtering import laplacian_gradient, blur_image
+from spatial_filtering import laplacian_gradient, blur_image, sobel_filter
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
@@ -74,13 +75,13 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
     :return: Binary image containing the strongest isolated points.
     """
 
-    log.debug("Detecting isolated points")
+    log.info("Performing isolated points detection using the Laplacian kernel")
 
-    # Step I - Applying Laplacian kernel on the image.
+    # Applying Laplacian kernel on the image.
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
                                               include_diagonal_terms=include_diagonal_terms)
 
-    # Step II - Thresholding the remaining values to remove "weak" points.
+    # Thresholding the remaining values to remove "weak" points.
     return thresholding(image=np.abs(post_laplacian_image), threshold_value=threshold_value)
 
 
@@ -105,7 +106,7 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
     :return: Filtered image in all directions.
     """
 
-    filtered_images_dictionary = {}
+    log.info("Performing line detection")
 
     line_detection_kernels = {
         "HORIZONTAL": np.array([[-1, -1, -1],
@@ -122,13 +123,14 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
                               [2, -1, -1]]),
     }
 
-    log.debug("Filtering the images")
+    log.debug("Filtering the images in all directions")
+    filtered_images_dictionary = {}
     for direction_kernel in line_detection_kernels:
         log.debug(f"Current kernel direction is - {direction_kernel}")
         filtered_image = convolution_2d(image=image, kernel=line_detection_kernels[direction_kernel],
                                         padding_type=padding_type)
 
-        log.debug("Thresholding the absolute value of the pixels")
+        # Thresholding the absolute value of the pixels.
         filtered_images_dictionary[direction_kernel] = thresholding(image=np.abs(filtered_image),
                                                                     threshold_value=threshold_value)
 
@@ -152,7 +154,7 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
     :return: Filtered image in all directions.
     """
 
-    filtered_images_dictionary = {}
+    log.info("Performing line detection using Kirsch compass kernels")
 
     kirsch_edge_detection_kernels = {
         "NORTH": np.array([[-3, -3, 5],
@@ -198,10 +200,11 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
         max_value_image = np.maximum(boolean_image, max_value_image)
 
     log.debug("Comparing direction images with max values image")
+    filtered_images_dictionary = {}
     for direction in kirsch_edge_detection_kernels:
         log.debug(f"Current direction is - {direction}")
         filtered_images_dictionary[direction] = (post_convolution_images[direction] <= max_value_image) \
-                                                * post_convolution_images[direction]
+                                                 * post_convolution_images[direction]
 
     return filtered_images_dictionary
 
@@ -266,13 +269,13 @@ def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFA
     :return: Filtered image with LoG.
     """
 
-    log.debug("Applying the Marr-Hildreth edge detection method on the image")
+    log.info("Applying the Marr-Hildreth edge detection method on the image")
 
-    log.debug("Blurring the image with a Gaussian kernel")
+    # Blurring the image with a Gaussian kernel.
     gaussian_image = blur_image(image=image, filter_type=image_settings.GAUSSIAN_FILTER, filter_size=filter_size,
                                 padding_type=padding_type, k=1, sigma=sigma)
 
-    log.debug("Applying the Laplacian on the Gaussian image")
+    # Applying the Laplacian on the Gaussian image.
     log_image = laplacian_gradient(image=gaussian_image, padding_type=padding_type,
                                    include_diagonal_terms=include_diagonal_terms, contrast_stretch=False)
 
@@ -341,10 +344,7 @@ def thresholding(image: ndarray, threshold_value=image_settings.DEFAULT_THRESHOL
     :return: The binary image (based on the threshold).
     """
 
-    log.debug("Performing image thresholding")
-
-    log.debug(f"The provided threshold is - {threshold_value}")
-
+    log.info(f"Performing image thresholding with threshold value of {threshold_value}")
     # .astype(float) is used to convert the boolean matrix (generated by the condition check) to a float based one.
     return (image > threshold_value).astype(float)
 
@@ -368,25 +368,25 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
     :return: Threshold image.
     """
 
-    grayscale_image = convert_to_grayscale(image=image)
+    # TODO: Add an assumption that the image is grayscale.
 
-    log.debug(f"Setting the global threshold to initial (default) value - {initial_threshold}")
-    global_threshold = np.round(initial_threshold, 3)
-    thresholds = []  # Dictionary that appends all threshold values (useful for debug purposes).
+    log.info(f"Performing global thresholding, with initial value {initial_threshold}")
 
     log.debug("Starting the search for the global threshold")
+    thresholded_image = copy.deepcopy(image)
+    thresholds = []  # Dictionary that appends all threshold values (useful for debug purposes).
+    global_threshold = np.round(initial_threshold, 3)
     while True:
-
         # Thresholding the image using the current global threshold.
-        boolean_image = grayscale_image > global_threshold
+        boolean_image = thresholded_image > global_threshold
 
         # Calculating the pixel count for both groups (pixel values below/above the threshold).
         above_threshold_pixel_count = np.count_nonzero(boolean_image)
-        below_threshold_pixel_count = grayscale_image.shape[0] * grayscale_image.shape[1] - above_threshold_pixel_count
+        below_threshold_pixel_count = thresholded_image.shape[0] * thresholded_image.shape[1] - above_threshold_pixel_count
 
         # Generating the threshold images.
-        above_threshold_image = boolean_image * grayscale_image
-        below_threshold_image = grayscale_image - above_threshold_image
+        above_threshold_image = boolean_image * thresholded_image
+        below_threshold_image = thresholded_image - above_threshold_image
 
         # Calculating the mean for each pixel group.
         above_threshold_mean = np.sum(above_threshold_image) / above_threshold_pixel_count
@@ -398,14 +398,15 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
 
         # Checking stopping condition (the difference between the two latest thresholds is lower than defined delta).
         if np.abs(new_global_threshold - global_threshold) < delta_t:
-            log.info(f"Global threshold reached - {np.round(global_threshold, 3)} (initial threshold value - {initial_threshold})")
+            log.info(f"Global threshold reached - {np.round(global_threshold, 3)} "
+                     f"(initial threshold value - {initial_threshold})")
             log.info(f"List of the calculated global thresholds - {thresholds}")
             log.info(f"Iterations to reach global threshold - {len(thresholds)}")
             break
         else:
             global_threshold = np.round(new_global_threshold, 3)
 
-    return thresholding(image=grayscale_image, threshold_value=np.round(global_threshold, 3))
+    return thresholding(image=thresholded_image, threshold_value=np.round(global_threshold, 3))
 
 
 # TODO: Implement the optimum global thresholding using Otsu's method - p.747-752.
