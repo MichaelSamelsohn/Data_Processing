@@ -49,7 +49,7 @@ import copy
 import numpy as np
 from numpy import ndarray
 
-from common import convolution_2d, convert_to_grayscale, extract_sub_image
+from common import convolution_2d, extract_sub_image
 from Settings import image_settings
 from Utilities.decorators import book_reference, article_reference
 from Settings.settings import log
@@ -277,7 +277,7 @@ def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFA
 
     # Applying the Laplacian on the Gaussian image.
     log_image = laplacian_gradient(image=gaussian_image, padding_type=padding_type,
-                                   include_diagonal_terms=include_diagonal_terms, contrast_stretch=False)
+                                   include_diagonal_terms=include_diagonal_terms, normalization_method='unchanged')
 
     log.debug("Finding the zero crossings of the LoG image")
     marr_hildreth_image = np.zeros(image.shape)
@@ -373,20 +373,20 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
     log.info(f"Performing global thresholding, with initial value {initial_threshold}")
 
     log.debug("Starting the search for the global threshold")
-    thresholded_image = copy.deepcopy(image)
+    threshold_image = copy.deepcopy(image)
     thresholds = []  # Dictionary that appends all threshold values (useful for debug purposes).
     global_threshold = np.round(initial_threshold, 3)
     while True:
         # Thresholding the image using the current global threshold.
-        boolean_image = thresholded_image > global_threshold
+        boolean_image = threshold_image > global_threshold
 
         # Calculating the pixel count for both groups (pixel values below/above the threshold).
         above_threshold_pixel_count = np.count_nonzero(boolean_image)
-        below_threshold_pixel_count = thresholded_image.shape[0] * thresholded_image.shape[1] - above_threshold_pixel_count
+        below_threshold_pixel_count = threshold_image.shape[0] * threshold_image.shape[1] - above_threshold_pixel_count
 
         # Generating the threshold images.
-        above_threshold_image = boolean_image * thresholded_image
-        below_threshold_image = thresholded_image - above_threshold_image
+        above_threshold_image = boolean_image * threshold_image
+        below_threshold_image = threshold_image - above_threshold_image
 
         # Calculating the mean for each pixel group.
         above_threshold_mean = np.sum(above_threshold_image) / above_threshold_pixel_count
@@ -406,7 +406,7 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
         else:
             global_threshold = np.round(new_global_threshold, 3)
 
-    return thresholding(image=thresholded_image, threshold_value=np.round(global_threshold, 3))
+    return thresholding(image=threshold_image, threshold_value=np.round(global_threshold, 3))
 
 
 # TODO: Implement the optimum global thresholding using Otsu's method - p.747-752.

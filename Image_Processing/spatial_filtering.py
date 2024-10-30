@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 20/05/22
 # Imports #
 import numpy as np
 from numpy import ndarray
-from common import generate_filter, convolution_2d, contrast_stretching
+from common import generate_filter, convolution_2d, image_normalization
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log
@@ -101,7 +101,7 @@ When adding the equations for f(x+1) and f(x-1), we get the second derivative:
                 reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.178-182")
 def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                        include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                       contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+                       normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) -> ndarray:
     """
     Apply the Laplacian gradient (second derivative) on an image.
 
@@ -134,9 +134,7 @@ def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDI
     :param image: The image for applying a Laplacian gradient.
     :param padding_type: Padding type used for applying the kernel.
     :param include_diagonal_terms: Boolean determining if diagonal terms are included in the gradient.
-    :param contrast_stretch: Stretch edge values according to the min/max values post Laplacian kernel application.
-    Note - When not applying contrast stretch, it is possible for information to get lost, as values below/above the
-    cutoff values are rounded to these values.
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
 
     :return: Laplacian (smoothed) image.
     """
@@ -157,7 +155,7 @@ def laplacian_gradient(image: ndarray, padding_type=image_settings.DEFAULT_PADDI
 
     # Convolving the image with the generated kernel.
     return convolution_2d(image=image, kernel=laplacian_kernel, padding_type=padding_type,
-                          contrast_stretch=contrast_stretch)
+                          normalization_method=normalization_method)
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
@@ -243,7 +241,7 @@ def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_
                 reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.184-188")
 # TODO: Find the article reference.
 def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                 contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> (ndarray, ndarray):
+                 normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) -> (ndarray, ndarray):
     """
     Use a sobel operator filter (first-order derivative) to sharpen the image.
 
@@ -281,9 +279,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
 
     :param image: The image for sharpening.
     :param padding_type: The padding type used for the convolution.
-    :param contrast_stretch: Stretch edge values according to the min/max values post Laplacian kernel application.
-    Note - When not applying contrast stretch, it is possible for information to get lost, as values below/above the
-    cutoff values are rounded to these values.
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
 
     :return: Tuple containing the magnitude (sharpened) and angle images.
     """
@@ -292,10 +288,10 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
 
     log.debug("Calculating the horizontal-directional derivative")
     gx = convolution_2d(image=image, kernel=SOBEL_OPERATORS["HORIZONTAL"], padding_type=padding_type,
-                        contrast_stretch=False)
+                        normalization_method='unchanged')
     log.debug("Calculating the vertical-directional derivative")
     gy = convolution_2d(image=image, kernel=SOBEL_OPERATORS["VERTICAL"], padding_type=padding_type,
-                        contrast_stretch=False)
+                        normalization_method='unchanged')
 
     log.debug("Calculating the magnitude (length) of the image gradient")
     magnitude = np.sqrt(np.power(gx, 2) + np.power(gy, 2))
@@ -309,7 +305,5 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
             else:
                 angle[row][col] = np.arctan(gy[row][col]/gx[row][col])
 
-    if contrast_stretch:
-        magnitude = contrast_stretching(image=magnitude)
-        angle = contrast_stretching(image=angle)
-    return magnitude, angle
+    return (image_normalization(image=magnitude, normalization_method=normalization_method),
+            image_normalization(image=angle, normalization_method=normalization_method))

@@ -261,14 +261,15 @@ def pad_image(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
 
 @measure_runtime
 def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                   contrast_stretch=image_settings.DEFAULT_CONTRAST_STRETCHING) -> ndarray:
+                   normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) -> ndarray:
     """
     Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
 
     :param image: The image to be convolved.
     :param kernel: Kernel matrix.
     :param padding_type: The padding type used for extending the image boundaries.
-    :param contrast_stretch: Perform contrast stretching on the image.
+    :param normalization_method: Preferred normalization method for the convoluted image. Options are - unchanged,
+    stretch and cutoff.
 
     :return: Convolution of the image with the convolution object.
     """
@@ -295,8 +296,47 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.
                 np.sum(sub_image[:, :, 1] * kernel),
                 np.sum(sub_image[:, :, 2] * kernel)] if len(image.shape) == 3 else np.sum(sub_image * kernel)
 
-    # TODO: Cutoff values if contrast_stretch == False.
-    return convolution_image if not contrast_stretch else contrast_stretching(image=convolution_image)
+    return image_normalization(image=convolution_image, normalization_method=normalization_method)
+
+
+def image_normalization(image: ndarray, normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) \
+        -> ndarray:
+    """
+    Normalize image according to one of the following methods:
+    • unchanged - Image remains as is. In this case, there might be values exceeding the expected image range of [0, 1].
+    • stretch - The pixel values are compressed or stretched to the boundaries of 0 and 1. This means that the lowest
+      pixel value turns to 0 and the highest turns to 1. The rest are linearly distributed between them.
+    • cutoff - Eliminate all values exceeding the range of [0, 1]. This means that pixel values below 0, become 0, and
+      pixel values above 1, become 1.
+
+    :param image: The image for normalization.
+    :param normalization_method: The normalization method (as mentioned in the description above).
+
+    :return: Normalized image.
+    """
+
+    log.info(f"Normalizing image according to the following method - {normalization_method}")
+
+    match normalization_method:
+        case 'unchanged':
+            log.debug("Retuning image as is")
+            log.warning("Image might contain pixel values exceeding the range of [0, 1]")
+            return image
+        case 'stretch':
+            # Stretching the image contrast to range [0, 1].
+            return contrast_stretching(image=image)
+        case 'cutoff':
+            log.debug("'Cutting' values above 1 or below 0")
+            image[image > 1] = 1
+            image[image < 0] = 0
+            log.warning("Image might lose information due to this normalization method")
+            return image
+        case _:
+            log.error(f"Normalization method, {normalization_method}, is not a recognized option")
+            log.error("Available options are - unchanged, stretch, cutoff (read convolution_2d (part of common.py) "
+                      "docstring for a better understanding as to what each method does)")
+            log.warning("Will use default method - unchanged")
+            return image
 
 
 def extract_sub_image(image: ndarray, position: tuple[int, int], sub_image_size: int) -> ndarray:
@@ -338,7 +378,7 @@ def contrast_stretching(image: ndarray) -> ndarray:
     :return: Image with pixels values stretched to range [0, 1].
     """
 
-    log.info("Stretching the contrast of the image")
+    log.info("Stretching the contrast of the image to the range of [0, 1]")
 
     log.debug("Calculating the min/max values found in the image")
     max_value = np.max(image)
