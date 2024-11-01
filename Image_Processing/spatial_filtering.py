@@ -30,7 +30,8 @@ SOBEL_OPERATORS = {
                 reference="Chapter 3.5 - Smoothing (Lowpass) Spatial Filters, p.164-175")
 def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
                filter_size=image_settings.DEFAULT_FILTER_SIZE, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-               **kwargs) -> ndarray:
+               sigma=image_settings.DEFAULT_SIGMA_VALUE,
+               normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) -> ndarray:
     """
     Apply a low pass filter (blur) on an image.
 
@@ -38,6 +39,10 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
     :param filter_type: The filter type.
     :param filter_size: The filter size.
     :param padding_type: The padding type used for the convolution.
+    :param sigma: Standard deviation (relevant only if filter_type='gaussian').
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
+    Note - Since blurring kernels can't introduce negative or above 1 pixel values, the cutoff option is meaningless.
+    TODO: Maybe stretch too?
 
     :return: Filtered image.
     """
@@ -45,9 +50,11 @@ def blur_image(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
     log.info(f"Blurring image with the filter type - {filter_type}")
 
     # Generating the kernel.
-    kernel = generate_filter(filter_type=filter_type, filter_size=filter_size, **kwargs)
+    kernel = generate_filter(filter_type=filter_type, filter_size=filter_size, sigma=sigma)
+
     # Convolving the image with the generated kernel.
-    return convolution_2d(image=image, kernel=kernel, padding_type=padding_type)
+    return convolution_2d(image=image, kernel=kernel, padding_type=padding_type,
+                          normalization_method=normalization_method)
 
 
 """
@@ -186,7 +193,8 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
 
     # Applying the Laplacian kernel on the image.
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
-                                              include_diagonal_terms=include_diagonal_terms)
+                                              include_diagonal_terms=include_diagonal_terms,
+                                              normalization_method='cutoff')
 
     log.debug("Subtracting the Laplacian image from the original one")
     return image - post_laplacian_image
@@ -196,7 +204,7 @@ def laplacian_image_sharpening(image: ndarray, padding_type=image_settings.DEFAU
                 reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.182-184")
 def high_boost_filter(image: ndarray, filter_type=image_settings.DEFAULT_FILTER_TYPE,
                       filter_size=image_settings.DEFAULT_FILTER_SIZE,
-                      padding_type=image_settings.DEFAULT_PADDING_TYPE, k=1) -> ndarray:
+                      padding_type=image_settings.DEFAULT_PADDING_TYPE, k=image_settings.DEFAULT_K_VALUE) -> ndarray:
     """
     Use a high boost filter (un-sharp masking) to sharpen the image.
 
@@ -305,5 +313,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
             else:
                 angle[row][col] = np.arctan(gy[row][col]/gx[row][col])
 
-    return (image_normalization(image=magnitude, normalization_method=normalization_method),
-            image_normalization(image=angle, normalization_method=normalization_method))
+    return {
+        "Magnitude": image_normalization(image=magnitude, normalization_method=normalization_method),
+        "Direction": image_normalization(image=angle, normalization_method=normalization_method)
+    }

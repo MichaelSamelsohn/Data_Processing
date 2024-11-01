@@ -59,6 +59,7 @@ from spatial_filtering import laplacian_gradient, blur_image, sobel_filter
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.706-707")
 def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                             normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD,
                              include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                              threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:
     """
@@ -68,6 +69,7 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
 
     :param image: The image for isolated point detection.
     :param padding_type: Padding type used for applying the kernel.
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
     :param include_diagonal_terms: Type of Laplacian kernel used for the isolated point detection.
     :param threshold_value: Threshold value used for the thresholding of the post Laplacian image (to remove "weak"
     isolated points).
@@ -79,7 +81,8 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
 
     # Applying Laplacian kernel on the image.
     post_laplacian_image = laplacian_gradient(image=image, padding_type=padding_type,
-                                              include_diagonal_terms=include_diagonal_terms)
+                                              include_diagonal_terms=include_diagonal_terms,
+                                              normalization_method=normalization_method)
 
     # Thresholding the remaining values to remove "weak" points.
     return thresholding(image=np.abs(post_laplacian_image), threshold_value=threshold_value)
@@ -88,6 +91,7 @@ def isolated_point_detection(image: ndarray, padding_type=image_settings.DEFAULT
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.707-710")
 def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                   normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD,
                    threshold_value=image_settings.DEFAULT_THRESHOLD_VALUE) -> dict:
     """
     Line detection in an image.
@@ -99,9 +103,11 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
 
     :param image: The image used for line detection.
     :param padding_type: The padding type used for the convolution.
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
     :param threshold_value: The threshold value for post filter image normalization.
     Note - The threshold value is important, because it determines the 'strength' of the gradient. This means that
     higher threshold, will display higher contrast lines.
+
 
     :return: Filtered image in all directions.
     """
@@ -128,7 +134,7 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
     for direction_kernel in line_detection_kernels:
         log.debug(f"Current kernel direction is - {direction_kernel}")
         filtered_image = convolution_2d(image=image, kernel=line_detection_kernels[direction_kernel],
-                                        padding_type=padding_type)
+                                        padding_type=padding_type, normalization_method=normalization_method)
 
         # Thresholding the absolute value of the pixels.
         filtered_images_dictionary[direction_kernel] = thresholding(image=np.abs(filtered_image),
@@ -140,7 +146,9 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
 # TODO: Find the article reference.
-def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> dict:
+def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                          normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD,
+                          compare_max_value=True) -> dict:
     """
     Perform Kirsch edge detection on an image.
 
@@ -150,11 +158,15 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
 
     :param image: The image for Kirsch edge detection.
     :param padding_type: The padding type used for the convolution.
+    :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
+    :param compare_max_value: Boolean value specifying whether to perform part 2 (comparing directions with max values) of the
+    Kirsch edge detection algorithm.
 
     :return: Filtered image in all directions.
     """
 
-    log.info("Performing line detection using Kirsch compass kernels")
+    log.info(f"Performing line detection using Kirsch compass kernels "
+             f"{'(compass kernel convolution only)' if not compare_max_value else ''}")
 
     kirsch_edge_detection_kernels = {
         "NORTH": np.array([[-3, -3, 5],
@@ -187,10 +199,13 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
     post_convolution_images = {}
     for direction_kernel in kirsch_edge_detection_kernels:
         log.debug(f"Current direction is - {direction_kernel}")
-        post_convolution_images[direction_kernel] = convolution_2d(image=image,
-                                                                   kernel=kirsch_edge_detection_kernels[
-                                                                       direction_kernel],
-                                                                   padding_type=padding_type)
+        post_convolution_images[direction_kernel] = convolution_2d(
+            image=image, kernel=kirsch_edge_detection_kernels[direction_kernel],
+            padding_type=padding_type, normalization_method='unchanged' if compare_max_value else normalization_method)
+
+    if not compare_max_value:
+        log.warning("Returning images without comparison of max values")
+        return post_convolution_images
 
     log.debug("Amassing a maximum values image (for later comparison with every direction)")
     max_value_image = np.zeros(shape=image.shape)
@@ -203,8 +218,8 @@ def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PA
     filtered_images_dictionary = {}
     for direction in kirsch_edge_detection_kernels:
         log.debug(f"Current direction is - {direction}")
-        filtered_images_dictionary[direction] = (post_convolution_images[direction] <= max_value_image) \
-                                                 * post_convolution_images[direction]
+        filtered_images_dictionary[direction] = ((post_convolution_images[direction] == max_value_image) *
+                                                 post_convolution_images[direction])
 
     return filtered_images_dictionary
 
@@ -222,7 +237,8 @@ and the nature of edges themselves.
 @article_reference(article="Marr, D.; Hildreth, E. (29 Feb 1980). \"Theory of Edge Detection\". Proceedings of the "
                            "Royal Society of London. Series B, Biological Sciences. 207 (1167): 187–217")
 def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFAULT_FILTER_SIZE,
-                                 padding_type=image_settings.DEFAULT_PADDING_TYPE, sigma=1,
+                                 padding_type=image_settings.DEFAULT_PADDING_TYPE,
+                                 sigma=image_settings.DEFAULT_SIGMA_VALUE,
                                  include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
                                  threshold=0) -> ndarray:
     """
@@ -273,7 +289,7 @@ def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFA
 
     # Blurring the image with a Gaussian kernel.
     gaussian_image = blur_image(image=image, filter_type=image_settings.GAUSSIAN_FILTER, filter_size=filter_size,
-                                padding_type=padding_type, k=1, sigma=sigma)
+                                padding_type=padding_type, sigma=sigma)
 
     # Applying the Laplacian on the Gaussian image.
     log_image = laplacian_gradient(image=gaussian_image, padding_type=padding_type,

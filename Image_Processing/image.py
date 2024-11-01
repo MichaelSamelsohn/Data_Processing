@@ -92,15 +92,27 @@ class Image:
 
     def transform_image(self, transformation_type: str, *args, **kwargs):
         """
-        Transformation function for the image provided in the *args.
+        Performing a transformation on the selected image.
 
         :param transformation_type: The name of the method to be used.
-        :param args: ??
-        :param kwargs: ??
+        :param args: Arguments (no assigned to a keyword).
+        :param kwargs: Keyword arguments.
         """
 
-        self.__image = globals()[transformation_type](*args, **kwargs)
-        self.__images.append({"Name": transformation_type, "Image": self.__image})
+        # Performing the selected transformation with given arguments.
+        transformed_image = globals()[transformation_type](*args, **kwargs)
+
+        log.debug("Matching the return type of the transformation")
+        if isinstance(transformed_image, ndarray):
+            log.debug("Single image returned")
+            self.__images.append({"Name": transformation_type, "Image": transformed_image})
+            self.__image = transformed_image
+        else:
+            log.debug("Image dictionary returned")
+            for image in transformed_image:
+                self.__images.append({"Name": f"{transformation_type} ({image})",
+                                      "Image": transformed_image[image]})
+                self.__image = transformed_image[image]
 
     # Image(s) display #
 
@@ -120,13 +132,7 @@ class Image:
         """
 
         log.debug("Displaying the edited image")
-        if len(self.__image.shape) == 2:
-            # Grayscale image.
-            plt.imshow(self.__image, cmap='gray')
-        else:
-            # Color image.
-            plt.imshow(self.__image)
-
+        plt.imshow(self.__image, cmap='gray') if len(self.__image.shape) == 2 else plt.imshow(self.__image)
         plt.title("Image")
         # TODO: Add option to have grid lines.
         plt.show()
@@ -171,7 +177,7 @@ class Image:
         Show all accumulated images in the buffer. The first image is always the original one.
         """
 
-        log.debug("Displaying all available images in the buffer")
+        log.info("Displaying all available images in the buffer")
 
         # Understand how many plots there are and rows/cols accordingly.
         number_of_images = len(self.__images)
@@ -184,10 +190,11 @@ class Image:
 
         # Displaying the rest of the images found in the buffer.
         for i in range(1, number_of_images):
+            current_image = self.__images[i]
             plt.subplot(1, number_of_images, i + 1)
-            plt.imshow(self.__images[i]["Image"], cmap='gray') if len(self.__image.shape) == 2 \
-                else plt.imshow(self.__images[i]["Image"])
-            plt.title(self.__images[i]["Name"])
+            plt.imshow(current_image["Image"], cmap='gray') if len(current_image["Image"].shape) == 2 \
+                else plt.imshow(current_image["Image"])
+            plt.title(current_image["Name"])
 
         # TODO: Add option to have grid lines.
         plt.show()

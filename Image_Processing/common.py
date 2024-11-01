@@ -179,14 +179,17 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
 
 
 def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
-                    **kwargs) -> ndarray:
+                    sigma=image_settings.DEFAULT_SIGMA_VALUE) -> ndarray:
     """
+    TODO: Add more explanation about the kernels/filters (p. 164).
+
     Types of filters:
         * Box filter - An all ones filter (with normalization).
         * Gaussian filter - TODO: Explain the principle behind the construction of the filter (formula 3-46 in page 167).
 
     :param filter_type: The type of filter to be generated.
     :param filter_size: The size of the filter to be generated. Can be either an integer or a tuple of integers.
+    :param sigma: Standard deviation (relevant only if filter_type='gaussian').
 
     :return: Matrix array with the specified dimensions and based on the selected filter type.
     """
@@ -205,25 +208,20 @@ def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=
 
     log.debug("Identifying the filter type and generating it")
     kernel_matrix = np.zeros(shape=filter_size_square)
-    try:
-        match filter_type:
-            case image_settings.BOX_FILTER:
-                log.debug("Box type filter selected")
-                kernel_matrix = np.ones(shape=filter_size_square)
-                kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
-            case image_settings.GAUSSIAN_FILTER:
-                log.debug("Gaussian type filter selected with parameters:")
-                log.debug(f"k = {kwargs["k"]}")
-                log.debug(f"sigma = {kwargs["sigma"]}")
-                center_position = filter_size // 2
-                for row in range(filter_size):
-                    for col in range(filter_size):
-                        r_squared = math.pow(row - center_position, 2) + math.pow(col - center_position, 2)
-                        kernel_matrix[row][col] = kwargs["k"] * math.exp(
-                            -r_squared / (2 * math.pow(kwargs["sigma"], 2)))
-                kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
-    except KeyError:
-        log.raise_exception("Missing arguments for filter generation", exception=KeyError)
+    match filter_type:
+        case image_settings.BOX_FILTER:
+            log.debug("Box type filter selected")
+            kernel_matrix = np.ones(shape=filter_size_square)
+            kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
+        case image_settings.GAUSSIAN_FILTER:
+            log.debug("Gaussian type filter selected with parameters:")
+            log.debug(f"Sigma = {sigma}")
+            center_position = filter_size // 2
+            for row in range(filter_size):
+                for col in range(filter_size):
+                    r_squared = math.pow(row - center_position, 2) + math.pow(col - center_position, 2)
+                    kernel_matrix[row][col] = math.exp(-r_squared / (2 * math.pow(sigma, 2)))
+            kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
 
     return kernel_matrix
 
