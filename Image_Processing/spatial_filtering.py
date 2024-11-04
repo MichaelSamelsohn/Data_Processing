@@ -17,9 +17,9 @@ from Settings.settings import log
 
 # Constants #
 SOBEL_OPERATORS = {
-    "VERTICAL": np.array([[-1, -2, -1],
+    "VERTICAL": np.array([[1, 2, 1],
                           [0, 0, 0],
-                          [1, 2, 1]]),
+                          [-1, -2, -1]]),
     "HORIZONTAL": np.array([[-1, 0, 1],
                             [-2, 0, 2],
                             [-1, 0, 1]])
@@ -289,7 +289,7 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
     :param padding_type: The padding type used for the convolution.
     :param normalization_method: Method used for image normalization. Options are - unchanged, stretch, cutoff.
 
-    :return: Tuple containing the magnitude (sharpened) and angle images.
+    :return: Tuple containing the magnitude (sharpened) and direction images.
     """
 
     log.info("Applying the Laplacian kernel on the image")
@@ -305,15 +305,21 @@ def sobel_filter(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYP
     magnitude = np.sqrt(np.power(gx, 2) + np.power(gy, 2))
 
     log.debug("Calculating the direction (angle) of the image gradient")
-    angle = np.zeros(shape=image.shape)
-    for row in range(0, image.shape[0]):
-        for col in range(0, image.shape[1]):
-            if gx[row][col] == 0:
-                angle[row][col] = np.pi/2 if gy[row][col] > 0 else -np.pi/2
-            else:
-                angle[row][col] = np.arctan(gy[row][col]/gx[row][col])
+    """
+    When calculating the arctan of a value, there are two potential problems:
+    1) when x=0 (possibly, y too).
+    2) When x is negative. In this case, the angle that we find isn't in the range of an entire circle.
+    the method np.arctan2 handles both issues with the following definition:
+    arctan(y/x),       if x>0
+    arctan(y/x) + pi,  if x<0, y>=0
+    arctan(y/x) - pi,  if x<0, y<0
+    +pi/2,             if x=0, y>0
+    -pi/2,             if x=0, y<0
+    undefined,         if x=0,y=0
+    """
+    direction = np.arctan2(gy, gx)  # In radians.
 
     return {
         "Magnitude": image_normalization(image=magnitude, normalization_method=normalization_method),
-        "Direction": image_normalization(image=angle, normalization_method=normalization_method)
+        "Direction": image_normalization(image=direction, normalization_method=normalization_method)
     }
