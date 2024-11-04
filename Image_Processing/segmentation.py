@@ -145,7 +145,8 @@ def line_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_T
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
-# TODO: Find the article reference.
+@article_reference(article="Kirsch, R. [1971]. “Computer Determination of the Constituent Structure of Biological "
+                           "Images,” Comput. Biomed. Res., vol. 4, pp. 315–328")
 def kirsch_edge_detection(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
                           normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD,
                           compare_max_value=True) -> dict:
@@ -240,7 +241,7 @@ def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFA
                                  padding_type=image_settings.DEFAULT_PADDING_TYPE,
                                  sigma=image_settings.DEFAULT_SIGMA_VALUE,
                                  include_diagonal_terms=image_settings.DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                                 threshold=0) -> ndarray:
+                                 threshold=image_settings.DEFAULT_THRESHOLD_VALUE) -> ndarray:
     """
     Marr and Hildreth [1980] argued that:
     1. Intensity changes are not independent of image scale, implying that their detection requires using operators of
@@ -343,7 +344,185 @@ def zero_crossing(sub_image: ndarray, threshold: float) -> int:
     else:
         return 0
 
-# TODO: Implement the Canny edge detector - p.729-735.
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 10.2 - Point, Line, and Edge Detection, p.729-735")
+@article_reference(article="Canny, J. [1986]. “A Computational Approach for Edge Detection,” IEEE Trans. Pattern Anal. "
+                           "Machine Intell., vol. 8, no. 6, pp. 679–698")
+def canny_edge_detection(image: ndarray, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                         padding_type=image_settings.DEFAULT_PADDING_TYPE, sigma=image_settings.DEFAULT_SIGMA_VALUE,
+                         high_threshold=image_settings.DEFAULT_HIGH_THRESHOLD_CANNY,
+                         low_threshold=image_settings.DEFAULT_LOW_THRESHOLD_CANNY) -> ndarray:
+    """
+    Canny’s approach is based on three basic objectives:
+    1. Low error rate. All edges should be found, and there should be no spurious responses.
+    2. Edge points should be well localized. The edges located must be as close as possible to the true edges. That is,
+       the distance between a point marked as an edge by the detector and the center of the true edge should be minimum.
+    3. Single edge point response. The detector should return only one point for each true edge point. That is, the
+       number of local maxima around the true edge should be minimum. This means that the detector should not identify
+       multiple edge pixels where only a single edge point exists.
+    The essence of Canny’s work was in expressing the preceding three criteria mathematically, and then attempting to
+    find optimal solutions to these formulations.
+
+    The essence of Canny’s work was in expressing the preceding three criteria mathematically, and then attempting to
+    find optimal solutions to these formulations. In general, it is difficult (or impossible) to find a closed-form
+    solution that satisfies all the preceding objectives. However, using numerical optimization with 1-D step edges
+    corrupted by additive white Gaussian noise led to the conclusion that a good approximation to the optimal step edge
+    detector is the first derivative of a Gaussian, where the approximation was only about 20% worse that using the
+    optimized numerical solution (a difference of this magnitude generally is visually imperceptible in most
+    applications).
+
+    Generalizing the preceding result to 2-D involves recognizing that the 1-D approach still applies in the direction
+    of the edge normal (see Fig. 10.12). Because the direction of the normal is unknown beforehand, this would require
+    applying the 1-D edge detector in all possible directions. This task can be approximated by first smoothing the
+    image with a circular 2-D Gaussian function, computing the gradient of the result, and then using the gradient
+    magnitude and direction to estimate edge strength and direction at every point.
+
+    The Canny edge detection algorithm consists of the following steps:
+    1. Smooth the input image with a Gaussian filter.
+    2. Compute the gradient magnitude and angle images.
+    3. Apply nonmaxima suppression to the gradient magnitude image.
+    4. Use double thresholding and connectivity analysis to detect and link edges.
+
+    :param image: The image for edge detection.
+    :param filter_size: Size of the filter used for the convolution with the Gaussian kernel.
+    :param padding_type: The padding type used for the convolution with the Gaussian kernel.
+    :param sigma: Value of the sigma used in the Gaussian kernel.
+    :param high_threshold: The high threshold value used for the hysteresis.
+    :param low_threshold: The low threshold value used for the hysteresis.
+    Note - Experimental evidence (Canny [1986]) suggests that the ratio of the high to low threshold should be in the
+    range of 2:1 to 3:1.
+
+    :return: Binary image showing edges using the Canny edge detection method.
+    """
+
+    log.info("Applying the Canny edge detection method on the image")
+
+    # Smoothing (blurring) the image with a Gaussian kernel.
+    gaussian_image = blur_image(image=image, filter_type=image_settings.GAUSSIAN_FILTER, filter_size=filter_size,
+                                padding_type=padding_type, sigma=sigma)
+
+    # Computing the gradient magnitude and direction (using the Sobel filter).
+    gradient_images = sobel_filter(image=gaussian_image, padding_type=padding_type, normalization_method='unchanged')
+    magnitude_image, direction_image = gradient_images["Magnitude"], gradient_images["Direction"]
+
+    # Applying non-maxima suppression to the gradient images.
+    suppression_image = non_maxima_suppression(magnitude_image=magnitude_image, direction_image=direction_image)
+
+    # Double (hysteresis) thresholding.
+    canny_image = hysteresis_thresholding(suppression_image=suppression_image,
+                                          high_threshold=high_threshold, low_threshold=low_threshold)
+
+    return canny_image
+
+
+def non_maxima_suppression(magnitude_image: ndarray, direction_image: ndarray):
+    """
+    Gradient images typically contain wide ridges around local maxima. To thin those ridges, one approach is to use
+    nonmaxima suppression. The essence of this approach is to specify a number of discrete orientations of the edge
+    normal (gradient vector). For example, in a 3×3 region we can define four orientations for an edge passing through
+    the center point of the region: horizontal, vertical, +45° and −45°. Because we have to quantize all possible edge
+    directions into four ranges, we have to define a range of directions over which we consider an edge to be
+    horizontal. We determine edge direction from the direction of the edge normal, which we obtain directly from the
+    direction image data. For example, if the edge normal is in the range of directions from −22.5° to 22.5° or from
+    −157.5° to 157.5°, we call the edge a horizontal edge.
+
+    Let d1, d2, d3, and d4 denote the four basic edge directions just discussed for a 3×3  region: horizontal, −45°,
+    vertical, and +45°, respectively. We can formulate the following nonmaxima suppression scheme for a 3×3 region
+    centered at an arbitrary point (x,y) in the direction image:
+    1. Find the direction dk that is closest to a(x,y).
+    2. Let K denote the value of the magnitude at (x,y). If K is less than the value of the magnitude at one or both of
+       the neighbors of point (x,y) along dk - suppression.
+
+    :param magnitude_image: Magnitude image.
+    :param direction_image: Direction image.
+
+    :return: Suppressed image.
+    """
+
+    log.debug("Converting the direction image to angles (for simplicity)")
+    angle_image = direction_image * 180.0 / np.pi  # max -> 180°, min -> -180°.
+    """
+    Since the directions have opposite symmetry, it is easier to normalize the angle values to fit in the interval of 
+    [0, 180°]. This simplifies the if-conditions for finding the direction dk. Therefore, all negative angles are 
+    incremented by a value of pi.
+    """
+    angle_image[angle_image < 0] += 180  # max -> 180°, min -> 0°.
+
+    suppression_image = copy.deepcopy(magnitude_image)
+    for row in range(1, magnitude_image.shape[0] - 1):
+        for col in range(1, magnitude_image.shape[1] - 1):
+            # Find the direction dk that is closest to angle(x,y).
+            alpha = angle_image[row][col]  # The angle value.
+            adjacent_magnitude_values = [0, 0]
+            if (0 <= alpha < 22.5) or (157.5 <= alpha <= 180):
+                # Horizontal edge direction.
+                adjacent_magnitude_values = [magnitude_image[row][col - 1], magnitude_image[row][col + 1]]
+            elif 22.5 <= alpha < 67.5:
+                # -45° edge direction.
+                adjacent_magnitude_values = [magnitude_image[row - 1][col + 1], magnitude_image[row + 1][col - 1]]
+            elif 67.5 <= alpha < 112.5:
+                # Vertical edge direction.
+                adjacent_magnitude_values = [magnitude_image[row - 1][col], magnitude_image[row + 1][col]]
+            elif 112.5 <= alpha < 157.5:
+                # +45° edge direction.
+                adjacent_magnitude_values = [magnitude_image[row + 1][col + 1], magnitude_image[row - 1][col - 1]]
+
+            # Suppression.
+            if magnitude_image[row][col] < max(adjacent_magnitude_values):
+                suppression_image[row][col] = 0
+
+    return suppression_image
+
+
+def hysteresis_thresholding(suppression_image: ndarray, high_threshold: float, low_threshold: float) -> ndarray:
+    """
+    Reduce false edge points using hysteresis thresholding, which uses two thresholds: a low threshold, TL and a high
+    threshold, TH. Experimental evidence (Canny [1986]) suggests that the ratio of the high to low threshold should be
+    in the range of 2:1 to 3:1.
+
+    When both threshold images are generated, we eliminate the high threshold image from the low threshold one, to
+    create a distinction between the two - "strong" edge pixels in the high threshold image, and "weak" ones in the low
+    threshold image. The "strong" edge pixels are marked immediately. Depending on the value of TH, the edges in the
+    high threshold image typically have gaps.
+
+    Longer edges are formed using the following procedure:
+    (a) Locate the next unvisited edge pixel, p, in high_threshold_image(x,y).
+    (b) Mark as valid edge pixels all the weak pixels in low_threshold_image(x,y) that are connected to
+        p using, 8-connectivity.
+    (c) If all nonzero pixels in high_threshold_image(x,y) have been visited go to Step (d). Else, return
+        to Step (a).
+    (d) Set to zero all pixels in low_threshold_image(x,y) that were not marked as valid edge pixels.
+
+    :param suppression_image: Suppressed image.
+    :param high_threshold: High threshold used for the hysteresis thresholding.
+    :param low_threshold: Low threshold used for the hysteresis thresholding.
+
+    :return: Hysteresis image.
+    """
+
+    log.info("Performing hysteresis thresholding")
+
+    log.debug("High threshold - \"Strong\" edge pixels")
+    high_suppression_image = thresholding(image=suppression_image, threshold_value=high_threshold)
+    log.debug("High threshold - \"Weak\" edge pixels")
+    low_suppression_image = thresholding(image=suppression_image, threshold_value=low_threshold)
+    low_suppression_image -= high_suppression_image
+
+    log.debug("Connectivity analysis (to detect and link edges)")
+    hysteresis_image = copy.deepcopy(high_suppression_image)
+    for row in range(1, low_suppression_image.shape[0] - 1):
+        for col in range(1, low_suppression_image.shape[1] - 1):
+            if low_suppression_image[row][col] == 1:
+                # Extract the 3x3 neighborhood (to find "strong" pixels nearby).
+                sub_image = extract_sub_image(image=high_suppression_image, position=(row, col), sub_image_size=3)
+                if np.sum(sub_image) > 0:
+                    # At least one "strong" pixel is an 8-neighbor.
+                    hysteresis_image[row][col] = 1
+
+    return hysteresis_image
+
+
 # TODO: Implement the Hough transform - p.737-742.
 
 
