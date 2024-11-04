@@ -8,11 +8,12 @@ Created by Michael Samelsohn, 12/05/22
 
 # Imports #
 import copy
+import logging
 import math
 import numpy as np
 from numpy import ndarray, random
 from Settings import image_settings
-from Utilities.decorators import measure_runtime
+from Utilities.decorators import measure_runtime, log_suppression
 from Settings.settings import log
 
 
@@ -181,7 +182,7 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
 def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
                     sigma=image_settings.DEFAULT_SIGMA_VALUE) -> ndarray:
     """
-    TODO: Add more explanation about the kernels/filters (p. 164).
+    TODO: Add more explanation about the kernels/filters (p. 164, p. 168/727 (for sigma values and filter size)).
 
     Types of filters:
         * Box filter - An all ones filter (with normalization).
@@ -317,7 +318,7 @@ def image_normalization(image: ndarray, normalization_method=image_settings.DEFA
 
     match normalization_method:
         case 'unchanged':
-            log.debug("Retuning image as is")
+            log.debug("Returning image as is")
             log.warning("Image might contain pixel values exceeding the range of [0, 1]")
             return image
         case 'stretch':
@@ -391,3 +392,143 @@ def contrast_stretching(image: ndarray) -> ndarray:
     log.warning("Assuming that the normal pixel value range for the image is - [0, 1] "
                 "(apply the scale_image function if not)")
     return m * (image[:, :] - min_value)
+
+
+"""
+In order to identify objects in a digital pattern, we need to locate groups of black pixels that are "connected" to each 
+other. In other words, the objects in a given digital pattern are the connected components of that pattern.
+ 
+In general, a connected component is a set of black pixels, P, such that for every pair of pixels pi and pj in P, there 
+exists a sequence of pixels  pi, ..., pj such that:
+a) All pixels in the sequence are in the set P i.e. are black.
+b) Every 2 pixels that are adjacent in the sequence are "neighbors".
+
+This gives rise to 2 types of connectedness, namely: 4-connectivity (also known as a direct-neighbor) and 8-connectivity 
+(also known as an indirect-neighbor).
+"""
+
+
+@log_suppression(level=logging.ERROR)
+def connected_component_4(image: ndarray, row, col) -> ndarray:
+    """
+    Find the 4-connected component in regard to the given pixel.
+
+    Definition of a 4-neighbor:
+    A pixel, Q, is a 4-neighbor of a given pixel, P, if Q and P share an edge. The 4-neighbors of pixel P (namely pixels
+    P2,P4,P6 and P8) are shown below,
+                                                          P2
+
+                                                    P8    P     P4
+
+                                                          P6
+
+    Definition of a 4-connected component:
+    A set of black pixels, P, is a 4-connected component if for every pair of pixels pi and pj in P, there exists a
+    sequence of pixels  pi, ..., pj such that:
+    a) All pixels in the sequence are in the set P i.e. are black.
+    b) Every 2 pixels that are adjacent in the sequence are 4-neighbors.
+
+    Assumptions:
+    1) The image is binary.
+    2) The provided pixel is part of the connected component, therefore, it is always tagged.
+
+    :param image: Binary image.
+    :param row: Row number of the given pixel.
+    :param col: Column number of the given pixel.
+
+    :return: 4-Connected component of the given pixel.
+    """
+
+    # Initializing the connected components image (with the selected pixel as on).
+    connected_image = np.zeros(shape=image.shape)
+    connected_image[row][col] = 1
+
+    # Stopping condition - Check if there are any 4-connected components.
+    if not image[row][col-1] and not image[row][col+1] and not image[row-1][col] and not image[row+1][col]:
+        return connected_image
+
+    # Remove the current pixel from the recursion, to avoid an infinite loop.
+    copy_image = copy.deepcopy(image)
+    copy_image[row][col] = 0
+
+    # Recursion advancement.
+    # Proceed to the next 4-neighbor pixels, while avoiding cyclic paths.
+    if image[row][col - 1] and col != 0:  # Left.
+        connected_image += connected_component_4(image=copy_image, row=row, col=col - 1)
+    if image[row][col + 1] and col != image.shape[1] - 1:  # Right.
+        connected_image += connected_component_4(image=copy_image, row=row, col=col + 1)
+    if image[row - 1][col] and row != 0:  # Up.
+        connected_image += connected_component_4(image=copy_image, row=row - 1, col=col)
+    if image[row + 1][col] and row != image.shape[0] - 1:  # Down.
+        connected_image += connected_component_4(image=copy_image, row=row + 1, col=col)
+
+    # When the connected image is accumulated, it can have the same pixel value added more than once, thus creating
+    # values above 1. Therefore, a cutoff normalization is necessary.
+    return image_normalization(image=connected_image, normalization_method='cutoff')
+
+
+@log_suppression(level=logging.ERROR)
+def connected_component_8(image: ndarray, row, col) -> ndarray:
+    """
+    Find the 8-connected component in regard to the given pixel.
+
+    Definition of an 8-neighbor:
+    A pixel, Q, is an 8-neighbor (or simply a neighbor) of a given pixel, P, if Q and P either share an edge or a
+    vertex. The 8-neighbors of a given pixel P make up the Moore neighborhood (3x3 neighborhood) of that pixel.
+
+    Definition of an 8-connected component:
+    A set of black pixels, P, is an 8-connected component if for every pair of pixels pi and pj in P, there exists a
+    sequence of pixels  pi, ..., pj such that:
+    a) All pixels in the sequence are in the set P i.e. are black.
+    b) Every 2 pixels that are adjacent in the sequence are 8-neighbors.
+
+    Note - All 4-connected patterns are 8-connected i.e. 4-connected patterns are a subset of the set of 8-connected
+    patterns. On the other hand, an 8-connected pattern may not be 4-connected.
+
+    Assumptions:
+    1) The image is binary.
+    2) The provided pixel is part of the connected component, therefore, it is always tagged.
+
+    :param image: Binary image.
+    :param row: Row number of the given pixel.
+    :param col: Column number of the given pixel.
+
+    :return: 8-Connected component of the given pixel.
+    """
+
+    # Initializing the connected components image (with the selected pixel as on).
+    connected_image = np.zeros(shape=image.shape)
+    connected_image[row][col] = 1
+
+    # Stopping condition - Check if there are any 8-connected components.
+    if not image[row][col-1] and not image[row][col+1] and not image[row-1][col] and not image[row+1][col]\
+       and not image[row-1][col-1] and not image[row+1][col-1] and not image[row-1][col+1] and not image[row+1][col+1]:
+        return connected_image
+
+    # Remove the current pixel from the recursion, to avoid an infinite loop.
+    copy_image = copy.deepcopy(image)
+    copy_image[row][col] = 0
+
+    # Recursion advancement.
+    # Proceed to the next 4-neighbor pixels, while avoiding cyclic paths.
+    if image[row][col-1] and col != 0:  # Left.
+        connected_image += connected_component_8(image=copy_image, row=row, col=col - 1)
+    if image[row][col+1] and col != image.shape[1] - 1:  # Right.
+        connected_image += connected_component_8(image=copy_image, row=row, col=col + 1)
+    if image[row-1][col] and row != 0:  # Up.
+        connected_image += connected_component_8(image=copy_image, row=row - 1, col=col)
+    if image[row+1][col] and row != image.shape[0] - 1:  # Down.
+        connected_image += connected_component_8(image=copy_image, row=row + 1, col=col)
+    # Proceed to the next non-4-neighbor pixels, while avoiding cyclic paths.
+    if image[row-1][col-1] and row != 0 and col != 0:
+        connected_image += connected_component_8(image=copy_image, row=row - 1, col=col - 1)
+    if image[row+1][col-1] and row != image.shape[0] - 1 and col != 0:
+        connected_image += connected_component_8(image=copy_image, row=row + 1, col=col - 1)
+    if image[row-1][col+1] and row != 0 and col != image.shape[1] - 1:
+        connected_image += connected_component_8(image=copy_image, row=row - 1, col=col + 1)
+    if image[row+1][col+1] and row != image.shape[0] - 1 and col != image.shape[1] - 1:
+        connected_image += connected_component_8(image=copy_image, row=row + 1, col=col + 1)
+
+    # When the connected image is accumulated, it can have the same pixel value added more than once, thus creating
+    # values above 1. Therefore, a cutoff normalization is necessary.
+    return image_normalization(image=connected_image, normalization_method='cutoff')
