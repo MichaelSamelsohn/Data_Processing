@@ -29,6 +29,21 @@ def measure_runtime(func):
     return inner
 
 
+def log_suppression(level):
+    def wrapper(func):
+        def inner(*args, **kwargs):
+            # Remembering the current log level.
+            current_log_level = log.log_level
+            # Suppressing the log.
+            log.log_level = level
+            result = func(*args, **kwargs)
+            # Un-suppressing the log.
+            log.log_level = current_log_level
+            return result
+        return inner
+    return wrapper
+
+
 def book_reference(book, reference):
     def wrapper(func):
         def inner(*args, **kwargs):
