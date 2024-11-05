@@ -49,7 +49,7 @@ import copy
 import numpy as np
 from numpy import ndarray
 
-from common import convolution_2d, extract_sub_image
+from common import convolution_2d, extract_sub_image, calculate_histogram
 from Settings import image_settings
 from Utilities.decorators import book_reference, article_reference
 from Settings.settings import log
@@ -555,6 +555,26 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
     variability between images that, even if global thresholding is a suitable approach, an algorithm capable of
     estimating the threshold value for each image is required.
 
+    The following iterative algorithm can be used for this purpose:
+    1. Select an initial estimate for the global threshold, T.
+    2. Segment the image using T. This will produce two groups of pixels: G1, consisting of pixels with intensity
+       values > T; and G2 , consisting of pixels with values ≤ T.
+    3. Compute the average (mean) intensity values m1 and m2 for the pixels in G1 and G2 , respectively.
+    4. Compute a new threshold value T, midway between m1 and m2.
+    5. Repeat Steps 2 through 4 until the difference between values of T in successive iterations is smaller than a
+       predefined value, delta_T.
+
+    The algorithm is stated here in terms of successively thresholding the input image and calculating the means at each
+    step, because it is more intuitive to introduce it in this manner. However, it is possible to develop an equivalent
+    (and more efficient) procedure by expressing all computations in the terms of the image histogram, which has to be
+    computed only once.
+
+    The preceding algorithm works well in situations where there is a reasonably clear valley between the modes of the
+    histogram related to objects and background. Parameter delta_T is used to stop iterating when the changes in
+    threshold values is small. The initial threshold must be chosen greater than the minimum and less than the maximum
+    intensity level in the image (the average intensity of the image is a good initial choice for T). If this condition
+    is met, the algorithm converges in a finite number of steps, whether or not the modes are separable.
+
     :param image: The image for global thresholding.
     :param initial_threshold: Threshold seed.
     :param delta_t: The minimal interval between following threshold values (when the next iteration is less than the
@@ -604,4 +624,70 @@ def global_thresholding(image: ndarray, initial_threshold=image_settings.DEFAULT
     return thresholding(image=threshold_image, threshold_value=np.round(global_threshold, 3))
 
 
-# TODO: Implement the optimum global thresholding using Otsu's method - p.747-752.
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK, reference="Chapter 10.3 - Thresholding, p.747-752")
+@article_reference(article="Otsu, N. [1979]. “A Threshold Selection Method from Gray-Level Histograms,” IEEE Trans. "
+                           "Systems, Man, and Cybernetics, vol. 9, no. 1, pp. 62–66.")
+def otsu_global_thresholding(image: ndarray) -> ndarray:
+    """
+    A nonparametric and unsupervised method of automatic threshold selection for picture segmentation is presented. An
+    optimal threshold is selected by the discriminant criterion, namely, to maximize the separability of the resultant
+    classes in gray levels. The procedure is very simple, utilizing only the zeroth- and the first-order cumulative
+    moments of the gray-level histogram.
+
+    :param image: The image to be thresholded by Otsu's method.
+
+    :return: thresholded image.
+    """
+
+    log.info("Performing Otsu's global thresholding")
+
+    # Calculating the normalized histogram of the image.
+    histogram = calculate_histogram(image=image, normalize=True)
+    intensity_levels = len(histogram)
+    log.debug(f"Intensity levels in the provided image (deducted from the histogram) - {intensity_levels}")
+
+    log.debug("Computing the cumulative sums")
+    cumulative_sum = np.zeros(intensity_levels)
+    for k in range(intensity_levels):
+        cumulative_sum[k] = np.sum([histogram[i] for i in range(k)])
+
+    log.debug("Computing the cumulative means (average intensity)")
+    cumulative_mean = np.zeros(intensity_levels)
+    for k in range(intensity_levels):
+        cumulative_mean[k] = np.sum([histogram[i] * i for i in range(k)])
+
+    log.debug("Computing the global mean (average intensity of the entire image)")
+    global_mean = cumulative_mean[-1]  # Private case when k=L-1.
+
+    log.debug("Computing the between-class variance term")
+    between_class_variance = np.zeros(intensity_levels)
+    for k in range(intensity_levels):
+        between_class_variance[k] = ((np.power(global_mean * cumulative_sum[k] - cumulative_mean[k], 2))
+                                     / (cumulative_sum[k] * (1 - cumulative_sum[k])))
+    """
+    Since cumulative_sum[k] could equal to 0, this means that the denominator can equal 0, which eventually leads to 
+    'nan' values. Therefore, we eliminate all those options by turning them to zero.
+    """
+    between_class_variance[np.isnan(between_class_variance)] = 0
+
+    log.debug("Obtaining the Otsu threshold, as the value of k for which maximizes the between-class variance")
+    max_indexes = np.argwhere(between_class_variance == np.amax(between_class_variance)).flatten().tolist()
+    # If the maximum is not unique, obtain the threshold by averaging the values of k corresponding to the various
+    # maxima detected.
+    otsu_threshold = np.mean(max_indexes)
+    log.debug(f"Otsu's threshold value (un-normalized) is - {otsu_threshold}")
+
+    log.debug("Computing the global variance (intensity variance of all the pixels in the image)")
+    global_variance = np.sum([np.power(i - global_mean, 2) * histogram[i] for i in range(intensity_levels)])
+    log.debug("Computing the separability measure for otsu's threshold")
+    separability_measure = between_class_variance[int(otsu_threshold)] / global_variance
+    log.info(f"Separability measure - {separability_measure}")
+
+    # Thresholding the image with Otsu's threshold value.
+    """
+    Since we are working with the histogram data (presented as an array with integer indexes starting with 0), it is 
+    easier to continue working that way. However, since the image pixel values are in range of [0, 1], we need to 
+    normalize the threshold we got.
+    """
+    otsu_threshold /= intensity_levels
+    return thresholding(image=image, threshold_value=otsu_threshold)

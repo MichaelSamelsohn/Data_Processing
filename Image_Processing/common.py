@@ -164,6 +164,7 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
             calculate_histogram(image=blue, normalize=normalize)
 
     log.debug("Scaling the image to have a histogram with integer values")
+    # TODO: Need to understand if this is always 255?
     image = scale_image(image=image, scale_factor=255)
 
     log.debug("Performing the histogram calculation")
