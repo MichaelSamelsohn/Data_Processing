@@ -20,6 +20,7 @@ from segmentation import *
 from morphological_operations import *
 from meta_shells import *
 from intensity_transformations import *
+from restoration import *
 from Settings import image_settings
 from Settings.settings import log
 
