@@ -126,6 +126,7 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
             8-Connected components calculation.
             not(P2) and (P3 or P4) + not(P4) and (P5 or P6) + not(P6) and (P7 or P8) + not(P8) and (P9 or P2).
             """
+            # TODO: "Prettify" the syntax.
             connected_components = (int(not neighborhood_array[0] and (neighborhood_array[1] or neighborhood_array[2])) +
                                     int(not neighborhood_array[2] and (neighborhood_array[3] or neighborhood_array[4])) +
                                     int(not neighborhood_array[4] and (neighborhood_array[5] or neighborhood_array[6])) +
@@ -138,8 +139,8 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
             0->1 Transitions calculation. 
             The number of 01 patterns in the ordered set P2, P3, P4, • • • P8, P9, P2.
             """
-            n = neighborhood_array + neighborhood_array[0:1]
-            transitions = sum((p1, p2) == (0, 1) for p1, p2 in zip(n, n[1:]))
+            adjoined_array = neighborhood_array + neighborhood_array[0:1]
+            transitions = sum((p1, p2) == (0, 1) for p1, p2 in zip(adjoined_array, adjoined_array[1:]))
 
             """
             Basic conditions (sub-iteration 1):
@@ -187,18 +188,71 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                     images', 2015 3rd International Conference on Control, Engineering & Information Technology (CEIT), 
                     Tlemcen, Algeria, 2015, pp. 1-6.
                     
-                    This thinning algorithm is based on the directional approach used by Zhang-Suen algorithm and is combined with the
-                    sub-field approach, which consists of dividing an image into two sub-fields. We define two sub-fields according to
-                    the parity of pixels. The first sub-field is the set of odd pixels that is those for which the sum of their
-                    coordinates i + j is odd and the second sub-field is similarity composed of the set of even pixels.
+                    This thinning algorithm is based on the directional approach used by Zhang-Suen algorithm and is 
+                    combined with the sub-field approach, which consists of dividing an image into two sub-fields. We 
+                    define two sub-fields according to the parity of pixels. The first sub-field is the set of odd 
+                    pixels that is those for which the sum of their coordinates i + j is odd and the second sub-field is 
+                    similarity composed of the set of even pixels.
                     """
                     if (sub_field and (connected_components == 1) and (2 <= neighbors <= 7) and
                             (basic_1 == 0) and (basic_2 == 0)):
                         """
                         Condition connected_components == 1 implies that p is simple when p is a boundary pixel and the 
                         deletion will not disconnect the 3×3 neighborhood. 
-                        Condition 2≤B(p1)≤7 means that we examine a larger set of border points than that considered by 
+                        Condition 2≤B(P1)≤7 means that we examine a larger set of border points than that considered by 
                         ZS, it implies deletion of more boundary pixels.
+                        """
+                        # Found a contour point (to be removed).
+                        contour_points += 1
+                        contour_image[row, col] = 1
+                case "GH1":
+                    """
+                    Article reference - Z. Guo and R. W. Hall, 'Parallel thinning with two-subiteration algorithms', 
+                    Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989
+
+                    This method modifies the algorithms of Zhang-Suen (1984) and Lu-Wang (1986) to preserve connectivity 
+                    and produce thin medial curves.
+                    """
+
+                    """
+                    Endpoint check calculation.
+                    n1(P) and n2(P) each break the ordered set of P’s neighboring pixels into four pairs of adjoining 
+                    pixels and count the number of pairs which contain 1 or 2 ones.
+                    """
+                    # TODO: "Prettify" the syntax.
+                    n1 = (int(neighborhood_array[7] or neighborhood_array[0]) +
+                          int(neighborhood_array[1] or neighborhood_array[2]) +
+                          int(neighborhood_array[3] or neighborhood_array[4]) +
+                          int(neighborhood_array[5] or neighborhood_array[6]))
+                    n2 = (int(neighborhood_array[0] or neighborhood_array[1]) +
+                          int(neighborhood_array[2] or neighborhood_array[3]) +
+                          int(neighborhood_array[4] or neighborhood_array[5]) +
+                          int(neighborhood_array[6] or neighborhood_array[7]))
+                    endpoint_check = min(n1, n2)
+
+                    """
+                    c1, used for odd iterations, is satisfied when P’s neighborhood takes either of the forms:
+                                                x  x  x          x  0  0 
+
+                                                x  P  0          x  P  x
+
+                                                x  x  x          x  x  1  
+                    """
+                    c1 = ((neighborhood_array[0] or neighborhood_array[1] or not neighborhood_array[3])
+                          and neighborhood_array[2])
+                    """ c2, even iterations, is satisfied for 180° rotations of either of the two conditions above. """
+                    c2 = ((neighborhood_array[4] or neighborhood_array[5] or not neighborhood_array[7])
+                          and neighborhood_array[6])
+
+                    if ((connected_components == 1) and (2 <= endpoint_check <= 3)
+                            and not (c1 if sub_iteration_index == 1 else c2)):
+                        """
+                        Condition connected_components == 1 is a necessary condition for preserving local connectivity 
+                        when P is deleted and avoids deletion of pixels in the middle of medial curves.
+                        Condition 2<=endpoint_check<=3 allows endpoints to be preserved while deleting many redundant 
+                        pixels in the middle of curves.
+                        Condition c1 tends to identify pixels at the north and east boundary of objects and c2 
+                        identifies pixels at the south and west boundary of objects.
                         """
                         # Found a contour point (to be removed).
                         contour_points += 1
