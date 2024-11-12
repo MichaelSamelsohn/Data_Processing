@@ -51,27 +51,20 @@ def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
     skeleton_image = copy.deepcopy(image)
 
     iteration_counter = 0  # For debug purposes.
-    while True:
+    is_contour_removed = True  # Flag used to determine if contour removal process is exhausted.
+    while is_contour_removed:
         iteration_counter += 1
         log.debug(f"Iteration #{iteration_counter}")
 
-        # Sub-iteration 1.
-        skeleton_image, contour_pixels = sub_iteration(image=skeleton_image, sub_iteration_index=1, method=method)
-        log.debug(f"Contour pixels found in sub-iteration 1 - {contour_pixels}")
+        for i in [1, 2]:
+            skeleton_image, contour_pixels = sub_iteration(image=skeleton_image, sub_iteration_index=i, method=method)
+            log.debug(f"Contour pixels found in sub-iteration {i} - {contour_pixels}")
 
-        # Stop condition check.
-        if contour_pixels == 0:
-            log.debug("No new contour pixels found, process finished")
-            break
-
-        # Sub-iteration 2.
-        skeleton_image, contour_pixels = sub_iteration(image=skeleton_image, sub_iteration_index=2, method=method)
-        log.debug(f"Contour pixels found in sub-iteration 2 - {contour_pixels}")
-
-        # Stop condition check.
-        if contour_pixels == 0:
-            log.debug("No new contour pixels found, process finished")
-            break
+            # Stop condition check.
+            if contour_pixels == 0:
+                log.debug("No new contour pixels found, process finished")
+                is_contour_removed = False
+                break
 
     return skeleton_image
 
