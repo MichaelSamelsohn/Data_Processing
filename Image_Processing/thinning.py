@@ -208,7 +208,7 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                 case "GH1":
                     """
                     Article reference - Z. Guo and R. W. Hall, 'Parallel thinning with two-subiteration algorithms', 
-                    Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989
+                    Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989.
 
                     This method modifies the algorithms of Zhang-Suen (1984) and Lu-Wang (1986) to preserve connectivity 
                     and produce thin medial curves.
@@ -253,6 +253,28 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                         pixels in the middle of curves.
                         Condition c1 tends to identify pixels at the north and east boundary of objects and c2 
                         identifies pixels at the south and west boundary of objects.
+                        """
+                        # Found a contour point (to be removed).
+                        contour_points += 1
+                        contour_image[row, col] = 1
+                case "GH2":
+                    """
+                    Article reference - Z. Guo and R. W. Hall, 'Parallel thinning with two-subiteration algorithms', 
+                    Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989. 
+                    
+                    This method is an adaptation of the thinning algorithm of Rosenfeld-Kak using by dividing the image 
+                    into distinct subfields. These subfields are activated sequentially in distinct iterations.
+                    """
+
+                    """ 4-connected pixel evaluation - Check if all ones in the 4-neighborhood. """
+                    connected_4 = False if (neighborhood_array[0] and neighborhood_array[2] and
+                                            neighborhood_array[4] and neighborhood_array[6]) else True
+                    if sub_field and (connected_components == 1) and connected_4 and (neighbors > 1):
+                        """
+                        Condition connected_components == 1 is a necessary condition for preserving local connectivity 
+                        when P is deleted and avoids deletion of pixels in the middle of medial curves.
+                        Condition is_candidate guarantees that only boundary pixels are candidates for deletion.
+                        Condition neighbors > 1 preserves the endpoints of medial curves.
                         """
                         # Found a contour point (to be removed).
                         contour_points += 1
