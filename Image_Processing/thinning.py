@@ -632,6 +632,9 @@ def measure_thinning_rate(image: ndarray) -> float:
     :return: Thinning rate calculation.
     """
 
+    log.info("Performing thinning rate calculation")
+
+    log.debug("Calculating TM1 (the number of triangles whose three vertices are all white pixels)")
     tm1 = 0
     for row in range(1, image.shape[0] - 1):
         for col in range(1, image.shape[1] - 1):
@@ -658,10 +661,10 @@ def measure_thinning_rate(image: ndarray) -> float:
             tm1 += ((neighborhood_array[6] * neighborhood_array[7]) + (neighborhood_array[7] * neighborhood_array[0]) +
                     (neighborhood_array[0] * neighborhood_array[1]) + (neighborhood_array[1] * neighborhood_array[2]))
 
-    # Calculating TM2.
+    log.debug("Calculating TM2 (the largest number of white triangles that an image can have)")
     tm2 = 4 * np.power([max(image.shape[0], image.shape[0]) - 1], 2)
 
-    # Thinning rate calculation.
+    log.debug("Calculating the thinning rate")
     thinning_rate = 1 - (tm1 / tm2)
     log.info(f"The Thinning rate (TR) is - {thinning_rate}")
 
