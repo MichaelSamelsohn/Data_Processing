@@ -235,8 +235,8 @@ and the nature of edges themselves.
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.724-729")
-@article_reference(article="Marr, D.; Hildreth, E. (29 Feb 1980). \"Theory of Edge Detection\". Proceedings of the "
-                           "Royal Society of London. Series B, Biological Sciences. 207 (1167): 187–217")
+@article_reference(article="Marr, D.; Hildreth, E. (29 Feb 1980). “Theory of Edge Detection“. Proceedings of the Royal "
+                           "Society of London. Series B, Biological Sciences. 207 (1167): 187–217")
 def marr_hildreth_edge_detection(image: ndarray, filter_size=image_settings.DEFAULT_FILTER_SIZE,
                                  padding_type=image_settings.DEFAULT_PADDING_TYPE,
                                  sigma=image_settings.DEFAULT_SIGMA_VALUE,

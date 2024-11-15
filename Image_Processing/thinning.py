@@ -50,6 +50,7 @@ def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
     # Copying the image as to not disturb the original.
     skeleton_image = copy.deepcopy(image)
 
+    log.debug("Activating the thinning process")
     iteration_counter = 0  # For debug purposes.
     is_contour_removed = True  # Flag used to determine if contour removal process is exhausted.
     while is_contour_removed:
@@ -283,7 +284,333 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
     return image - contour_image, contour_points
 
 
-@article_reference(article="Tarábek, Peter. (2008). \"Performance measurements of thinning algorithms\", Journal of "
+@article_reference(article="Y. Y. Zhang and P. S. P. Wang, “A parallel thinning algorithm with two-subiteration that "
+                           "generates one-pixel-wide skeletons“, Proceedings of 13th International Conference on "
+                           "Pattern Recognition, Vienna, Austria, 1996, pp. 457-461 vol.4")
+def pta2t_thinning(image: ndarray) -> ndarray:
+    """
+    A fast two sub-iteration parallel thinning algorithm (PTA2T) which preserves the connectivity of patterns and
+    produces one-pixel-wide skeletons.
+
+    Definitions:
+    1) A point, P, is termed "Globally Removable" if CN(P)=1 and NN(P)>1, where CN(P) is the number of connected
+    components and NN is the number of non-zero neighbors. All globally removable points consist of a set termed GRS.
+    2) A point, P, is termed irreducible if P is not a globally removable point. All irreducible points consist of a set
+    termed IPS. IPS = WS - GRS (where WS is the set of all possible constellations for a 3x3 neighborhood).
+    3) A skeleton S is of one-pixel-wide if all points in S are in IPS.
+    4) A thinning algorithm is perfect if it can generate one-pixel-wide skeletons.
+
+    Weight-Notation of thinning conditions (see calculate_decimal_weight method for weight notations):
+    Weight notation set is defined to represent the thinning condition Ck of N sub-iteration algorithm A (1<=k<=N):
+                                 A[k] = {WN(P) | WN(P) belongs to GRS and P belongs to Ck}
+    For different window types, the WN set is different, but when summing all N WN sets, we get a set of all removable
+    points for the algorithm, A_Remove = A[1] + A[2] + • • • + A[N]
+    The set of all redundant points for algorithm A is - A_Redundant = GRS - A_Remove
+    According to definition (4), If A_Redundant is an empty set, then the algorithm A is prefect.
+
+    Symmetry of sub-iteration conditions:
+    Various sub-iterations based algorithms have the quality of symmetry regarding the conditions that define the
+    thinning process, for example, Zhang-Suen (1984), Guo-Hall (1989). This means we can use either a single window, but
+    N removable points sets or N windows with a single removable set.
+
+    Thinning conditions with array representation:
+    To simplify the general form even further (and to shorten the amount of computations), we can combine all removable
+    points under a single array (instead of separate sets), where the array is 0 if image[row, col] is not a removable
+    point, 1 otherwise (part of a removable set).
+
+    By combining the symmetry and condition array representation, the following pseudocode is a general form for the
+    thinning process:
+
+    procedure OH_B(image) ;
+        thinning-not-end := TRUE;
+        while (thinning-not-end) do
+            thinning-not-end := FALSE;
+            for k := 1 to 2 do
+                WNQ: WNk(image)
+                for row := 2 to max-row -1 do
+                    for col := 2 to max-col -1 do
+                        if (condition_array[WNQ[row,coll]]) then
+                            thinning-not-end := TRUE;
+                            image[row,col] := 0;
+
+    See pta2t_condition_array method to see which templates are used for thinning and why the algorithm is perfect
+    according to definition (4).
+
+    :param image: The image for thinning.
+
+    :return: Skeleton image.
+    """
+
+    log.info(f"Performing image thinning using method - Zhang-Wang")
+
+    # Copying the image as to not disturb the original.
+    skeleton_image = copy.deepcopy(image)
+
+    # Constructing the PTA2T condition array.
+    condition_array = pta2t_condition_array()
+
+    log.debug("Activating the thinning process")
+    iteration_counter = 0  # For debug purposes.
+    is_contour_removed = True  # Flag used to determine if contour removal process is exhausted.
+    while is_contour_removed:
+        iteration_counter += 1
+        log.debug(f"Iteration #{iteration_counter}")
+
+        for i in [1, 2]:
+            # Resetting the number of contour pixels removed in an iteration.
+            contour_pixels = 0
+
+            # Setting the values of the north/west (for window 1), south/east (for window 2) indexes.
+            r0, c0 = (0, 1) if i == 1 else (2, 1)  # North/South.
+            r6, c6 = (1, 0) if i == 1 else (1, 2)  # West/East.
+
+            # Calculating the decimal weight of the image.
+            decimal_weight_image = calculate_decimal_weight(matrix=skeleton_image, window_type=i)
+
+            for row in range(1, image.shape[0] - 1):
+                for col in range(1, image.shape[1] - 1):
+                    # Checking pixel value.
+                    if skeleton_image[row][col] == 0:
+                        continue  # If the pixel is black it can't be part of a contour.
+
+                    pixel_condition_value = condition_array[int(decimal_weight_image[row][col])]
+                    match pixel_condition_value:
+                        case 0:
+                            continue  # P is not stable, not to be removed.
+                        case 1:
+                            # P is stable, to be removed.
+                            contour_pixels += 1
+                            skeleton_image[row][col] = 0
+                        case 2:
+                            # P is stable if north/south (window 1 and 2, respectively) is in IPS.
+                            decimal_weight_window = extract_sub_image(image=decimal_weight_image, position=(row, col),
+                                                                      sub_image_size=3)
+                            if not condition_array[int(decimal_weight_window[r0][c0])]:
+                                contour_pixels += 1
+                                skeleton_image[row][col] = 0
+                        case 3:
+                            # P is stable if west/east (window 1 and 2, respectively) is in IPS.
+                            decimal_weight_window = extract_sub_image(image=decimal_weight_image, position=(row, col),
+                                                                      sub_image_size=3)
+                            if not condition_array[int(decimal_weight_window[r6][c6])]:
+                                contour_pixels += 1
+                                skeleton_image[row][col] = 0
+                        case 4:
+                            # P is stable if north/south and west/east (window 1 and 2, respectively) is in IPS.
+                            decimal_weight_window = extract_sub_image(image=decimal_weight_image, position=(row, col),
+                                                                      sub_image_size=3)
+                            if (not condition_array[int(decimal_weight_window[r0][c0])] and
+                                not condition_array[int(decimal_weight_window[r6][c6])]):
+                                contour_pixels += 1
+                                skeleton_image[row][col] = 0
+
+            log.debug(f"Contour pixels found in sub-iteration {i} - {contour_pixels}")
+
+            # Stop condition check.
+            if contour_pixels == 0:
+                log.debug("No new contour pixels found, process finished")
+                is_contour_removed = False
+                break
+
+    return skeleton_image
+
+
+def pta2t_condition_array() -> ndarray:
+    """
+    Construction of the PTA2T condition array.
+    The templates used for the construction of the array:
+
+             0  0  x         x  0  0         x  0  x         1  1  0         0  0  1         0  0  0
+             0  x  1         1  x  0         1  x  1         1  x  0         0  x  1         0  x  0
+             x  1  x         x  1  x         x  1  x         x  1  x         0  0  x         1  1  x
+               T1              T2              T3              T4              T5              T6
+
+                     0  0  0         0  0  0         1  #  1         0  1  0         0  #  1
+                     0  x  1         0  x  0         1  x  0         #  x  0         #  x  0
+                     0  0  1         0  1  1         x  1  x         x  1  x         x  1  x
+                       T7              T8              T9              T10             T11
+
+    Where 'x' is don't care and '#' is a pixel in IPS.
+
+    When converting all templates to weight notations we get the following:
+    TO1 = {20, 22, 28, 30, 52, 54, 60, 62}                                             -- 8
+    TO2 = {80, 88, 112, 120, 208, 216, 240, 248}                                       -- 8
+    TO3 = {84, 86, 92, 94, 116, 118, 124, 126, 212, 214, 220, 222, 244, 246, 252, 254} -- 16
+    TO4 = {209, 217, 241, 249}                                                         -- 4
+    TO5 = {6, 14}                                                                      -- 2
+    TO6 = {48, 56}                                                                     -- 2
+    TO7 = {12}                                                                         -- 1
+    TO8 = {24}                                                                         -- 1
+    TO9 = {211, 219, 243, 251}                                                         -- 4
+    T10 = {81, 89, 113, 121}                                                           -- 4
+    T11 = {83, 91, 115, 123}                                                           -- 4
+
+    PTA2T[1] = T1 + T2 + T3 + T4 + T5 + T6 + T7 + T8 + T9 + T10 + T11 = {
+    006, 012, 014, 020, 022, 024, 028, 030, 048, 052, 054, 056, 060, 062, 080, 081, 083, 084, 086, 088, 089, 091, 092,
+    094, 112, 113, 115, 116, 118, 120, 121, 123, 124, 126, 208, 209, 211, 212, 214, 216, 217, 219, 220, 222, 240, 241,
+    243, 244, 246, 248, 249, 251, 252, 254
+    } -- 54
+
+    In order to distinguish the templates, we use the following values to fill the array:
+    0 - P is unstable no template match                    No template
+    1 - P is stable.                                       T1-T8
+    2 - P is stable if north(P) is in IPS.                 T9
+    3 - P is stable if west(P) is in IPS.                  T10
+    4 - P is stable if north(P) and west(P) re in IPS.     T11
+
+    Similarly, when switching to window type 2, we get:
+    PTA2T[2] = {
+    003, 005, 007, 013, 015, 021, 023, 029, 031, 053, 055, 061, 063, 065, 067, 069, 071, 077, 079, 096, 097, 099, 101,
+    103, 109, 111, 129, 131, 133, 135, 192, 193, 195, 197, 199, 205, 207, 224, 225, 227, 141, 143, 149, 151, 157, 159,
+    181, 183, 189, 191, 229, 231, 237, 239
+    } -- 54
+
+    Theorem - Algorithm PTA2T is perfect.
+    Proof - The total deleted types of pixels in algorithm PTA2T thinning process is PTA2T[1] + PTA2T[2] which is equal
+    to GRS. Therefore, algorithm PTA2T is perfect because all pixels in GRS are deleted.
+
+    :return: PTA2T condition array.
+    """
+
+    log.info("Constructing the PTA2T condition array")
+
+    log.debug("Preparing the templates T1-T11")
+    t1 = np.array([[0, 0, 'x'], [0, 'x', 1], ['x', 1, 'x']])
+    t2 = np.array([['x', 0, 0], [1, 'x', 0], ['x', 1, 'x']])
+    t3 = np.array([['x', 0, 'x'], [1, 'x', 1], ['x', 1, 'x']])
+    t4 = np.array([[1, 1, 0], [1, 'x', 0], ['x', 1, 'x']])
+    t5 = np.array([[0, 0, 1], [0, 'x', 1], [0, 0, 'x']])
+    t6 = np.array([[0, 0, 0], [0, 'x', 0], [1, 1, 'x']])
+    t7 = np.array([[0, 0, 0], [0, 'x', 1], [0, 0, 1]])
+    t8 = np.array([[0, 0, 0], [0, 'x', 0], [0, 1, 1]])
+    t9 = np.array([[1, 1, 1], [1, 'x', 0], ['x', 1, 'x']])
+    t10 = np.array([[0, 1, 0], [1, 'x', 0], ['x', 1, 'x']])
+    t11 = np.array([[0, 1, 1], [1, 'x', 0], ['x', 1, 'x']])
+    templates = {
+        't1': t1, 't2': t2, 't3': t3, 't4': t4, 't5': t5, 't6': t6,
+        't7': t7, 't8': t8, 't9': t9, 't10': t10, 't11': t11
+    }
+
+    log.debug("Evaluating the condition array according to template matches")
+    condition_array = np.zeros(256)  # Initializing the condition array.
+    for k in range(256):
+        # Calculating the binary representation of the weight. Reversing it so it aligns with the window designations.
+        weight = format(k, '08b')[::-1]  # '08b' - leading 0, 8 digits, binary.
+        # Constructing the weight window. Since all templates are 'x' in the middle, we choose 1 as an arbitrary value.
+        weight_window = np.array([[weight[7], weight[0], weight[1]],
+                                  [weight[6],     1,     weight[2]],
+                                  [weight[5], weight[4], weight[3]]])
+
+        # Going over all templates to find a possible match.
+        is_match = False
+        for template in templates:
+            # Check if current template is a match.
+            is_match = is_template_match(template=templates[template], matrix=weight_window)
+            if is_match:
+                break  # Match found, no need to continue to the next templates.
+
+        if not is_match:
+            continue  # No match was found, value remains zero.
+
+        # Matching the condition array value to the template match.
+        match template:
+            case 't1' | 't2' | 't3' | 't4' | 't5' | 't6' | 't7' | 't8':
+                condition_array[k] = 1
+            case 't9':
+                condition_array[k] = 2
+            case 't10':
+                condition_array[k] = 3
+            case 't11':
+                condition_array[k] = 4
+
+    return condition_array
+
+
+def is_template_match(template: ndarray, matrix: ndarray) -> bool:
+    """
+    Method to check if the provided matrix matches the provided template.
+    The template can contain don't care values designated as 'x'. For these values, no check is performed to match the
+    matrix value.
+
+    :param template: The template for matching.
+    :param matrix: The matrix for template matching.
+
+    :return: Boolean value indicating if the provided matrix matches the provided template.
+    """
+
+    # Scanning the template to find a value mismatch.
+    for row in range(template.shape[0]):
+        for col in range(template.shape[1]):
+            # Checking for "don't care" values.
+            if template[row][col] == 'x':
+                continue  # Skip current value as it's a "don't care".
+
+            # Checking for non-don't care value mismatch
+            if template[row][col] != matrix[row][col]:
+                return False  # Mismatch found, no need to continue.
+
+    # If we got to this point, no mismatch was found and the matrix matches the template.
+    return True
+
+
+def calculate_decimal_weight(matrix: ndarray, window_type: int) -> ndarray:
+    """
+    Defining two possible widow types:
+                                        P7  P0  P1                P3  P4  P5
+
+                                        P6  P   P2                P2  P   P6
+
+                                        P5  P4  P3                P1  P0  P7
+
+                                            W1                        W2
+
+    For a 3*3 window W1 the weight numbers (decimal weight) are among 0 and 255 and are defined as:
+                    W(P) = sum(Pk*2^k) for k in 0-7 = P0*2^0 + P1*2^1 + • • • + P6*2^6 + P7*2^7
+
+    :param matrix: Binary valued matrix.
+    :param window_type: Type of window (1 or 2) for calculating the decimal weights.
+
+    :return: Decimal weight matrix.
+    """
+
+    # Determining the indexes of the neighbor values depending on the window type selected.
+    r0, c0 = (0, 1) if window_type == 1 else (2, 1)
+    r1, c1 = (0, 2) if window_type == 1 else (2, 0)
+    r2, c2 = (1, 2) if window_type == 1 else (1, 0)
+    r3, c3 = (2, 2) if window_type == 1 else (0, 0)
+    r4, c4 = (2, 1) if window_type == 1 else (0, 1)
+    r5, c5 = (2, 0) if window_type == 1 else (0, 2)
+    r6, c6 = (1, 0) if window_type == 1 else (1, 2)
+    r7, c7 = (0, 0) if window_type == 1 else (2, 2)
+
+    # Calculating the binary weight matrix.
+    decimal_weight_matrix = np.zeros(shape=matrix.shape)  # Initializing the binary weight matrix.
+    for row in range(1, matrix.shape[0] - 1):
+        for col in range(1, matrix.shape[1] - 1):
+            # Extract the sub-matrix.
+            sub_matrix = extract_sub_image(image=matrix, position=(row, col), sub_image_size=3)
+
+            """
+            Calculating the binary weight of the current position.
+            For better optimization, we convert the binary representation of the weight to the decimal value instead of 
+            actually calculating it. The calculation introduces another 'for' loop (which we want to avoid),
+            decimal_weight_matrix[row][col] = np.sum([neighborhood_array[i]*np.power(2, i) for i in range(8)])
+            
+            First, we arrange pixels values in an array, counter-clockwise order, starting from the end. This is because 
+            the MSB is actually the last value P7.
+            Second, we convert the array into a binary number (binary weight).
+            Last, we convert the binary value to decimal (decimal weight).
+            """
+            neighborhood_array = [int(sub_matrix[r7, c7]), int(sub_matrix[r6, c6]),
+                                  int(sub_matrix[r5, c5]), int(sub_matrix[r4, c4]), int(sub_matrix[r3, c3]),
+                                  int(sub_matrix[r2, c2]), int(sub_matrix[r1, c1]), int(sub_matrix[r0, c0])]
+            binary_weight = ''.join([str(s) for s in neighborhood_array])
+            decimal_weight_matrix[row][col] = int(binary_weight, 2)
+
+    return decimal_weight_matrix
+
+
+@article_reference(article="Tarábek, Peter. (2008). “Performance measurements of thinning algorithms“, Journal of "
                            "Information, Control and Management Systems. 6.")
 def measure_thinning_rate(image: ndarray) -> float:
     """
