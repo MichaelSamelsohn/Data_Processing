@@ -78,6 +78,8 @@ def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
 
     log.info(f"Performing image thinning using method - {method}")
 
+    image = pre_thinning(image=image)
+
     # Copying the image as to not disturb the original.
     skeleton_image = copy.deepcopy(image)
 
@@ -172,7 +174,7 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
             The number of 01 patterns in the ordered set P2, P3, P4, • • • P8, P9, P2.
             """
             adjoined_array = neighborhood_array + neighborhood_array[0:1]
-            transitions = sum((p1, p2) == (0, 1) for p1, p2 in zip(adjoined_array, adjoined_array[1:]))
+            pattern_01 = sum((p1, p2) == (0, 1) for p1, p2 in zip(adjoined_array, adjoined_array[1:]))
 
             """
             Basic conditions (sub-iteration 1):
@@ -196,8 +198,8 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
             match method:
                 case "ZS":
                     """
-                    Article reference - T. Y. Zhang and C. Y. Suen. 'A Fast Parallel Algorithm for Thinning Digital 
-                    Patterns', Communications of the ACM, 27(3):236–239, 1984.
+                    Article reference - T. Y. Zhang and C. Y. Suen. "A Fast Parallel Algorithm for Thinning Digital 
+                    Patterns", Communications of the ACM, 27(3):236–239, 1984.
                     
                     A fast parallel thinning algorithm. It consists of two sub-iterations:
                         • one aimed at deleting the south-east boundary points and the north-west corner points.
@@ -205,10 +207,10 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                     End points and pixel connectivity are preserved. Each pattern is thinned down to a "skeleton" of 
                     unitary thickness.
                     """
-                    if (2 <= neighbors <= 6) and (transitions == 1) and (basic_1 == 0) and (basic_2 == 0):
+                    if (2 <= neighbors <= 6) and (pattern_01 == 1) and (basic_1 == 0) and (basic_2 == 0):
                         """
                         By condition 2 <= neighbors <= 6, the endpoints of a skeleton line are preserved. 
-                        Condition transitions == 1 prevents the deletion of those points that lie between the endpoints 
+                        Condition pattern_01 == 1 prevents the deletion of those points that lie between the endpoints 
                         of a skeleton line.
                         """
                         # Found a contour point (to be removed).
@@ -216,8 +218,8 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                         contour_image[row, col] = 1
                 case "BST":
                     """
-                    Article reference - L. Ben Boudaoud, A. Sider and A. Tari, 'A new thinning algorithm for binary 
-                    images', 2015 3rd International Conference on Control, Engineering & Information Technology (CEIT), 
+                    Article reference - L. Ben Boudaoud, A. Sider and A. Tari, "A new thinning algorithm for binary 
+                    images", 2015 3rd International Conference on Control, Engineering & Information Technology (CEIT), 
                     Tlemcen, Algeria, 2015, pp. 1-6.
                     
                     This thinning algorithm is based on the directional approach used by Zhang-Suen algorithm and is 
@@ -239,7 +241,7 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                         contour_image[row, col] = 1
                 case "GH1":
                     """
-                    Article reference - Z. Guo and R. W. Hall, 'Parallel thinning with two-subiteration algorithms', 
+                    Article reference - Z. Guo and R. W. Hall, "Parallel thinning with two sub-iteration algorithms", 
                     Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989.
 
                     This method modifies the algorithms of Zhang-Suen (1984) and Lu-Wang (1986) to preserve connectivity 
@@ -291,7 +293,7 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                         contour_image[row, col] = 1
                 case "GH2":
                     """
-                    Article reference - Z. Guo and R. W. Hall, 'Parallel thinning with two-subiteration algorithms', 
+                    Article reference - Z. Guo and R. W. Hall, "Parallel thinning with two sub-iteration algorithms", 
                     Commun. ACM, vol. 32, no. 3, pp. 359-373, Mar. 1989. 
                     
                     This method is an adaptation of the thinning algorithm of Rosenfeld-Kak using by dividing the image 
@@ -301,12 +303,41 @@ def sub_iteration(image: ndarray, method: str, sub_iteration_index: int) -> (nda
                     """ 4-connected pixel evaluation - Check if all ones in the 4-neighborhood. """
                     connected_4 = False if (neighborhood_array[0] and neighborhood_array[2] and
                                             neighborhood_array[4] and neighborhood_array[6]) else True
+
                     if sub_field and (connected_components == 1) and connected_4 and (neighbors > 1):
                         """
                         Condition connected_components == 1 is a necessary condition for preserving local connectivity 
                         when P is deleted and avoids deletion of pixels in the middle of medial curves.
                         Condition is_candidate guarantees that only boundary pixels are candidates for deletion.
                         Condition neighbors > 1 preserves the endpoints of medial curves.
+                        """
+                        # Found a contour point (to be removed).
+                        contour_points += 1
+                        contour_image[row, col] = 1
+                case "DLH":
+                    """
+                    Article reference - J. Dong, W. Lin and C. Huang, "An improved parallel thinning algorithm", 2016 
+                    International Conference on Wavelet Analysis and Pattern Recognition (ICWAPR), Jeju, Korea (South), 
+                    2016, pp. 162-167.
+                    
+                    The proposed algorithm yields good skeleton concerning connectivity and noise immunity. At the same 
+                    time, it preserves a good symmetry, and mostly controls the large deformations at the intersections 
+                    of strokes, moreover, the seeking conditions of the boundary pixels which will be deleted from the 
+                    image are simple.
+                    """
+
+                    """
+                    Transitions calculation. 
+                    The number of 01 or 10 patterns in the ordered set P2, P3, P4, • • • P8, P9, P2.
+                    """
+                    transitions = sum((p1, p2) == (0, 1) or (p1, p2) == (1, 0)
+                                      for p1, p2 in zip(adjoined_array, adjoined_array[1:]))
+
+                    if (2 <= neighbors <= 6) and (transitions == 2) and (basic_1 == 0) and (basic_2 == 0):
+                        """
+                        By condition 2 <= neighbors <= 6, the endpoints of a skeleton line are preserved. 
+                        Condition transitions == 2 prevents the deletions of skeleton points and maintains the 
+                        connectedness of the original pattern.
                         """
                         # Found a contour point (to be removed).
                         contour_points += 1
