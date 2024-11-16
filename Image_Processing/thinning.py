@@ -19,6 +19,37 @@ from segmentation import thresholding, global_thresholding
 from spatial_filtering import blur_image
 
 
+@article_reference(article="J. Dong, W. Lin and C. Huang, “An improved parallel thinning algorithm,“ 2016 "
+                           "International Conference on Wavelet Analysis and Pattern Recognition (ICWAPR), Jeju, Korea "
+                           "(South), 2016, pp. 162-167")
+def pre_thinning(image: ndarray) -> ndarray:
+    """
+    Pre-thinning is a crucial and essential step to produce a good skeleton. The binary image is scanned from the upper
+    left corner to the lower right hand corner. For each pixel P in the image, let P2 to P9 be its 8 neighbors, starting
+    from the north neighbor and counted in an anti-clockwise fashion. Let B_odd(P) = P2 + P4 + P6 + P8.
+    If B_odd(P) < 2, the value of P is set to 0.
+    Else if B_odd(P) > 2, the value of P is set to 1.
+    Else, keep the value of P unchanged.
+
+    :param image: Image for pre-thinning.
+
+    :return: Pre-thinned image.
+    """
+
+    log.info("Performing image pre-thinning")
+
+    pre_thinned_image = copy.deepcopy(image)
+    for row in range(1, image.shape[0] - 1):
+        for col in range(1, image.shape[1] - 1):
+            neighbors_4 = image[row - 1][col] + image[row][col - 1] + image[row + 1][col] + image[row][col + 1]
+            if neighbors_4 < 2:
+                pre_thinned_image[row][col] = 0
+            elif neighbors_4 > 2:
+                pre_thinned_image[row][col] = 1
+
+    return pre_thinned_image
+
+
 def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
     """
     A fast parallel thinning algorithm. It consists of two sub-iterations:
