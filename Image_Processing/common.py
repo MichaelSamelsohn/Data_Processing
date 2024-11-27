@@ -11,7 +11,7 @@ import copy
 import logging
 import math
 import numpy as np
-from numpy import ndarray, random
+from numpy import ndarray
 from Settings import image_settings
 from Utilities.decorators import measure_runtime, log_suppression
 from Settings.settings import log
@@ -41,45 +41,6 @@ def convert_to_grayscale(image: ndarray) -> ndarray:
     else:
         log.warning("Image is already grayscale, returning as is")
         return image
-
-
-def salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
-    """
-    Add salt and pepper (white and black) pixels to an image at random.
-
-    :param image: The image for distortion.
-    :param pepper: Percentage of black pixels to be randomized into the image.
-    :param salt: Percentage of white pixels to be randomized into the image.
-
-    :return: Distorted image.
-    """
-
-    log.info("Adding salt and pepper to the image")
-
-    pepper_pixels, salt_pixels = 0, 0  # Counters for the salt and pepper pixels.
-    noisy_image = np.zeros(shape=image.shape)
-    for row in range(image.shape[0]):
-        for col in range(image.shape[1]):
-            # Randomizing the new pixel value according to the following three options - salt, pepper, unchanged.
-            new_pixel = random.choice([0, 1, image[row][col]], p=[pepper, salt, 1 - (pepper + salt)])
-
-            # Checking that pixel wasn't already pepper (black).
-            if new_pixel == 0 and image[row][col] != 0:
-                pepper_pixels += 1  # Incrementing salt counter.
-            # Checking that pixel wasn't already salt (white).
-            if new_pixel == 1 and image[row][col] != 1:
-                salt_pixels += 1  # Incrementing salt counter.
-            # Setting the new pixel value.
-            noisy_image[row][col] = new_pixel
-
-    log.info(
-        f"Pepper pixels - {pepper_pixels} ({round(100 * pepper_pixels / (image.shape[0] * image.shape[1]), 2)}% of "
-        f"total pixels)")
-    log.info(
-        f"Salt pixels - {salt_pixels} ({round(100 * salt_pixels / (image.shape[0] * image.shape[1]), 2)}% of "
-        f"total pixels)")
-
-    return noisy_image
 
 
 def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
