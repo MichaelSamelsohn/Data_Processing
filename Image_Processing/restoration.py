@@ -5,6 +5,7 @@ Created by Michael Samelsohn, 06/11/24
 """
 
 # Imports #
+import warnings
 import numpy as np
 from numpy import ndarray, random
 from common import pad_image, extract_sub_image
@@ -106,7 +107,20 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
                     The harmonic mean filter works well for salt noise, but fails for pepper noise. It does well also 
                     with other types of noise like Gaussian noise.
                     """
-                    pass  # TODO: To be implemented.
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        """
+                        1 / sub_image can raise the 'RuntimeWarning: divide by zero encountered in divide' in case any 
+                        of the pixels is zero (which is very likely). Therefore, the warning suppression is in effect. 
+                        If any of the pixels is zero, the denominator evaluates to infinity, which means zero for the 
+                        end result (due to the nominator being a constant non-zero integer). This coincides with the 
+                        argument that the harmonic filter works poorly with pepper noise, as a single black pixel in the 
+                        neighborhood nullifies the pixel under investigation (causing the whole neighborhood to become 
+                        black).
+                        """
+                        denominator = np.sum(1 / sub_image)
+                    mean_filter_image[row - filter_size // 2][col - filter_size // 2] = \
+                        np.power(filter_size, 2) / denominator
                 case "contraharmonic":
                     """
                     This filter is well suited for reducing or virtually eliminating the effects of salt-and-pepper 
