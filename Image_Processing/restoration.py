@@ -152,9 +152,12 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.330-332")
 def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_ORDER_STATISTIC_FILTER_TYPE,
                            padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                           filter_size=image_settings.DEFAULT_FILTER_SIZE) -> ndarray:
+                           filter_size=image_settings.DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
     """
     TODO: Expand on order-statistic filters.
+
+    Note - Since more computations are done than necessary, this implementation is not optimal, rather for simplicity
+    of use.
 
     :param image: The image for filtering.
     :param filter_type: The filter type used for the mean filtering.
@@ -193,10 +196,25 @@ def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_OR
                     median_image[row - filter_size // 2][col - filter_size // 2] = \
                         sorted_flat_sub_image[filter_size**2 // 2]
                 case "max":
-                    pass  # TODO: To be implemented.
+                    """
+                    This filter is useful for finding the brightest points in an image or for eroding dark regions 
+                    adjacent to bright areas. Also, because pepper noise has very low values, it is reduced by this 
+                    filter as a result of the max selection process in the sub-image area.
+                    """
+                    median_image[row - filter_size // 2][col - filter_size // 2] = sorted_flat_sub_image[-1]
                 case "min":
-                    pass  # TODO: To be implemented.
+                    """
+                    This filter is useful for finding the darkest points in an image or for eroding light regions 
+                    adjacent to dark areas. Also, it reduces salt noise as a result of the min operation.
+                    """
+                    median_image[row - filter_size // 2][col - filter_size // 2] = sorted_flat_sub_image[0]
                 case "midpoint":
                     pass  # TODO: To be implemented.
+                    """
+                    This filter combines order statistics and averaging. It works best for randomly distributed noise, 
+                    like Gaussian or uniform noise.
+                    """
+                    median_image[row - filter_size // 2][col - filter_size // 2] = \
+                        np.average(sorted_flat_sub_image[0] + sorted_flat_sub_image[-1])
 
     return median_image
