@@ -59,8 +59,8 @@ def salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.328-330")
 def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_TYPE,
-                padding_type=image_settings.DEFAULT_PADDING_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE) \
-        -> ndarray:
+                padding_type=image_settings.DEFAULT_PADDING_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
+                **kwargs) -> ndarray:
     """
     TODO: Complete the docstring.
 
@@ -121,14 +121,26 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
                         denominator = np.sum(1 / sub_image)
                     mean_filter_image[row - filter_size // 2][col - filter_size // 2] = \
                         np.power(filter_size, 2) / denominator
-                case "contraharmonic":
+                case "contra-harmonic":
                     """
                     This filter is well suited for reducing or virtually eliminating the effects of salt-and-pepper 
-                    noise. For positive values of Q, the filter eliminates pepper noise. For negative values of Q, it 
-                    eliminates salt noise. It cannot do both simultaneously. Note that the contraharmonic filter reduces 
-                    to the arithmetic mean filter if Q = 0, and to the harmonic mean filter if Q = −1.
+                    noise. Q is called the order of the filter. For positive values of Q, the filter eliminates pepper 
+                    noise. For negative values of Q, it eliminates salt noise. It cannot do both simultaneously. Note 
+                    that the contraharmonic filter reduces to the arithmetic mean filter if Q = 0, and to the harmonic 
+                    mean filter if Q = −1.
                     """
-                    pass  # TODO: To be implemented.
+
+                    if "q" not in kwargs:
+                        log.warning("the order of the filter (Q) is not defined. Will use default value, 0 "
+                                    "(=arithmetic mean filter)")
+                        kwargs["q"] = 0
+
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        # Same explanation as in the harmonic mean filter.
+                        nominator = np.sum(np.power(sub_image, kwargs["q"]+1))
+                        denominator = np.sum(np.power(sub_image, kwargs["q"]))
+                        mean_filter_image[row - filter_size // 2][col - filter_size // 2] = nominator / denominator
 
     return mean_filter_image
 
