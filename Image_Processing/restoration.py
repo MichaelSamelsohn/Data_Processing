@@ -77,6 +77,14 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
 
     log.info(f"Applying a {filter_type} mean filter on the image")
 
+    # Checking that 'q' is specified in the keyword arguments (if filter type is contra-harmonic). Setting default
+    # value otherwise.
+    if filter_type == "contra-harmonic":
+        if "q" not in kwargs:
+            log.warning("the order of the filter (Q) is not defined. Will use default value, 0 "
+                        "(=arithmetic mean filter)")
+            filter_type = image_settings.DEFAULT_MEAN_FILTER_TYPE
+
     # Padding the image so the kernel can be applied to the image boundaries.
     padded_image = pad_image(image=image, padding_type=padding_type, padding_size=filter_size // 2)
 
@@ -130,12 +138,6 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
                     that the contraharmonic filter reduces to the arithmetic mean filter if Q = 0, and to the harmonic 
                     mean filter if Q = −1.
                     """
-
-                    if "q" not in kwargs:
-                        log.warning("the order of the filter (Q) is not defined. Will use default value, 0 "
-                                    "(=arithmetic mean filter)")
-                        kwargs["q"] = 0
-
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
                         # Same explanation as in the harmonic mean filter.
