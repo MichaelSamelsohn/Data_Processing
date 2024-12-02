@@ -50,7 +50,7 @@ def pre_thinning(image: ndarray) -> ndarray:
     return pre_thinned_image
 
 
-def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
+def parallel_sub_iteration_thinning(image: ndarray, method="ZS", is_pre_thinning=False) -> ndarray:
     """
     A fast parallel thinning algorithm. It consists of two sub-iterations:
     • one aimed at deleting the south-east boundary points and the north-west corner points
@@ -72,13 +72,15 @@ def sub_iteration_thinning(image: ndarray, method="ZS") -> ndarray:
 
     :param image: The image for thinning.
     :param method: Thinning method.
+    :param is_pre_thinning: Boolean value determining whether pre-thinning will take place.
 
     :return: Skeleton image.
     """
 
     log.info(f"Performing image thinning using method - {method}")
 
-    image = pre_thinning(image=image)
+    if is_pre_thinning:
+        image = pre_thinning(image=image)
 
     # Copying the image as to not disturb the original.
     skeleton_image = copy.deepcopy(image)
@@ -733,10 +735,19 @@ def measure_thinning_rate(image: ndarray) -> float:
     return thinning_rate
 
 
-            # Check if all conditions are met -> contour point.
-            if (2 <= b <= 6) and (a == 1) and (c == 0) and (d == 0):
-                # Found a contour point (to be removed).
-                contour_points += 1
-                contour_image[row, col] = 1
+def noiseless_doublet(image: ndarray) -> ndarray:
+    """
+    TODO: Complete the docstring.
+    """
 
-    return binary_image - contour_image, contour_points
+    stretched_image = contrast_stretching(image=image)
+
+    high_intensity_contour = thresholding(image=stretched_image, threshold_value=0.75)
+
+    negative_image = negative(image=stretched_image)
+    low_intensity_contour = thresholding(image=negative_image, threshold_value=0.75)
+
+    blurred = blur_image(image=high_intensity_contour, filter_size=23)
+    blob = global_thresholding(image=blurred, initial_threshold=0.1)
+
+    return blob
