@@ -674,6 +674,36 @@ def calculate_decimal_weight(matrix: ndarray, window_type: int) -> ndarray:
     return decimal_weight_matrix
 
 
+def extract_sub_image_circle(image: ndarray, position: tuple[int, int], radius: int) -> ndarray:
+    """
+    Extract the neighborhood of the selected pixel. Values outside the radius curve are nullified.
+    A pixel belongs to the radius curve if both of the following conditions apply:
+    1) Pixel distance from the center of the neighborhood is smaller or equal to the radius value.
+    2) Pixel distance from the center of the neighborhood is larger than the (radius-1) value.
+    This means that radius 1 = 4-connected neighborhood.
+
+    :param image: Image for pixel information calculation.
+    :param position: Position of the pixel under investigation.
+    :param radius: Maximum radius of the pixel information calculation.
+
+    :return: Neighborhood with "curved out" values outside the radius curve.
+    """
+
+    # Extract the neighborhood.
+    sub_image_size = 2 * radius + 1
+    neighborhood = extract_sub_image(image=image, position=position, sub_image_size=sub_image_size)
+
+    # Nullifying non-radius values.
+    for x in range(sub_image_size):
+        for y in range(sub_image_size):
+            # Calculate the distance from the center.
+            distance_from_center = np.sqrt(np.power(np.abs(x - radius), 2) + np.power(np.abs(y - radius), 2))
+            if (distance_from_center <= radius - 1) or (distance_from_center > radius):
+                neighborhood[x][y] = 0
+
+    return neighborhood
+
+
 @article_reference(article="Tarábek, Peter. (2008). “Performance measurements of thinning algorithms“, Journal of "
                            "Information, Control and Management Systems. 6.")
 def measure_thinning_rate(image: ndarray) -> float:
