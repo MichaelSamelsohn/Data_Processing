@@ -169,6 +169,13 @@ def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_OR
 
     log.info("Applying a median filter on the image")
 
+    # Checking that 'percentile' is specified in the keyword arguments (if filter type is contra-harmonic). Setting
+    # default value otherwise.
+    if filter_type == "custom":
+        if "percentile" not in kwargs:
+            log.warning("the percentile value is not defined. Will use default value, median filter")
+            filter_type = image_settings.DEFAULT_ORDER_STATISTIC_FILTER_TYPE
+
     # Padding the image so the kernel can be applied to the image boundaries.
     padded_image = pad_image(image=image, padding_type=padding_type, padding_size=filter_size // 2)
 
@@ -209,12 +216,15 @@ def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_OR
                     """
                     median_image[row - filter_size // 2][col - filter_size // 2] = sorted_flat_sub_image[0]
                 case "midpoint":
-                    pass  # TODO: To be implemented.
                     """
                     This filter combines order statistics and averaging. It works best for randomly distributed noise, 
                     like Gaussian or uniform noise.
                     """
                     median_image[row - filter_size // 2][col - filter_size // 2] = \
                         np.average(sorted_flat_sub_image[0] + sorted_flat_sub_image[-1])
+                case "custom":
+                    """Custom option to perform order-statistic filter with selected percentile"""
+                    median_image[row - filter_size // 2][col - filter_size // 2] = \
+                        sorted_flat_sub_image[kwargs["percentile"]]
 
     return median_image
