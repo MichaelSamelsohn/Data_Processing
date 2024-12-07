@@ -15,10 +15,7 @@ from scipy.io import loadmat
 
 from common import *
 from spatial_filtering import *
-from corner_detection import *
 from segmentation import *
-from morphological_operations import *
-from meta_shells import *
 from intensity_transformations import *
 from restoration import *
 from thinning import *
