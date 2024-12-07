@@ -10,11 +10,9 @@ Created by Michael Samelsohn, 22/03/24
 import os
 from apod import APOD
 from epic import EPIC
-from image import Image
+from Basic.image import Image
 from mars_rovers import MARS
 from nil import NIL
-from intensity_transformations import *
-from segmentation import *
 from spatial_filtering import *
 
 # Demo constants #

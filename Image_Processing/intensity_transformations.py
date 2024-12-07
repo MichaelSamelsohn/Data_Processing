@@ -18,7 +18,7 @@ Created by Michael Samelsohn, 13/05/22
 # Imports #
 import numpy as np
 from numpy import ndarray
-from common import use_lookup_table, scale_pixel_values
+from Basic.common import use_lookup_table, scale_pixel_values
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log

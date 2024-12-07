@@ -10,7 +10,7 @@ Created by Michael Samelsohn, 20/05/22
 # Imports #
 import numpy as np
 from numpy import ndarray
-from common import generate_filter, convolution_2d, image_normalization
+from Basic.common import generate_filter, convolution_2d, image_normalization
 from Settings import image_settings
 from Utilities.decorators import book_reference
 from Settings.settings import log
