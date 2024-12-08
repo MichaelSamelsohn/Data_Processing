@@ -71,8 +71,10 @@ def add_gaussian_noise(image: ndarray, sigma: float) -> ndarray:
 
     log.info("Adding Gaussian noise to the image")
 
+    log.debug("Generating array of all possible pixel intensity values")
+    pixel_intensity_values = np.linspace(0, 1, 256)
+
     log.debug("Calculating the Gaussian constants")
-    pixel_intensity_values = np.linspace(0, 1, 256)  # Array of all pixel value options.
     constant = 1 / (np.sqrt(2 * np.pi) * sigma)
     exponent_factor_denominator = (2 * np.power(sigma, 2))
 
@@ -83,6 +85,44 @@ def add_gaussian_noise(image: ndarray, sigma: float) -> ndarray:
             # Calculating the probability distribution.
             exponent_factor = -np.power(pixel_intensity_values - image[row][col], 2) / exponent_factor_denominator
             probability_distribution = constant * np.exp(exponent_factor)
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noisy_image[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+            # TODO: Cutoff values exceeding the range of possible values.
+
+    return noisy_image
+
+
+def add_rayleigh_noise(image: ndarray, b: float) -> ndarray:
+    """
+    Add Rayleigh noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param b: Parameter controlling the probability of the most probable value.
+    Note - Since the most probable value equals 0.607*sqrt(2/b), the lower b, the higher the probability that the random
+    value is closer to the original one.
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding Rayleigh noise to the image")
+
+    log.debug("Generating array of all possible pixel intensity values")
+    pixel_intensity_values = np.linspace(0, 1, 256)
+
+    log.debug("Calculating the probability distribution and selecting new pixel values")
+    noisy_image = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            a = image[row][col] - np.sqrt(b / 2)  # Calculating a according to current pixel value.
+            exponent_factor = -np.power(pixel_intensity_values - a, 2) / b
+            probability_distribution = (2 / b) * (pixel_intensity_values - a) * np.exp(exponent_factor)
+            probability_distribution[probability_distribution < 0] = 0
             probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
             # Assigning the new pixel value.
