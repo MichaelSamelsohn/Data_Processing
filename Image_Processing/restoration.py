@@ -144,6 +144,41 @@ def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
     return noisy_image
 
 
+def add_exponential_noise(image: ndarray, a=50) -> ndarray:
+    """
+    Add exponential noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param a: Decay factor (the higher it is, the random value will be more likely to be zero).
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding exponential noise to the image")
+
+    log.debug("Generating array of possible random values - [0, 1]")
+    pixel_intensity_values = np.linspace(0, 1, 257)
+
+    log.debug("Calculating the probability distribution and selecting new pixel values")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            probability_distribution = a * np.exp(-a * pixel_intensity_values)
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
 # TODO: Add a method (two images as input) to deduct (string as output) the noise type.
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
