@@ -15,6 +15,175 @@ from Settings.settings import log
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.319-320")
+def add_gaussian_noise(image: ndarray, mean=0, sigma=0.01) -> ndarray:
+    """
+    Add Gaussian noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param mean: The mean value of the Gaussian distribution (the value with the highest probability).
+    :param sigma: The standard deviation of the Gaussian distribution.
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding Gaussian noise to the image")
+
+    log.debug("Generating array of possible random values - [-1, 1]")
+    pixel_intensity_values = np.linspace(-1, 1, 513)
+
+    log.debug("Calculating the Gaussian constants")
+    constant = 1 / (np.sqrt(2 * np.pi) * sigma)
+    exponent_factor_denominator = (2 * np.power(sigma, 2))
+
+    log.debug("Calculating the probability distribution and generating the noise")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            exponent_factor = -np.power(pixel_intensity_values - mean, 2) / exponent_factor_denominator
+            probability_distribution = constant * np.exp(exponent_factor)
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320")
+def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
+    """
+    Add Rayleigh noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param a: Parameter controlling the cutoff on the left side.
+    :param b: Parameter controlling the probability of the most probable value.
+    Note - Since the most probable value equals 0.607*sqrt(2/b), the lower b, the higher the probability that the random
+    value is closer to the original one.
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding Rayleigh noise to the image")
+
+    log.debug("Generating array of possible random values - [-1, 1]")
+    pixel_intensity_values = np.linspace(-1, 1, 513)
+
+    log.debug("Calculating the probability distribution and generating the noise")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            exponent_factor = -np.power(pixel_intensity_values - a, 2) / b
+            probability_distribution = (2 / b) * (pixel_intensity_values - a) * np.exp(exponent_factor)
+            """
+            The following operation is to ensure that no values in pixel_intensity_values below a are non-zero. Due to 
+            the calculation above, if pixel_intensity_values < a, then it follows that (pixel_intensity_values - a) < 0,
+            and it is the only condition that causes the probability_distribution to be negative at lower values (b is 
+            positive and so does an exponential value). Therefore, it is enough to nullify values according to condition
+            probability_distribution < 0.  
+            """
+            probability_distribution[probability_distribution < 0] = 0
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-321")
+def add_exponential_noise(image: ndarray, a=50) -> ndarray:
+    """
+    Add exponential noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param a: Decay factor (the higher it is, the random value will be more likely to be zero).
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding exponential noise to the image")
+
+    log.debug("Generating array of possible random values - [0, 1]")
+    pixel_intensity_values = np.linspace(0, 1, 257)
+
+    log.debug("Calculating the probability distribution and generating the noise")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            probability_distribution = a * np.exp(-a * pixel_intensity_values)
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+                reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-322")
+def add_uniform_noise(image: ndarray, a=-0.1, b=0.1) -> ndarray:
+    """
+    Add uniform noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    :param a: Left value of the uniform range.
+    :param b: Right value of the uniform range.
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding exponential noise to the image")
+
+    log.debug("Generating array of possible random values - [0, 1]")
+    pixel_intensity_values = np.linspace(-1, 1, 513)
+
+    log.debug("Calculating the probability distribution and generating the noise")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            probability_distribution = np.ones(513)
+            probability_distribution[pixel_intensity_values < a] = 0  # Nullifying left out-of-range values.
+            probability_distribution[pixel_intensity_values > b] = 0  # Nullifying right out-of-range values.
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Assigning the new pixel value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
+@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.322-324")
 def add_salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
     """
@@ -52,129 +221,6 @@ def add_salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
     log.info(
         f"Salt pixels - {salt_pixels} ({round(100 * salt_pixels / (image.shape[0] * image.shape[1]), 2)}% of "
         f"total pixels)")
-
-    return noisy_image
-
-
-def add_gaussian_noise(image: ndarray, mean=0, sigma=0.01) -> ndarray:
-    """
-    Add Gaussian noise to an image.
-    TODO: Extend the docstring.
-
-    Assumption - The image pixel values range is [0, 1].
-
-    :param image: The image for distortion.
-    :param mean: The mean value of the Gaussian distribution (the value with the highest probability).
-    :param sigma: The standard deviation of the Gaussian distribution.
-
-    :return: Noisy image.
-    """
-
-    log.info("Adding Gaussian noise to the image")
-
-    log.debug("Generating array of possible random values - [-1, 1]")
-    pixel_intensity_values = np.linspace(-1, 1, 513)
-
-    log.debug("Calculating the Gaussian constants")
-    constant = 1 / (np.sqrt(2 * np.pi) * sigma)
-    exponent_factor_denominator = (2 * np.power(sigma, 2))
-
-    log.debug("Calculating the probability distribution and randomizing values")
-    noise = np.zeros(shape=image.shape)
-    for row in range(image.shape[0]):
-        for col in range(image.shape[1]):
-            # Calculating the probability distribution.
-            exponent_factor = -np.power(pixel_intensity_values - mean, 2) / exponent_factor_denominator
-            probability_distribution = constant * np.exp(exponent_factor)
-            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
-
-            # Assigning the new pixel value.
-            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
-
-    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
-    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
-
-    return noisy_image
-
-
-def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
-    """
-    Add Rayleigh noise to an image.
-    TODO: Extend the docstring.
-
-    Assumption - The image pixel values range is [0, 1].
-
-    :param image: The image for distortion.
-    :param a: Parameter controlling the cutoff on the left side.
-    :param b: Parameter controlling the probability of the most probable value.
-    Note - Since the most probable value equals 0.607*sqrt(2/b), the lower b, the higher the probability that the random
-    value is closer to the original one.
-
-    :return: Noisy image.
-    """
-
-    log.info("Adding Rayleigh noise to the image")
-
-    log.debug("Generating array of possible random values - [-1, 1]")
-    pixel_intensity_values = np.linspace(-1, 1, 513)
-
-    log.debug("Calculating the probability distribution and selecting new pixel values")
-    noise = np.zeros(shape=image.shape)
-    for row in range(image.shape[0]):
-        for col in range(image.shape[1]):
-            # Calculating the probability distribution.
-            exponent_factor = -np.power(pixel_intensity_values - a, 2) / b
-            probability_distribution = (2 / b) * (pixel_intensity_values - a) * np.exp(exponent_factor)
-            """
-            The following operation is to ensure that no values in pixel_intensity_values below a are non-zero. Due to 
-            the calculation above, if pixel_intensity_values < a, then it follows that (pixel_intensity_values - a) < 0,
-            and it is the only condition that causes the probability_distribution to be negative at lower values (b is 
-            positive and so does an exponential value). Therefore, it is enough to nullify values according to condition
-            probability_distribution < 0.  
-            """
-            probability_distribution[probability_distribution < 0] = 0
-            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
-
-            # Assigning the new pixel value.
-            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
-
-    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
-    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
-
-    return noisy_image
-
-
-def add_exponential_noise(image: ndarray, a=50) -> ndarray:
-    """
-    Add exponential noise to an image.
-    TODO: Extend the docstring.
-
-    Assumption - The image pixel values range is [0, 1].
-
-    :param image: The image for distortion.
-    :param a: Decay factor (the higher it is, the random value will be more likely to be zero).
-
-    :return: Noisy image.
-    """
-
-    log.info("Adding exponential noise to the image")
-
-    log.debug("Generating array of possible random values - [0, 1]")
-    pixel_intensity_values = np.linspace(0, 1, 257)
-
-    log.debug("Calculating the probability distribution and selecting new pixel values")
-    noise = np.zeros(shape=image.shape)
-    for row in range(image.shape[0]):
-        for col in range(image.shape[1]):
-            # Calculating the probability distribution.
-            probability_distribution = a * np.exp(-a * pixel_intensity_values)
-            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
-
-            # Assigning the new pixel value.
-            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
-
-    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
-    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
 
     return noisy_image
 
