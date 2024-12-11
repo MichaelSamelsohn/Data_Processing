@@ -19,12 +19,12 @@ Created by Michael Samelsohn, 13/05/22
 import numpy as np
 from numpy import ndarray
 from Basic.common import use_lookup_table, scale_pixel_values
-from Settings import image_settings
+from Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Settings.settings import log
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 3.2 - Some Basic Intensity Transformation Functions, p.122-123")
 def negative(image: ndarray) -> ndarray:
     """
@@ -39,9 +39,9 @@ def negative(image: ndarray) -> ndarray:
     return 1 - image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 3.2 - Some Basic Intensity Transformation Functions, p.125-128")
-def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -> ndarray:
+def gamma_correction(image: ndarray, gamma=DEFAULT_GAMMA_VALUE) -> ndarray:
     """
     Perform Gamma correction on an image.
         * Higher (>1) Gamma value darkens the image.
@@ -61,10 +61,10 @@ def gamma_correction(image: ndarray, gamma=image_settings.DEFAULT_GAMMA_VALUE) -
     return np.power(image, gamma)
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 3.2 - Some Basic Intensity Transformation Functions, p.131-133")
 @scale_pixel_values(scale_factor=255)
-def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.DEFAULT_DEGREE_OF_REDUCTION) -> ndarray:
+def bit_plane_reconstruction(image: ndarray, degree_of_reduction=DEFAULT_DEGREE_OF_REDUCTION) -> ndarray:
     """
     Bit-plane reconstruction. The degree of reduction indicates how many bit planes we dismiss from the LSB.
     If degree of reduction is 0 (minimal value), all bit planes are included (original image).
@@ -99,10 +99,10 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction=image_settings.
     return use_lookup_table(image=image, lookup_table=lookup_table)
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 3.2 - Some Basic Intensity Transformation Functions, p.131-133")
 @scale_pixel_values(scale_factor=255)
-def bit_plane_slicing(image: ndarray, bit_plane=image_settings.DEFAULT_BIT_PLANE) -> ndarray:
+def bit_plane_slicing(image: ndarray, bit_plane=DEFAULT_BIT_PLANE) -> ndarray:
     """
     Bit-plane slicing. It comes to show the contribution of each bit plane.
     The planes where the bit is equal to 1 will contribute pixel value of 255 (white).

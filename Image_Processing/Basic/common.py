@@ -12,7 +12,7 @@ import logging
 import math
 import numpy as np
 from numpy import ndarray
-from Settings import image_settings
+from Settings.image_settings import *
 from Utilities.decorators import measure_runtime, log_suppression
 from Settings.settings import log
 
@@ -64,7 +64,7 @@ def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
     return new_image
 
 
-def scale_pixel_values(scale_factor=image_settings.DEFAULT_SCALING_FACTOR):
+def scale_pixel_values(scale_factor=DEFAULT_SCALING_FACTOR):
     def wrapper(func):
         def inner(*args, **kwargs):
             kwargs["image"] = scale_image(image=kwargs["image"], scale_factor=scale_factor)
@@ -76,7 +76,7 @@ def scale_pixel_values(scale_factor=image_settings.DEFAULT_SCALING_FACTOR):
     return wrapper
 
 
-def scale_image(image: ndarray, scale_factor=image_settings.DEFAULT_SCALING_FACTOR) -> ndarray:
+def scale_image(image: ndarray, scale_factor=DEFAULT_SCALING_FACTOR) -> ndarray:
     """
     Scale the pixel values of an image by the provided scaling factor.
     This function is useful when the pixel range is [0, 1] and it needs to be converted to integer values (scaling
@@ -100,8 +100,8 @@ def scale_image(image: ndarray, scale_factor=image_settings.DEFAULT_SCALING_FACT
     return scaled_image
 
 
-def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGRAM_NORMALIZATION) \
-        -> tuple[ndarray, ndarray, ndarray] | ndarray:
+def calculate_histogram(image: ndarray,
+                        normalize=DEFAULT_HISTOGRAM_NORMALIZATION) -> tuple[ndarray, ndarray, ndarray] | ndarray:
     """
     Calculate the histogram of an image. A histogram shows the amount of pixels per pixel intensity value.
     If the histogram is normalized, it shows the probabilities per pixel intensity value.
@@ -141,8 +141,8 @@ def calculate_histogram(image: ndarray, normalize=image_settings.DEFAULT_HISTOGR
     return histogram
 
 
-def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
-                    sigma=image_settings.DEFAULT_SIGMA_VALUE) -> ndarray:
+def generate_filter(filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
+                    sigma=DEFAULT_SIGMA_VALUE) -> ndarray:
     """
     TODO: Add more explanation about the kernels/filters (p. 164, p. 168/727 (for sigma values and filter size)).
 
@@ -172,11 +172,11 @@ def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=
     log.debug("Identifying the filter type and generating it")
     kernel_matrix = np.zeros(shape=filter_size_square)
     match filter_type:
-        case image_settings.BOX_FILTER:
+        case "box":
             log.debug("Box type filter selected")
             kernel_matrix = np.ones(shape=filter_size_square)
             kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
-        case image_settings.GAUSSIAN_FILTER:
+        case "gaussian":
             log.debug("Gaussian type filter selected with parameters:")
             log.debug(f"Sigma = {sigma}")
             center_position = filter_size // 2
@@ -189,8 +189,7 @@ def generate_filter(filter_type=image_settings.DEFAULT_FILTER_TYPE, filter_size=
     return kernel_matrix
 
 
-def pad_image(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-              padding_size=image_settings.DEFAULT_PADDING_SIZE) -> ndarray:
+def pad_image(image: ndarray, padding_type=DEFAULT_PADDING_TYPE, padding_size=DEFAULT_PADDING_SIZE) -> ndarray:
     """
     Padding the image boundaries.
 
@@ -213,7 +212,7 @@ def pad_image(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
     log.debug("Identifying the padding type and applying it")
     padded_image = np.zeros(shape=(rows, cols, 3)) if len(image.shape) == 3 else np.zeros(shape=(rows, cols))
     match padding_type:
-        case image_settings.ZERO_PADDING:
+        case "zero":
             log.debug("Zero padding selected")
             padded_image[padding_size:-padding_size, padding_size:-padding_size] = image[:, :]
 
@@ -221,8 +220,8 @@ def pad_image(image: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
 
 
 @measure_runtime
-def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                   normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) -> ndarray:
+def convolution_2d(image: ndarray, kernel: ndarray, padding_type=DEFAULT_PADDING_TYPE,
+                   normalization_method=DEFAULT_NORMALIZATION_METHOD) -> ndarray:
     """
     Perform convolution on an image with a kernel matrix. Mainly used for spatial filtering.
 
@@ -260,8 +259,7 @@ def convolution_2d(image: ndarray, kernel: ndarray, padding_type=image_settings.
     return image_normalization(image=convolution_image, normalization_method=normalization_method)
 
 
-def image_normalization(image: ndarray, normalization_method=image_settings.DEFAULT_NORMALIZATION_METHOD) \
-        -> ndarray:
+def image_normalization(image: ndarray, normalization_method=DEFAULT_NORMALIZATION_METHOD) -> ndarray:
     """
     Normalize image according to one of the following methods:
     • unchanged - Image remains as is. In this case, there might be values exceeding the expected image range of [0, 1].

@@ -10,13 +10,12 @@ import math
 import numpy as np
 from numpy import ndarray, random
 from Basic.common import pad_image, extract_sub_image, image_normalization
-from Settings import image_settings
 from Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Settings.settings import log
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.319-320")
 def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT_GAUSSIAN_SIGMA) -> ndarray:
     """
@@ -59,7 +58,7 @@ def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT
     return noisy_image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320")
 def add_rayleigh_noise(image: ndarray, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_B) -> ndarray:
     """
@@ -148,7 +147,7 @@ def add_erlang_noise(image: ndarray, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A) -> 
     return noisy_image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-321")
 def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarray:
     """
@@ -185,7 +184,7 @@ def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarra
     return noisy_image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-322")
 def add_uniform_noise(image: ndarray, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B) -> ndarray:
     """
@@ -225,7 +224,7 @@ def add_uniform_noise(image: ndarray, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B) 
     return noisy_image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.322-324")
 def add_salt_and_pepper(image: ndarray, pepper=DEFAULT_PEPPER, salt=DEFAULT_SALT) -> ndarray:
     """
@@ -269,11 +268,10 @@ def add_salt_and_pepper(image: ndarray, pepper=DEFAULT_PEPPER, salt=DEFAULT_SALT
 
 # TODO: Add a method (two images as input) to deduct (string as output) the noise type.
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.328-330")
-def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_TYPE,
-                padding_type=image_settings.DEFAULT_PADDING_TYPE, filter_size=image_settings.DEFAULT_FILTER_SIZE,
-                **kwargs) -> ndarray:
+def mean_filter(image: ndarray, filter_type=DEFAULT_MEAN_FILTER_TYPE, padding_type=DEFAULT_PADDING_TYPE,
+                filter_size=DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
     """
     TODO: Complete the docstring.
 
@@ -296,7 +294,7 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
         if "q" not in kwargs:
             log.warning("the order of the filter (Q) is not defined. Will use default value, 0 "
                         "(=arithmetic mean filter)")
-            filter_type = image_settings.DEFAULT_MEAN_FILTER_TYPE
+            filter_type = DEFAULT_MEAN_FILTER_TYPE
 
     # Padding the image so the kernel can be applied to the image boundaries.
     padded_image = pad_image(image=image, padding_type=padding_type, padding_size=filter_size // 2)
@@ -348,7 +346,7 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
                     This filter is well suited for reducing or virtually eliminating the effects of salt-and-pepper 
                     noise. Q is called the order of the filter. For positive values of Q, the filter eliminates pepper 
                     noise. For negative values of Q, it eliminates salt noise. It cannot do both simultaneously. Note 
-                    that the contraharmonic filter reduces to the arithmetic mean filter if Q = 0, and to the harmonic 
+                    that the contra-harmonic filter reduces to the arithmetic mean filter if Q = 0, and to the harmonic 
                     mean filter if Q = −1.
                     """
                     with warnings.catch_warnings():
@@ -361,11 +359,10 @@ def mean_filter(image: ndarray, filter_type=image_settings.DEFAULT_MEAN_FILTER_T
     return mean_filter_image
 
 
-@book_reference(book=image_settings.GONZALES_WOODS_BOOK,
+@book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.330-332")
-def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_ORDER_STATISTIC_FILTER_TYPE,
-                           padding_type=image_settings.DEFAULT_PADDING_TYPE,
-                           filter_size=image_settings.DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
+def order_statistic_filter(image: ndarray, filter_type=DEFAULT_ORDER_STATISTIC_FILTER_TYPE,
+                           padding_type=DEFAULT_PADDING_TYPE, filter_size=DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
     """
     TODO: Expand on order-statistic filters.
 
@@ -387,7 +384,7 @@ def order_statistic_filter(image: ndarray, filter_type=image_settings.DEFAULT_OR
     if filter_type == "custom":
         if "percentile" not in kwargs:
             log.warning("the percentile value is not defined. Will use default value, median filter")
-            filter_type = image_settings.DEFAULT_ORDER_STATISTIC_FILTER_TYPE
+            filter_type = DEFAULT_ORDER_STATISTIC_FILTER_TYPE
 
     # Padding the image so the kernel can be applied to the image boundaries.
     padded_image = pad_image(image=image, padding_type=padding_type, padding_size=filter_size // 2)
