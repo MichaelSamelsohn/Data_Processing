@@ -6,17 +6,19 @@ Created by Michael Samelsohn, 06/11/24
 
 # Imports #
 import warnings
+import math
 import numpy as np
 from numpy import ndarray, random
 from Basic.common import pad_image, extract_sub_image, image_normalization
 from Settings import image_settings
+from Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Settings.settings import log
 
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.319-320")
-def add_gaussian_noise(image: ndarray, mean=0, sigma=0.01) -> ndarray:
+def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT_GAUSSIAN_SIGMA) -> ndarray:
     """
     Add Gaussian noise to an image.
     TODO: Extend the docstring.
@@ -48,7 +50,7 @@ def add_gaussian_noise(image: ndarray, mean=0, sigma=0.01) -> ndarray:
             probability_distribution = constant * np.exp(exponent_factor)
             probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
-            # Assigning the new pixel value.
+            # Randomizing noise value.
             noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
 
     log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
@@ -59,7 +61,7 @@ def add_gaussian_noise(image: ndarray, mean=0, sigma=0.01) -> ndarray:
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320")
-def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
+def add_rayleigh_noise(image: ndarray, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_B) -> ndarray:
     """
     Add Rayleigh noise to an image.
     TODO: Extend the docstring.
@@ -97,7 +99,7 @@ def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
             probability_distribution[probability_distribution < 0] = 0
             probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
-            # Assigning the new pixel value.
+            # Randomizing noise value.
             noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
 
     log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
@@ -108,7 +110,7 @@ def add_rayleigh_noise(image: ndarray, a=-0.125, b=0.01) -> ndarray:
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-321")
-def add_exponential_noise(image: ndarray, a=50) -> ndarray:
+def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarray:
     """
     Add exponential noise to an image.
     TODO: Extend the docstring.
@@ -134,7 +136,7 @@ def add_exponential_noise(image: ndarray, a=50) -> ndarray:
             probability_distribution = a * np.exp(-a * pixel_intensity_values)
             probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
-            # Assigning the new pixel value.
+            # Randomizing noise value.
             noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
 
     log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
@@ -145,7 +147,7 @@ def add_exponential_noise(image: ndarray, a=50) -> ndarray:
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-322")
-def add_uniform_noise(image: ndarray, a=-0.1, b=0.1) -> ndarray:
+def add_uniform_noise(image: ndarray, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B) -> ndarray:
     """
     Add uniform noise to an image.
     TODO: Extend the docstring.
@@ -161,7 +163,7 @@ def add_uniform_noise(image: ndarray, a=-0.1, b=0.1) -> ndarray:
 
     log.info("Adding exponential noise to the image")
 
-    log.debug("Generating array of possible random values - [0, 1]")
+    log.debug("Generating array of possible random values - [-1, 1]")
     pixel_intensity_values = np.linspace(-1, 1, 513)
 
     log.debug("Calculating the probability distribution and generating the noise")
@@ -174,7 +176,7 @@ def add_uniform_noise(image: ndarray, a=-0.1, b=0.1) -> ndarray:
             probability_distribution[pixel_intensity_values > b] = 0  # Nullifying right out-of-range values.
             probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
-            # Assigning the new pixel value.
+            # Randomizing noise value.
             noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
 
     log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
@@ -185,7 +187,7 @@ def add_uniform_noise(image: ndarray, a=-0.1, b=0.1) -> ndarray:
 
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.322-324")
-def add_salt_and_pepper(image: ndarray, pepper=0.001, salt=0.001) -> ndarray:
+def add_salt_and_pepper(image: ndarray, pepper=DEFAULT_PEPPER, salt=DEFAULT_SALT) -> ndarray:
     """
     Add salt and pepper (white and black) pixels to an image at random.
     TODO: Extend the docstring.
