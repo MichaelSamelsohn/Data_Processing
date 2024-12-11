@@ -108,6 +108,46 @@ def add_rayleigh_noise(image: ndarray, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_
     return noisy_image
 
 
+def add_erlang_noise(image: ndarray, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A) -> ndarray:
+    """
+    Add Erlang (Gamma) noise to an image.
+    TODO: Extend the docstring.
+
+    Assumption - The image pixel values range is [0, 1].
+
+    :param image: The image for distortion.
+    TODO: Complete the description fro a, b parameters.
+    :param a: Must be bigger than b.
+    :param b: Positive integer.
+
+    :return: Noisy image.
+    """
+
+    log.info("Adding Erlang (Gamma) noise to the image")
+
+    log.debug("Generating array of possible random values - [0, 1]")
+    pixel_intensity_values = np.linspace(0, 1, 257)
+
+    log.debug("Calculating the probability distribution and generating the noise")
+    noise = np.zeros(shape=image.shape)
+    for row in range(image.shape[0]):
+        for col in range(image.shape[1]):
+            # Calculating the probability distribution.
+            exponent_factor = -a * pixel_intensity_values
+            nominator_factor = np.power(a, b) * np.power(pixel_intensity_values, b - 1)
+            denominator_factor = math.factorial(b - 1)
+            probability_distribution = (nominator_factor * np.exp(exponent_factor)) / denominator_factor
+            probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+
+            # Randomizing noise value.
+            noise[row][col] = random.choice(pixel_intensity_values, p=probability_distribution)
+
+    log.debug("Adding the noise to the image (and normalizing it to avoid out of range values)")
+    noisy_image = image_normalization(image=image + noise, normalization_method="cutoff")  # Normalization.
+
+    return noisy_image
+
+
 @book_reference(book=image_settings.GONZALES_WOODS_BOOK,
                 reference="Chapter 5.2 - Restoration in the Presence of Noise Only—Spatial Filtering, p.320-321")
 def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarray:
