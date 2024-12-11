@@ -17,6 +17,7 @@ from common import *
 from spatial_filtering import *
 from segmentation import *
 from intensity_transformations import *
+from noise_models import *
 from restoration import *
 from thinning import *
 from Settings import image_settings
