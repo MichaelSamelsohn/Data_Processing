@@ -34,13 +34,9 @@ def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT
     log.debug("Generating array of possible random values - [-1, 1]")
     pixel_intensity_values = np.linspace(-1, 1, 513)
 
-    log.debug("Calculating the Gaussian constants")
-    constant = 1 / (np.sqrt(2 * np.pi) * sigma)
-    exponent_factor_denominator = (2 * np.power(sigma, 2))
-
     log.debug("Calculating the probability distribution")
-    exponent_factor = -np.power(pixel_intensity_values - mean, 2) / exponent_factor_denominator
-    probability_distribution = constant * np.exp(exponent_factor)
+    exponent_factor = -np.power(pixel_intensity_values - mean, 2) / (2 * np.power(sigma, 2))
+    probability_distribution = 1 / (np.sqrt(2 * np.pi) * sigma) * np.exp(exponent_factor)
     probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
     # Generating noisy image.
@@ -283,7 +279,10 @@ def identify_noise_model(image: ndarray, noisy_image: ndarray):
     noise_values = np.linspace(-1, 1, 513)
     for row in range(delta.shape[0]):
         for col in range(delta.shape[1]):
-            delta_histogram[np.where(noise_values == delta[row][col])[0][0]] += 1
+            try:
+                delta_histogram[np.where(noise_values == delta[row][col])[0][0]] += 1
+            except IndexError:
+                pass  # TODO: Investigate why this happens.
     noise_distribution = delta_histogram / np.sum(delta_histogram)
 
     log.debug("Checking uniform noise model")
@@ -295,12 +294,23 @@ def identify_noise_model(image: ndarray, noisy_image: ndarray):
 
     log.debug("Checking Gaussian noise model")
     # TODO: Complete the explanation.
-    """
-    """
+    """"""
     most_probable_error_index = np.argmax(noise_distribution)
     left_side_distribution = np.sum(noise_distribution[:most_probable_error_index])
     right_side_distribution = np.sum(noise_distribution[most_probable_error_index + 1:])
     if (right_side_distribution - left_side_distribution) < 0.01:
         return "gaussian"
 
-    return
+    log.debug("Checking Rayleigh noise model")
+    """"""
+    if np.sum(noise_distribution[:256]) > 0:
+        # TODO: Explain why (negative values found, cannot be Gamma noise which has only positive values).
+        return "rayleigh"
+    else:
+        log.debug("Checking exponential noise model")
+        """"""
+        if most_probable_error_index == 256:
+            # TODO: Explain why (most probable error is 0 == index 256).
+            return "exponential"
+
+        return "erlang"
