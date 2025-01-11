@@ -39,7 +39,7 @@ def convert_to_grayscale(image: ndarray) -> ndarray:
         grayscale_image = 0.2989 * red + 0.5870 * green + 0.1140 * blue
         return grayscale_image
     else:
-        log.warning("Image is already grayscale, returning as is")
+        log.warning("Image is already grayscale")
         return image
 
 

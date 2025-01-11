@@ -7,7 +7,6 @@ Created by Michael Samelsohn, 12/05/22
 """
 
 # Imports #
-import os
 import traceback
 import matplotlib.image as im
 import matplotlib.pyplot as plt
@@ -20,6 +19,7 @@ from intensity_transformations import *
 from noise_models import *
 from restoration import *
 from thinning import *
+from morphology import *
 from Settings import image_settings
 from Settings.settings import log
 
