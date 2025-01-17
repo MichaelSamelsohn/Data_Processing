@@ -38,6 +38,7 @@ def erosion(image: ndarray, structuring_element: ndarray, padding_type=image_set
     :return: Morphologically eroded image.
     """
 
+    log.info("Performing morphological erosion of the image")
     return morphological_convolution(image=image, structuring_element=structuring_element, operation_type="erosion",
                                      padding_type=padding_type)
 
@@ -54,8 +55,49 @@ def dilation(image: ndarray, structuring_element: ndarray, padding_type=image_se
     :return: Morphologically dilated image.
     """
 
+    log.info("Performing morphological dilation of the image")
     return morphological_convolution(image=image, structuring_element=structuring_element, operation_type="dilation",
                                      padding_type=padding_type)
+
+
+@book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
+def opening(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+    """
+    TODO: Complete the docstring.
+
+    :param image: The image to be opened.
+    :param structuring_element: Structuring element.
+    :param padding_type: The padding type used for extending the image boundaries.
+
+    :return: Morphologically opened image.
+    """
+
+    log.info("Performing morphological opening of the image")
+
+    # Step I - Erode the image.
+    eroded_image = erosion(image=image, structuring_element=structuring_element, padding_type=padding_type)
+    # Step II - Dilate the eroded image.
+    return dilation(image=eroded_image, structuring_element=structuring_element, padding_type=padding_type)
+
+
+@book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
+def closing(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+    """
+    TODO: Complete the docstring.
+
+    :param image: The image to be closed.
+    :param structuring_element: Structuring element.
+    :param padding_type: The padding type used for extending the image boundaries.
+
+    :return: Morphologically closed image.
+    """
+
+    log.info("Performing morphological closing of the image")
+
+    # Step I - Dilate the image.
+    dilated_image = dilation(image=image, structuring_element=structuring_element, padding_type=padding_type)
+    # Step II - Erode the dilated image.
+    return erosion(image=dilated_image, structuring_element=structuring_element, padding_type=padding_type)
 
 
 def morphological_convolution(image: ndarray, structuring_element: ndarray, operation_type: str,
