@@ -14,9 +14,9 @@ from scipy.io import loadmat
 
 from common import *
 from spatial_filtering import *
-from segmentation import *
 from intensity_transformations import *
 from noise_models import *
+from segmentation import *
 from restoration import *
 from thinning import *
 from morphology import *
