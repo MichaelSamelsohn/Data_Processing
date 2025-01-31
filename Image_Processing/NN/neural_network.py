@@ -11,14 +11,59 @@ import numpy as np
 from Settings.settings import log
 
 
-def activation_function(x):
-    """"The function is used as the activation function for both the hidden layer and output layer."""
-    return 1 / (1 + np.exp(-x))
+def activation_function(x, function="sigmoid"):
+    """
+    The function is used as the activation function for both the hidden layer and output layer.
+    """
+
+    match function:
+        case "sigmoid":
+            """
+            The Sigmoid function is one of the most basic and commonly used activation functions for neural networks.
+            Pros:
+            1) Bounded Output - The sigmoid function outputs values between 0 and 1, which can be useful when you need 
+               to model probabilities (as in binary classification).
+            2) Simple Derivative - The derivative of the sigmoid is simple, making it easier to compute gradients during 
+               back-propagation.
+            Cons:
+            1) Vanishing Gradient Problem - For very large or small inputs, the derivative of the sigmoid becomes 
+               extremely small. This leads to very small updates during backpropagation, slowing down learning and 
+               sometimes preventing the network from learning at all (especially for deep networks).
+            2) Not Zero-Centered - The outputs of the sigmoid are always positive (between 0 and 1), which can lead to 
+               inefficient gradient updates and slower learning in deeper networks.
+            """
+            return 1 / (1 + np.exp(-x))
+        case "ReLU":
+            """
+            ReLU (Rectified Linear Unit) is a non-linear activation function that outputs 0 for negative values and the 
+            input itself for positive values. It’s much faster to compute than sigmoid and helps with the vanishing 
+            gradient problem.
+            Pros:
+            1) Simple to calculate.
+            2) It doesn't saturate in the positive domain, so it avoids the vanishing gradient problem.
+            Cons:
+            1) Can suffer from the "dying ReLU" problem, where neurons can stop learning if they fall into the negative 
+               region permanently (for example, all their outputs become zero).
+            """
+            return np.maximum(0, x)
+        case "tanh":
+            """
+            The tanh function is similar to sigmoid but outputs values between -1 and 1, making it zero-centered. This 
+            can speed up training compared to sigmoid in some cases.
+            """
+            return np.tanh(x)
 
 
-def activation_function_derivative(x):
+def activation_function_derivative(x, function="sigmoid"):
     """The function derivative is used during back-propagation for calculating gradients."""
-    return x * (1 - x)
+
+    match function:
+        case "sigmoid":
+            return x * (1 - x)
+        case "ReLU":
+            return np.where(x > 0, 1, 0)
+        case "tanh":
+            return 1 - np.square(np.tanh(x))
 
 
 # Define the neural network class
