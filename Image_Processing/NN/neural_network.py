@@ -104,5 +104,5 @@ nn = NeuralNetwork(input_size=2, hidden_size=4, output_size=1)
 nn.train(x=x1, y=y1, epochs=10000, learning_rate=0.1)
 
 # Test the trained network
-print("\nPredictions after training:")
-print(nn.feed_forward(x1))
+log.debug("Predictions after training:")
+log.print_data(data=nn.feed_forward(x1).tolist(), log_level="info")
