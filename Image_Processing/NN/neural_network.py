@@ -1,7 +1,8 @@
 """
 Script Name - neural_network.py
 
-Purpose - ??
+Purpose - A simple feedforward neural network implementation with backpropagation, activation functions, and multiple
+loss functions.
 
 Created by Michael Samelsohn, 31/01/25
 """
@@ -12,21 +13,36 @@ from Settings.settings import log
 
 
 class NeuralNetwork:
-    def __init__(self, input_size, hidden_size, output_size, activation_function="sigmoid", loss_function="MSE"):
+    def __init__(self, input_size, hidden_sizes, output_size, activation_function="sigmoid", loss_function="MSE"):
         log.debug("Initializing a neural network class")
+        self.input_size = input_size
+        self.hidden_sizes = hidden_sizes
+        self.output_size = output_size
         self.activation_function = activation_function
         self.loss_function = loss_function
-        self.hidden_layer_input = None
-        self.hidden_layer_output = None
-        self.output_layer_input = None
 
-        log.debug("Initialize weights randomly with mean 0")
-        self.weights_input_hidden = np.random.uniform(-1, 1, (input_size, hidden_size))
-        self.weights_hidden_output = np.random.uniform(-1, 1, (hidden_size, output_size))
+        self.activations = None
 
-        log.debug("Initialize biases")
-        self.bias_hidden = np.zeros((1, hidden_size))
-        self.bias_output = np.zeros((1, output_size))
+        self.layers = len(hidden_sizes) + 1  # Hidden layers + output layer.
+
+        # Initialize weights and biases for each layer.
+        self.weights = []
+        self.biases = []
+
+        log.debug("Initializing weights and biases for connections of input layer to first hidden layer")
+        self.weights.append(np.random.uniform(-1, 1, (self.input_size, self.hidden_sizes[0])))
+        self.biases.append(np.zeros((1, self.hidden_sizes[0])))
+
+        log.debug("Initializing weights and biases for connections of hidden layers")
+        for i in range(1, len(self.hidden_sizes)):
+            self.weights.append(np.random.uniform(-1, 1, (self.hidden_sizes[i - 1], self.hidden_sizes[i])))
+            self.biases.append(np.zeros((1, self.hidden_sizes[i])))
+
+        log.debug("Initializing weights and biases for connections of last hidden layer to output layer")
+        self.weights.append(np.random.uniform(-1, 1, (self.hidden_sizes[-1], self.output_size)))
+        self.biases.append(np.zeros((1, self.output_size)))
+
+        log.debug("Weights and biases initialized")
 
     def feed_forward(self, x):
         """
@@ -34,13 +50,16 @@ class NeuralNetwork:
         and output layers and applies the activation function.
         """
 
-        # Calculate activations for hidden layer.
-        self.hidden_layer_input = np.dot(x, self.weights_input_hidden) + self.bias_hidden
-        self.hidden_layer_output = self.activate_function(self.hidden_layer_input)
+        self.activations = [x]  # Store input as the activation of the first layer.
 
-        # Calculate activations for output layer.
-        self.output_layer_input = np.dot(self.hidden_layer_output, self.weights_hidden_output) + self.bias_output
-        return self.activate_function(self.output_layer_input)
+        for i in range(self.layers - 1):  # Loop through all hidden layers.
+            layer_input = np.dot(self.activations[i], self.weights[i]) + self.biases[i]
+            activation_output = self.activate_function(layer_input)
+            self.activations.append(activation_output)  # Store activation for the next layer.
+
+        # For output layer.
+        output_layer_input = np.dot(self.activations[-1], self.weights[-1]) + self.biases[-1]
+        return self.activate_function(output_layer_input)
 
     def activate_function(self, x):
         """
@@ -94,19 +113,26 @@ class NeuralNetwork:
         # Feed-forward to get predictions.
         output = self.feed_forward(x)
 
-        # Calculate error.
+        # Calculate error at the output layer.
         output_error = y - output
         output_delta = output_error * self.activation_function_derivative(output)
 
-        # Calculate hidden layer error.
-        hidden_error = output_delta.dot(self.weights_hidden_output.T)
-        hidden_delta = hidden_error * self.activation_function_derivative(self.hidden_layer_output)
+        # Store deltas for each layer.
+        deltas = [output_delta]
+
+        # Back-propagate through hidden layers.
+        for i in range(self.layers - 2, -1, -1):
+            hidden_error = deltas[-1].dot(self.weights[i + 1].T)
+            hidden_delta = hidden_error * self.activation_function_derivative(self.activations[i + 1])
+            deltas.append(hidden_delta)
+
+        # Reverse the deltas (since we back-propagate from output to input).
+        deltas.reverse()
 
         # Update weights and biases.
-        self.weights_hidden_output += self.hidden_layer_output.T.dot(output_delta) * learning_rate
-        self.weights_input_hidden += x.T.dot(hidden_delta) * learning_rate
-        self.bias_output += np.sum(output_delta, axis=0, keepdims=True) * learning_rate
-        self.bias_hidden += np.sum(hidden_delta, axis=0, keepdims=True) * learning_rate
+        for i in range(self.layers):
+            self.weights[i] += self.activations[i].T.dot(deltas[i]) * learning_rate
+            self.biases[i] += np.sum(deltas[i], axis=0, keepdims=True) * learning_rate
 
     def activation_function_derivative(self, x):
         """
@@ -305,7 +331,7 @@ y1 = np.array([[0],
                [1]])
 
 # Create and train the neural network.
-nn = NeuralNetwork(input_size=2, hidden_size=4, output_size=1)
+nn = NeuralNetwork(input_size=2, hidden_sizes=[4], output_size=1)
 nn.train(x=x1, y=y1, epochs=10000, learning_rate=0.1)
 
 # Test the trained network.
