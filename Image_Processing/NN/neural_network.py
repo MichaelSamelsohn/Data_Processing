@@ -10,6 +10,8 @@ Created by Michael Samelsohn, 31/01/25
 # Imports #
 import numpy as np
 from Settings.settings import log
+import matplotlib.pyplot as plt
+import networkx as nx
 
 
 class NeuralNetwork:
@@ -318,6 +320,38 @@ class NeuralNetwork:
                 return np.mean(y * 0.5 * (self.feed_forward(x))**2 + (1 - y) * 0.5 * np.maximum(0, 1.0 - self.feed_forward(x))**2)
                 # TODO: 1.0 is the margin (default value) which should be a parameter.
 
+    def plot_neural_network(self):
+        log.debug("Creating a directed graph of the neural network")
+        graph = nx.DiGraph()
+
+        log.debug("Defining layer sizes")
+        layer_sizes = [self.input_size] + self.hidden_sizes + [self.output_size]
+
+        log.debug("Adding nodes to the graph (neurons)")
+        node_counter = 0
+        positions = {}
+
+        for layer_idx, size in enumerate(layer_sizes):
+            for i in range(size):
+                node = f"l{layer_idx}_n{i}"
+                graph.add_node(node)
+                positions[node] = (layer_idx, i)
+                node_counter += 1
+
+        log.debug("Adding edges (connections between neurons)")
+        for layer_idx in range(len(layer_sizes) - 1):
+            for i in range(layer_sizes[layer_idx]):
+                for j in range(layer_sizes[layer_idx + 1]):
+                    graph.add_edge(f"l{layer_idx}_n{i}", f"l{layer_idx + 1}_n{j}")
+
+        log.debug("Drawing the graph")
+        plt.figure(figsize=(10, 7))
+        nx.draw(graph, pos=positions, with_labels=True, node_size=500, node_color="skyblue", font_size=10,
+                font_weight="bold",
+                arrowsize=15)
+        plt.title("Neural Network Architecture")
+        plt.show()
+
 
 # Example: AND problem (input, output)
 x1 = np.array([[0, 0],
@@ -337,3 +371,4 @@ nn.train(x=x1, y=y1, epochs=10000, learning_rate=0.1)
 # Test the trained network.
 log.debug("Predictions after training:")
 log.print_data(data=nn.feed_forward(x1).tolist(), log_level="info")
+nn.plot_neural_network()
