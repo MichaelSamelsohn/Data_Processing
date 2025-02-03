@@ -150,7 +150,7 @@ class NeuralNetwork:
             case "tanh":
                 return 1 - np.square(np.tanh(x))
 
-    def train(self, x, y, epochs, learning_rate):
+    def train(self, x, y, epochs, learning_rate, min_loss_value=1e-4):
         """
         Runs for a specified number of epochs, calling the back-propagation method on each epoch, and updating the
         weights and biases. Every 1000 epochs, the loss (mean squared error) is printed to show how the model is
@@ -158,10 +158,21 @@ class NeuralNetwork:
         """
 
         for epoch in range(epochs):
+            # Performing backpropagation to update weights and biases.
             self.back_propagate(x, y, learning_rate)
+
+            # Calculating the loss for this epoch.
+            loss = self.calculate_loss(x=x, y=y)
+
+            # Printing loss at every 1000 epochs.
             if epoch % 1000 == 0:
-                loss = self.calculate_loss(x=x, y=y)
                 log.info(f"Epoch {epoch}, Loss: {loss}")
+
+            # Stopping if the loss is below the minimum threshold.
+            if loss < min_loss_value:
+                log.info(f"Stopping early at epoch {epoch} because the loss reached the minimum threshold of "
+                         f"{min_loss_value}.")
+                break
 
     def calculate_loss(self, x, y):
         """
