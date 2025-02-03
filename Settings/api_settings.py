@@ -10,6 +10,8 @@ Created by Michael Samelsohn, 05/05/22
 import os
 
 # API Related #
+MAX_RETRIES = 3
+RETRY_DELAY = 5  # Delay in seconds before retrying.
 CONNECTION_CHECK_URL = "https://www.google.com/"
 CONNECTION_CHECK_TIMEOUT = 5
 API_KEY = "api_key=fymalkzvEUpMBhhBIpi39IQu0zqsjMy7K2AYhiwJ"

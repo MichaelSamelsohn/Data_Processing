@@ -9,10 +9,12 @@ Created by Michael Samelsohn, 07/05/22
 # Imports #
 import os
 import subprocess
+import time
 import requests
 
 from abc import abstractmethod, ABCMeta
 from Settings import api_settings
+from Settings.api_settings import MAX_RETRIES, RETRY_DELAY
 from Settings.settings import log
 
 
@@ -88,7 +90,6 @@ class NasaApi(metaclass=ABCMeta):
     def download_image_url(self, api_type: str, image_url_list: list, image_suffix="") -> bool:
         """
         Download the images based on the compiled URLs list and the API type.
-        TODO: Need to add better image naming.
 
         :param api_type: The API type used for the images.
         :param image_url_list: List with all image URLs.
@@ -97,30 +98,41 @@ class NasaApi(metaclass=ABCMeta):
         :return: True if download is successful, otherwise False.
         """
 
-        match len(image_url_list):
-            case 0:  # Empty list.
-                log.error("Cannot download the images since there are none")
-                return False
-            case 1:  # Single image, no indexing required.
-                log.debug(f"Image URL is - {image_url_list[0]}")
-                image_path = os.path.join(self.image_directory,
-                                          f"{api_type}{image_suffix}.{api_settings.API_IMAGE_DOWNLOAD_FORMATS[api_type]}")
-                output = subprocess.run(f"curl -o {image_path} {image_url_list[0]}",
-                                        capture_output=True, text=True).stderr
-                log.print_data(data=output)
-                log.info("Image downloaded successfully")
-            case _:  # Multiple images, indexing required.
-                image_index = 1
-                for url in image_url_list:
-                    log.debug(f"{image_index}) Image URL is - {url} ")
-                    image_path = os.path.join(
-                        self.image_directory,
-                        f"{api_type}{image_suffix}.{api_settings.API_IMAGE_DOWNLOAD_FORMATS[api_type]}")
-                    output = subprocess.run(f"curl -o {image_path} {url}",
-                                            capture_output=True, text=True).stderr
-                    log.print_data(data=output)
-                    log.info("Image downloaded successfully")
-                    image_index += 1
+        log.debug("Check if the image URL list is empty")
+        if len(image_url_list) == 0:
+            log.error("Cannot download the images since there are none")
+            return False
 
-        # If we got to this point, the download was successful.
+        image_index = 1
+        for url in image_url_list:
+            # Preparing image path.
+            image_path = os.path.join(self.image_directory,
+                                      f"{api_type}{image_suffix}.{api_settings.API_IMAGE_DOWNLOAD_FORMATS[api_type]}")
+
+            # Trying to download the image(s) with retries.
+            for attempt in range(MAX_RETRIES):
+                log.debug(f"{image_index}) Attempting to download image from URL: "
+                          f"{url} (Attempt {attempt + 1}/{MAX_RETRIES})")
+
+                # Running the curl command to download the image.
+                output = subprocess.run(f"curl -o {image_path} {url}", capture_output=True, text=True)
+
+                # Checking if the download was successful (curl return code is 0).
+                if output.returncode == 0:
+                    # Verifying the image was downloaded (check if the file exists).
+                    if os.path.exists(image_path):
+                        log.info(f"Image downloaded successfully: {image_path}")
+                        break
+                    else:
+                        log.error(f"Image download failed: {image_path} (file not found after download)")
+                else:
+                    # If curl failed, logging the error and retrying.
+                    log.error(f"Error downloading image. curl returned {output.returncode}: {output.stderr}")
+                    if attempt < MAX_RETRIES - 1:
+                        log.info(f"Retrying in {RETRY_DELAY} seconds...")
+                        time.sleep(RETRY_DELAY)  # Buffer time before retrying.
+                    else:
+                        log.error(f"Failed to download image after {MAX_RETRIES} attempts. Moving to next image.")
+
+            image_index += 1  # Incrementing the index for the next image.
         return True
