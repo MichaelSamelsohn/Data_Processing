@@ -8,6 +8,7 @@ Created by Michael Samelsohn, 31/01/25
 """
 
 # Imports #
+import pickle
 import numpy as np
 from Settings.settings import log
 import matplotlib.pyplot as plt
@@ -351,6 +352,42 @@ class NeuralNetwork:
                 arrowsize=15)
         plt.title("Neural Network Architecture")
         plt.show()
+
+    def save_model(self, filename):
+        """
+        Saves the current state of the neural network (weights and biases) to a file using pickle.
+        """
+
+        log.debug(f"Saving model state to {filename}")
+
+        # Save the weights and biases
+        model_state = {
+            "weights": self.weights,
+            "biases": self.biases,
+            "activation_function": self.activation_function,
+            "loss_function": self.loss_function
+        }
+
+        log.debug("Serializing the model state to a file")
+        with open(filename, 'wb') as f:
+            pickle.dump(model_state, f)
+
+    def load_model(self, filename):
+        """
+        Loads the model state (weights and biases) from a file.
+        """
+
+        log.debug(f"Loading model state from {filename}")
+
+        # Deserialize the model state from the file
+        with open(filename, 'rb') as f:
+            model_state = pickle.load(f)
+
+        log.debug("Updating the model's weights, biases, and other properties")
+        self.weights = model_state["weights"]
+        self.biases = model_state["biases"]
+        self.activation_function = model_state["activation_function"]
+        self.loss_function = model_state["loss_function"]
 
 
 # Example: AND problem (input, output)
