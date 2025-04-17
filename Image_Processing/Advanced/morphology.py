@@ -100,6 +100,16 @@ def closing(image: ndarray, structuring_element: ndarray, padding_type=image_set
     return erosion(image=dilated_image, structuring_element=structuring_element, padding_type=padding_type)
 
 
+@book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.5 - Some Basic Morphological Algorithms, p.653-655")
+def boundary_extraction(image: ndarray, structuring_element: ndarray,
+                        padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+    """
+    TODO: Complete the docstring.
+    """
+
+    return image - erosion(image=image, structuring_element=structuring_element, padding_type=padding_type)
+
+
 def morphological_convolution(image: ndarray, structuring_element: ndarray, operation_type: str,
                               padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
     """
