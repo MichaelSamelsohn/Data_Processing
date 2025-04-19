@@ -80,6 +80,19 @@ class Image:
         """
         return self.__image
 
+    @image.setter
+    def image(self, set_image):
+        log.debug("Setting the image")
+        # Asserting the image is of ndarray type.
+        if not isinstance(set_image, ndarray):
+            log.error("Unable to set image as it is not an ndarray instance")
+
+        # Setting the image.
+        self.__image = set_image
+
+        # Appending the image.
+        self.__images.append({"Name": f"set_image", "Image": set_image})
+
     # Basic operations #
 
     def reset_to_original_image(self):
