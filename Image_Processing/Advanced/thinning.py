@@ -11,7 +11,7 @@ import copy
 import numpy as np
 from numpy import ndarray
 
-from Basic.common import extract_sub_image, contrast_stretching
+from Image_Processing.Basic.common import extract_sub_image, contrast_stretching
 from Utilities.decorators import article_reference
 from Settings.settings import log
 from intensity_transformations import negative

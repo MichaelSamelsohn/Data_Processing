@@ -49,7 +49,7 @@ import copy
 import numpy as np
 from numpy import ndarray
 
-from Basic.common import convolution_2d, extract_sub_image, calculate_histogram
+from Image_Processing.Basic.common import convolution_2d, extract_sub_image, calculate_histogram
 from Settings.image_settings import *
 from Utilities.decorators import book_reference, article_reference
 from Settings.settings import log

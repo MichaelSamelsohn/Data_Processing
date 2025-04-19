@@ -8,7 +8,7 @@ Created by Michael Samelsohn, 06/11/24
 import warnings
 import numpy as np
 from numpy import ndarray
-from Basic.common import pad_image, extract_sub_image
+from Image_Processing.Basic.common import pad_image, extract_sub_image
 from Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Settings.settings import log

@@ -21,7 +21,7 @@ from numpy import ndarray
 
 from Settings.image_settings import GONZALES_WOODS_BOOK
 from Utilities.decorators import book_reference
-from common import pad_image, extract_sub_image
+from Image_Processing.Basic.common import pad_image, extract_sub_image
 from Settings import image_settings
 from Settings.settings import log
 

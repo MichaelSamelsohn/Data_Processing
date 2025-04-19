@@ -8,7 +8,7 @@ Created by Michael Samelsohn, 11/12/24
 import math
 import numpy as np
 from numpy import ndarray, random
-from Basic.common import image_normalization
+from Image_Processing.Basic.common import image_normalization
 from Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Settings.settings import log
