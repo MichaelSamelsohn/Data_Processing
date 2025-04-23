@@ -4,25 +4,6 @@ from Image_Processing.Advanced.segmentation import *
 from Settings.settings import *
 
 
-def spatial_conversion(thinned_image: ndarray):
-    """
-    TODO: Complete the docstring.
-    """
-
-    skeleton_links, skeleton_link_distances = extract_skeleton_parameters(skeleton_image=thinned_image)
-
-    pixel_coordinates = find_equal_distance_pixels(number_of_pixels=100, skeleton_links=skeleton_links,
-                                                   skeleton_link_distances=skeleton_link_distances)
-
-    x1, y1 = transform_to_spatial_space(image_size=401, scaling_factor=15, pixel_coordinates=pixel_coordinates)
-
-    # TODO: Explain why this step is necessary.
-    x1.append(x1[0])
-    y1.append(y1[0])
-
-    return x1, y1
-
-
 def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], list[float]):
     """
     Extract important parameters (link indexes and distances) of the skeleton image.

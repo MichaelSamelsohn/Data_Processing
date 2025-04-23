@@ -5,16 +5,6 @@ from matplotlib import pyplot as plt
 from Settings.settings import *
 
 
-def spatial_comparison(x1, y1):
-    """
-    TODO: Complete the docstring.
-    """
-
-    x2, y2 = generate_multifoil(a=6, b=0.25, lobes=3, number_of_points=100)  # TODO: Generalize.
-    plot(x1=x1, y1=y1, x2=x2, y2=y2)
-    # TODO: Add a call for the metric function.
-
-
 def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
     """
     Generate a multifoil function.
