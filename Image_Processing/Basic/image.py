@@ -78,7 +78,7 @@ class Image:
         Get the image pixel array.
         :return: The image pixel array.
         """
-        return self.__image
+        return copy.deepcopy(self.__image)
 
     @image.setter
     def image(self, set_image):
