@@ -2,8 +2,9 @@
 import cmath
 import math
 
+from tabulate import tabulate
 from Image_Processing.Basic.image import Image
-from Image_Processing.Metashells.spatial_comparison import generate_multifoil, plot
+from Image_Processing.Metashells.spatial_comparison import generate_multifoil, plot, measure_hausdorff_distance, measure_average_distance
 from Image_Processing.Metashells.spatial_conversion import extract_skeleton_parameters, \
     find_equal_distance_pixels, transform_to_spatial_space
 from Image_Processing.Advanced.thinning import *
@@ -50,9 +51,9 @@ class MetaShell:
         # Thresholding the blurred image to obtain a blob centered on the required line.
         blob = global_thresholding(image=blurred, initial_threshold=self.processing_parameters['global_threshold'])
 
-        self.thinned_image = parallel_sub_iteration_thinning(image=blob,
-                                                             method=self.processing_parameters['thinning_method'],
-                                                             is_pre_thinning=self.processing_parameters['is_pre_thinning'])
+        self.thinned_image = parallel_sub_iteration_thinning(
+            image=blob, method=self.processing_parameters['thinning_method'],
+            is_pre_thinning=self.processing_parameters['is_pre_thinning'])
 
     def spatial_conversion(self):
         """
@@ -78,11 +79,22 @@ class MetaShell:
         TODO: Complete the docstring.
         """
 
+        # Generating a multifoil used for the spatial evaluation/comparison.
         x2, y2 = generate_multifoil(a=self.multifoil_parameters['a'], b=self.multifoil_parameters['b'],
                                     lobes=self.multifoil_parameters['lobes'],
                                     number_of_points=self.number_of_coefficients)
+
+        # Calculating similarity metrics.
+        data = [
+            ["Hausdorff", measure_hausdorff_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y)))],
+            ["Average", measure_average_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y)))]
+        ]
+        log.print_data(data=tabulate(data, headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
+
+        log.debug("Plotting the curves for visual comparison")
         plot(x1=self.x, y1=self.y, x2=x2, y2=y2)
-        # TODO: Add a call for the metric function.
 
     @measure_runtime
     def dft_2d(self):
@@ -93,9 +105,7 @@ class MetaShell:
         fourier_coefficients = []
 
         log.debug("Turning spatial coordinates into complex numbers")
-        spatial_coordinates = []
-        for i in range(self.number_of_coefficients + 1):
-            spatial_coordinates.append((self.x[i], self.y[i]))
+        spatial_coordinates = np.column_stack((self.x, self.y))
         complex_coordinates = [x + 1j * y for x, y in spatial_coordinates]
 
         log.debug("Calculating the Fourier coefficients")

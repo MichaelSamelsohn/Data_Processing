@@ -1,8 +1,9 @@
 # Imports #
 import numpy as np
 from matplotlib import pyplot as plt
-
+from scipy.spatial.distance import directed_hausdorff
 from Settings.settings import *
+from scipy.spatial import cKDTree
 
 
 def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
@@ -16,6 +17,8 @@ def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
 
     :return: Cartesian coordinates of the multifoil function.
     """
+
+    log.debug("Generating a multifoil for comparison")
 
     log.debug("Calculating the polar coordinates")
     phi = np.linspace(0, 2 * np.pi, number_of_points)
@@ -33,19 +36,77 @@ def plot(x1, y1, x2, y2):
     TODO: Complete the docstring.
     """
 
-    # Plot both scatter plots
+    # Plotting both curves.
     plt.plot(x1, y1, color='blue', label='Meta shell')
     plt.plot(x2, y2, color='red', label='Multifoil')
 
-    # Add labels and title
+    # Adding labels and title.
     plt.xlabel('X')
     plt.ylabel('Y')
     plt.title('Processed meta-shell vs. generated multifoil')
     plt.legend()
     plt.grid(True)
 
-    # Show the plot
+    # Showing the plot.
     plt.show()
 
 
-# TODO: Add a function for measuring a metric.
+def measure_hausdorff_distance(curve1, curve2):
+    """
+    Compute the Hausdorff distance between two closed curves.
+    The Hausdorff distance is a way to measure how far apart two sets of points are in a space. It tells you the
+    worst-case mismatch between the two shapes.
+    Algorithm (Assuming we have two closed curves 𝐴 and 𝐵):
+    1) For each point in 𝐴, find the closest point in 𝐵.
+    2) Take the largest of those closest distances.
+    3) Do the same from 𝐵 to 𝐴.
+    4) The Hausdorff distance is the maximum of the values from (2) and (3).
+
+    Qualities:
+    Symmetric - Swapping curves doesn't change the result.
+    Shape-aware - It captures structural differences, not just point-wise or average error.
+    No point matching needed - Great for comparing shapes with different point distributions or sampling.
+
+    Parameters:
+    curve1, curve2 : array-like of shape (N, 2) and (M, 2)
+        The (x, y) coordinates of the points on each curve.
+
+    Returns:
+    float : Hausdorff distance
+    """
+
+    curve1 = np.asarray(curve1)
+    curve2 = np.asarray(curve2)
+
+    # Directed Hausdorff distances in both directions
+    d1 = directed_hausdorff(curve1, curve2)[0]
+    d2 = directed_hausdorff(curve2, curve1)[0]
+
+    return max(d1, d2)
+
+
+def measure_average_distance(curve1, curve2):
+    """
+    Compute the average minimum distance (symmetric) between two closed curves.
+    Algorithm (Assuming we have two closed curves 𝐴 and 𝐵):
+    1) For each point in Curve 𝐴, find the closest point in Curve 𝐵, and take the average of those distances.
+    2) Do the same from Curve 𝐵 to Curve 𝐴.
+    3) Average those two values to get a symmetric score.
+
+    Note - This is sometimes called the Symmetric Chamfer Distance, and it's a softer, more forgiving similarity metric
+    than Hausdorff.
+    """
+
+    curve1 = np.asarray(curve1)
+    curve2 = np.asarray(curve2)
+
+    # KDTree for fast nearest-neighbor lookup
+    tree1 = cKDTree(curve1)
+    tree2 = cKDTree(curve2)
+
+    # One-way distances
+    dists1, _ = tree2.query(curve1)
+    dists2, _ = tree1.query(curve2)
+
+    avg_dist = (np.mean(dists1) + np.mean(dists2)) / 2
+    return avg_dist
