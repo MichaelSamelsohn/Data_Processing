@@ -80,10 +80,10 @@ class MetaShell:
 
         # Calculating similarity metrics.
         data = [
-            ["Hausdorff", measure_hausdorff_distance(
-                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y)))],
-            ["Average", measure_average_distance(
-                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y)))]
+            ["Hausdorff", "{:.3f}".format(measure_hausdorff_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y))))],
+            ["Average", "{:.3f}".format(measure_average_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y))))]
         ]
         log.print_data(data=tabulate(data, headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
 
