@@ -34,13 +34,13 @@ def plot(x1, y1, x2, y2):
     """
 
     # Plot both scatter plots
-    plt.plot(x1, y1, color='blue', label='Scatter 1')
-    plt.plot(x2, y2, color='red', label='Scatter 2')
+    plt.plot(x1, y1, color='blue', label='Meta shell')
+    plt.plot(x2, y2, color='red', label='Multifoil')
 
     # Add labels and title
-    plt.xlabel('X Axis')
-    plt.ylabel('Y Axis')
-    plt.title('Two Scatter Plots on One Figure')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title('Processed meta-shell vs. generated multifoil')
     plt.legend()
     plt.grid(True)
 
