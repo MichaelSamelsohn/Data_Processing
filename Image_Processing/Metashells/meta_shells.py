@@ -13,14 +13,8 @@ from Utilities.decorators import measure_runtime
 
 
 class MetaShell:
-    def __init__(self, shell_path, processing_parameters=None, multifoil_parameters=None,
-                 number_of_coefficients=100, scaling_factor=15):
-        if multifoil_parameters is None:
-            multifoil_parameters = {'a': 6, 'b': 0.25, 'lobes': 3}
-        if processing_parameters is None:
-            processing_parameters = {'high_threshold': 0.75, 'low_threshold': 0.75, 'filter_size': 23,
-                                     'global_threshold': 0.1, 'thinning_method': 'ZS', 'is_pre_thinning': False}
-
+    def __init__(self, shell_path: str, number_of_coefficients: int, scaling_factor: float,
+                 processing_parameters=None, multifoil_parameters=None):
         self.shell = Image(image_path=shell_path)
         self.processing_parameters = processing_parameters
         self.multifoil_parameters = multifoil_parameters
