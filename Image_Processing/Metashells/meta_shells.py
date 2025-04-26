@@ -26,7 +26,26 @@ class MetaShell:
         self.fourier_coefficients = None
 
     def doublet_processing(self):
-        # Stretching the contrast of the image.
+        """
+        Image processing for the raw meta-shell data. The purpose is to extract a thinned image of the contour that is
+        the middle of the foreground object.
+
+        Assumptions:
+        1) The image has two pseudo-closed contour.
+        2) The contour are close to each other.
+        3) The contour are of opposite values to each other.
+        4) Noise in the image is not too strong, relative to the contour values.
+
+        Based on the assumptions above, the following algorithm is applied:
+        Step I - Threshold the image with a high value and a low value to obtain the two contour (based on assumptions
+        (1), (3) and (4)).
+        Step II - Blur the image containing only the contour to merge them together (based on assumption (2)) and clean
+        all the noise and artifacts (based on assumption (4)).
+        Step III - Thin the image to get a skeleton of the contour between the original two (based on assumptions (1)
+        and (2)).
+        """
+
+        # Stretching the contrast of the image (to be able to work with [0, 1] values).
         stretched_image = contrast_stretching(image=self.shell.image)
 
         # Thresholding the image to extract the high intensity contour.
@@ -45,6 +64,7 @@ class MetaShell:
         # Thresholding the blurred image to obtain a blob centered on the required line.
         blob = global_thresholding(image=blurred, initial_threshold=self.processing_parameters['global_threshold'])
 
+        # Thinning the image.
         self.thinned_image = parallel_sub_iteration_thinning(
             image=blob, method=self.processing_parameters['thinning_method'],
             is_pre_thinning=self.processing_parameters['is_pre_thinning'])
@@ -60,11 +80,11 @@ class MetaShell:
                                                        skeleton_links=skeleton_links,
                                                        skeleton_link_distances=skeleton_link_distances)
 
-        # TODO: Generalize.
-        self.x, self.y = transform_to_spatial_space(image_size=401, scaling_factor=self.scaling_factor,
+        self.x, self.y = transform_to_spatial_space(image_size=self.thinned_image.shape[0],
+                                                    scaling_factor=self.scaling_factor,
                                                     pixel_coordinates=pixel_coordinates)
 
-        # TODO: Explain why this step is necessary.
+        # For the curve to be closed, the last point is re-added at the end.
         self.x.append(self.x[0])
         self.y.append(self.y[0])
 
