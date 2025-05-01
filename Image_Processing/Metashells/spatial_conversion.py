@@ -18,6 +18,8 @@ def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], l
     :return: Array of link indexes and array of link distances.
     """
 
+    log.info("Extracting skeleton coordinates and distances")
+
     # Copying the image as to not disturb the original.
     snake_image = copy.deepcopy(skeleton_image)  # Helper image.
     skeleton_links = []  # Return array containing the indexes (rows and columns) of the skeleton.
@@ -100,6 +102,8 @@ def find_equal_distance_pixels(number_of_pixels: int, skeleton_links: list[(int,
 
     :return: array of indexes of the skeleton spaced with equal distance.
     """
+
+    log.info("Finding equal distance coordinates")
 
     # TODO: Assert that len(skeleton_indexes) == len(skeleton_distances).
 
@@ -232,6 +236,8 @@ def transform_to_spatial_space(image_size: int, scaling_factor: float, pixel_coo
 
     :return: Array of transformed (translated and scaled) spatial coordinates.
     """
+
+    log.info("Transforming coordinates from image space to spatial space")
 
     # Calculating the translation factor.
     translation_factor = image_size // 2  # Simplified because it's used many times throughout the following operations.

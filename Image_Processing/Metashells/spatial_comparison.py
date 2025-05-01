@@ -11,7 +11,7 @@ def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
     Generate a multifoil function.
 
     :param a: Amplitude of the multifoil.
-    :param b: TODO: complete the docstring.
+    :param b: Amplitude of each lobe.
     :param lobes: Number of lobes the multifoil includes.
     :param number_of_points: Number of points included in the function.
 
@@ -33,7 +33,12 @@ def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
 
 def plot(x1, y1, x2, y2):
     """
-    TODO: Complete the docstring.
+    Plot two curves for the meta-shell and the multifoil for comparison.
+
+    :param x1: Curve 1 values on the x-axis.
+    :param y1: Curve 1 values on the y-axis.
+    :param x2: Curve 2 values on the x-axis.
+    :param y2: Curve 2 values on the y-axis.
     """
 
     # Plotting both curves.

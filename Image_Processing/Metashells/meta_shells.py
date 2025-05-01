@@ -71,15 +71,23 @@ class MetaShell:
 
     def spatial_conversion(self):
         """
-        TODO: Complete the docstring.
+        Conversion of skeleton image links from image space to spatial space.
+
+        The following algorithm is applied:
+        1) Extraction of skeleton parameters.
+        2) Finding equal distance pixels.
+        3) transforming to spatial space.
         """
 
+        # Extracting skeleton parameters.
         skeleton_links, skeleton_link_distances = extract_skeleton_parameters(skeleton_image=self.thinned_image)
 
+        # Finding equal distance pixels.
         pixel_coordinates = find_equal_distance_pixels(number_of_pixels=self.number_of_coefficients,
                                                        skeleton_links=skeleton_links,
                                                        skeleton_link_distances=skeleton_link_distances)
 
+        # Transforming image space coordinates to spatial space.
         self.x, self.y = transform_to_spatial_space(image_size=self.thinned_image.shape[0],
                                                     scaling_factor=self.scaling_factor,
                                                     pixel_coordinates=pixel_coordinates)
@@ -90,7 +98,11 @@ class MetaShell:
 
     def spatial_comparison(self):
         """
-        TODO: Complete the docstring.
+        Debug function used for estimation.
+
+        Two methods are used for the estimation:
+        1) Visual - Comparison plot between the generated skeleton and the reference multifoil.
+        2) Analytical - Measuring metric to estimate how close/similar the plots are to one another.
         """
 
         # Generating a multifoil used for the spatial evaluation/comparison.
