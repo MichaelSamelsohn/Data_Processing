@@ -580,15 +580,24 @@ def global_thresholding(image: ndarray, initial_threshold=DEFAULT_THRESHOLD_VALU
 
     # TODO: Add an assumption that the image is grayscale.
 
+    if initial_threshold < image.min():
+        log.warning("Selected initial threshold is lower than the image minimum value, therefore, changing it to "
+                    "minimum value")
+        initial_threshold = image.min()
+    if initial_threshold > image.max():
+        log.warning("Selected initial threshold is higher than the image maximum value, therefore, changing it to "
+                    "maximum value")
+        initial_threshold = image.max()
+
     log.info(f"Performing global thresholding, with initial value {initial_threshold}")
 
     log.debug("Starting the search for the global threshold")
     threshold_image = copy.deepcopy(image)
     thresholds = []  # Dictionary that appends all threshold values (useful for debug purposes).
-    global_threshold = np.round(initial_threshold, 3)
+    global_threshold = initial_threshold
     while True:
         # Thresholding the image using the current global threshold.
-        boolean_image = threshold_image > global_threshold
+        boolean_image = threshold_image >= global_threshold
 
         # Calculating the pixel count for both groups (pixel values below/above the threshold).
         above_threshold_pixel_count = np.count_nonzero(boolean_image)
@@ -614,7 +623,7 @@ def global_thresholding(image: ndarray, initial_threshold=DEFAULT_THRESHOLD_VALU
             log.info(f"Iterations to reach global threshold - {len(thresholds)}")
             break
         else:
-            global_threshold = np.round(new_global_threshold, 3)
+            global_threshold = new_global_threshold
 
     return thresholding(image=threshold_image, threshold_value=np.round(global_threshold, 3))
 
