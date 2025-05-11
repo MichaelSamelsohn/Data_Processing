@@ -4,7 +4,8 @@ import math
 
 from tabulate import tabulate
 from Image_Processing.Basic.image import Image
-from Image_Processing.Metashells.spatial_comparison import generate_multifoil, plot, measure_hausdorff_distance, measure_average_distance
+from Image_Processing.Metashells.spatial_comparison import (generate_multifoil, plot, measure_hausdorff_distance,
+                                                            measure_average_distance)
 from Image_Processing.Metashells.spatial_conversion import extract_skeleton_parameters, \
     find_equal_distance_pixels, transform_to_spatial_space
 from Image_Processing.Advanced.thinning import *
@@ -13,19 +14,27 @@ from Utilities.decorators import measure_runtime
 
 
 class MetaShell:
-    def __init__(self, shell_path: str, number_of_coefficients: int, scaling_factor: float,
-                 processing_parameters=None, multifoil_parameters=None):
-        self.shell = Image(image_path=shell_path)
+    def __init__(self, shell_path: str,
+                 number_of_coefficients: int, scaling_factor: float,
+                 processing_parameters: dict, multifoil_parameters: dict,
+                 debug_mode=True, display_time=None):
+        self.debug_mode = debug_mode
+        self.display_time = display_time
+        self.shell = Image(image_path=shell_path, display_time=self.display_time)
+
         self.processing_parameters = processing_parameters
         self.multifoil_parameters = multifoil_parameters
+
         self.number_of_coefficients = number_of_coefficients
         self.scaling_factor = scaling_factor
 
         self.thinned_image = None
         self.x, self.y = None, None
-        self.fourier_coefficients = None
+        self.metrics = None
 
-    def doublet_processing(self):
+        self.fourier_coefficients = []
+
+    def doublet_processing(self, filter_size: int, global_threshold: float, thinning_method: str):
         """
         Image processing for the raw meta-shell data. The purpose is to extract a thinned image of the contour that is
         the middle of the foreground object.
@@ -59,15 +68,13 @@ class MetaShell:
 
         # Blurring the image to join the two intensity contours.
         blurred = blur_image(image=low_intensity_contour + high_intensity_contour,
-                             filter_size=self.processing_parameters['filter_size'])
+                             filter_size=filter_size)
 
         # Thresholding the blurred image to obtain a blob centered on the required line.
-        blob = global_thresholding(image=blurred, initial_threshold=self.processing_parameters['global_threshold'])
+        blob = global_thresholding(image=blurred, initial_threshold=global_threshold)
 
         # Thinning the image.
-        self.thinned_image = parallel_sub_iteration_thinning(
-            image=blob, method=self.processing_parameters['thinning_method'],
-            is_pre_thinning=self.processing_parameters['is_pre_thinning'])
+        self.thinned_image = parallel_sub_iteration_thinning(image=blob, method=thinning_method)
 
     def spatial_conversion(self):
         """
@@ -110,25 +117,25 @@ class MetaShell:
                                     lobes=self.multifoil_parameters['lobes'],
                                     number_of_points=self.number_of_coefficients)
 
-        # Calculating similarity metrics.
-        data = [
-            ["Hausdorff", "{:.3f}".format(measure_hausdorff_distance(
-                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y))))],
-            ["Average", "{:.3f}".format(measure_average_distance(
-                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y))))]
-        ]
-        log.print_data(data=tabulate(data, headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
+        log.debug("Calculating similarity metrics")
+        self.metrics = {
+            "Average": measure_average_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y))),
+            "Hausdorff": measure_hausdorff_distance(
+                curve1=np.column_stack((x2, y2)), curve2=np.column_stack((self.x, self.y)))
+        }
+        log.print_data(data=tabulate([[metric, "{:.3f}".format(self.metrics[metric])] for metric in self.metrics],
+                                     headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
 
-        log.debug("Plotting the curves for visual comparison")
-        plot(x1=self.x, y1=self.y, x2=x2, y2=y2)
+        if self.debug_mode:
+            log.debug("Plotting the curves for visual comparison")
+            plot(x1=self.x, y1=self.y, x2=x2, y2=y2, display_time=self.display_time)
 
     @measure_runtime
     def dft_2d(self):
         """
         TODO: Complete the docstring.
         """
-
-        fourier_coefficients = []
 
         log.debug("Turning spatial coordinates into complex numbers")
         spatial_coordinates = np.column_stack((self.x, self.y))
@@ -141,6 +148,76 @@ class MetaShell:
             for n in range(len(spatial_coordinates)):
                 a += normalization_factor * complex_coordinates[n] * cmath.exp(
                     -1j * 2 * math.pi * n * k * normalization_factor)
-            fourier_coefficients.append(a)
+            self.fourier_coefficients.append(a)
 
-        return fourier_coefficients
+    def process(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        log.info("Non-optimal processing of the meta-shell using set parameters")
+
+        self.doublet_processing(filter_size=self.processing_parameters['filter_size'],
+                                global_threshold=self.processing_parameters['global_threshold'],
+                                thinning_method=self.processing_parameters['thinning_method'])
+
+        if self.debug_mode:
+            self.shell.image = self.thinned_image
+            self.shell.compare_to_original()
+
+        self.spatial_conversion()
+
+        self.spatial_comparison()
+
+        self.dft_2d()
+
+    def optimal_process(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        log.info("Optimal processing of the meta-shell using an empirical method")
+
+        best_parameters = {}
+        best_metrics = {}
+        best_score = math.inf
+        for thinning_method in ["ZS", "BST", "GH1", "GH2", "DLH"]:
+            for filter_size in range(3, 50, 2):
+                for global_threshold in [i / 10 for i in range(1, 10)]:
+                    # Reset the image for display.
+                    self.shell.reset_to_original_image()
+
+                    try:
+                        self.doublet_processing(filter_size=filter_size,
+                                                global_threshold=global_threshold,
+                                                thinning_method=thinning_method)
+
+                        if self.debug_mode:
+                            self.shell.image = self.thinned_image
+                            self.shell.compare_to_original()
+
+                        self.spatial_conversion()
+
+                        self.spatial_comparison()
+
+                        # Calculate weighted metric score.
+                        # TODO: Add explanation why these are the weights.
+                        current_score = 0.8 * self.metrics["Average"] + 0.2 * self.metrics["Hausdorff"]
+                        if current_score < best_score:
+                            best_score = current_score
+
+                            best_parameters = {
+                                "Thinning method": thinning_method,
+                                "Filter size": filter_size,
+                                "Global threshold": global_threshold,
+                            }
+                            best_metrics = copy.deepcopy(self.metrics)
+
+                    except IndexError:
+                        log.warning("Generated skeleton isn't connected")
+
+        log.info("Summary:")
+        log.print_data(data=best_parameters, log_level="info")
+        log.print_data(data=tabulate([[metric, best_metrics[metric]] for metric in best_metrics],
+                                     headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
+
