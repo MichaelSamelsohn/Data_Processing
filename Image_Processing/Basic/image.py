@@ -29,10 +29,11 @@ class Image:
     TODO: Add explanation how the class works.
     """
 
-    def __init__(self, image_path=image_settings.DEFAULT_IMAGE_LENA):
+    def __init__(self, image_path=image_settings.DEFAULT_IMAGE_LENA, display_time=None):
         # TODO: Add support for grayscale images.
 
         self.__image_path = image_path
+        self.display_time = display_time
         log.debug(f"The selected directory is - {self.__image_path}")
 
         log.debug("Asserting that image path exists")
@@ -137,7 +138,7 @@ class Image:
         log.debug("Displaying the original image")
         plt.imshow(self.__original_image)
         # TODO: Add option to have grid lines.
-        plt.show()
+        self.plt_show()
 
     def display_image(self):
         """
@@ -148,7 +149,7 @@ class Image:
         plt.imshow(self.__image, cmap='gray') if len(self.__image.shape) == 2 else plt.imshow(self.__image)
         plt.title("Image")
         # TODO: Add option to have grid lines.
-        plt.show()
+        self.plt_show()
 
     def compare_to_original(self):
         """
@@ -166,7 +167,7 @@ class Image:
             else plt.imshow(self.__images[-1]["Image"])
 
         # TODO: Add option to have grid lines.
-        plt.show()
+        self.plt_show()
 
     def display_histogram(self, normalize=image_settings.DEFAULT_HISTOGRAM_NORMALIZATION):
         """
@@ -183,7 +184,7 @@ class Image:
         plt.ylabel("Pixel Count")
         plt.bar(range(256), histogram)
         # TODO: Add option to have grid lines.
-        plt.show()
+        self.plt_show()
 
     def display_all_images(self):
         """
@@ -210,4 +211,12 @@ class Image:
             plt.title(current_image["Name"])
 
         # TODO: Add option to have grid lines.
-        plt.show()
+        self.plt_show()
+
+    def plt_show(self):
+        if self.display_time:
+            plt.show(block=False)
+            plt.pause(self.display_time)
+            plt.close()
+        else:
+            plt.show()
