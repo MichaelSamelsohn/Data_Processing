@@ -31,7 +31,7 @@ def generate_multifoil(a: float, b: float, lobes: int, number_of_points: int):
     return x, y
 
 
-def plot(x1, y1, x2, y2):
+def plot(x1, y1, x2, y2, display_time=None):
     """
     Plot two curves for the meta-shell and the multifoil for comparison.
 
@@ -39,6 +39,7 @@ def plot(x1, y1, x2, y2):
     :param y1: Curve 1 values on the y-axis.
     :param x2: Curve 2 values on the x-axis.
     :param y2: Curve 2 values on the y-axis.
+    :param display_time: TODO - Complete the docstring.
     """
 
     # Plotting both curves.
@@ -53,7 +54,12 @@ def plot(x1, y1, x2, y2):
     plt.grid(True)
 
     # Showing the plot.
-    plt.show()
+    if display_time:
+        plt.show(block=False)
+        plt.pause(display_time)
+        plt.close()
+    else:
+        plt.show()
 
 
 def measure_hausdorff_distance(curve1, curve2):
