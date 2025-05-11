@@ -1,7 +1,21 @@
+# Imports #
+from Settings.meta_shells_settings import *
 from meta_shells import MetaShell
 
-doublet = MetaShell(shell_path="C:\\Users\\micha\\PycharmProjects\\Data_Processing\\Images\\Noiseless_Doublet.mat")
-doublet.doublet_processing()
-doublet.spatial_conversion()
-doublet.spatial_comparison()
-doublet.dft_2d()
+# # Noiseless doublet.
+# doublet = MetaShell(shell_path="C:\\Users\\micha\\PycharmProjects\\Data_Processing\\Images\\Noiseless_Doublet.mat",
+#                     processing_parameters = PROCESSING_PARAMETERS,
+#                     multifoil_parameters = MULTIFOIL_PARAMETERS,
+#                     number_of_coefficients = NUMBER_OF_COEFFICIENTS,
+#                     scaling_factor = SCALING_FACTOR)
+
+# Noisy doublet.
+doublet = MetaShell(shell_path="C:\\Users\\micha\\PycharmProjects\\Data_Processing\\Images\\Noisy_Doublet.mat",
+                    processing_parameters=PROCESSING_PARAMETERS,
+                    multifoil_parameters=MULTIFOIL_PARAMETERS,
+                    number_of_coefficients=NUMBER_OF_COEFFICIENTS,
+                    scaling_factor=SCALING_FACTOR,
+                    debug_mode=DEBUG_MODE,
+                    display_time=DISPLAY_TIME)
+
+doublet.process()
