@@ -155,7 +155,7 @@ class MetaShell:
         TODO: Complete the docstring.
         """
 
-        log.info("Non-optimal processing of the meta-shell using set parameters")
+        log.info("Processing of the meta-shell using pre-defined parameters")
 
         self.doublet_processing(filter_size=self.processing_parameters['filter_size'],
                                 global_threshold=self.processing_parameters['global_threshold'],
@@ -221,4 +221,10 @@ class MetaShell:
         log.print_data(data=best_parameters, log_level="info")
         log.print_data(data=tabulate([[metric, best_metrics[metric]] for metric in best_metrics],
                                      headers=["Metric", "Value"], tablefmt="pretty"), log_level="info")
+
+        # Processing the meta-shell using the best found parameters.
+        self.processing_parameters['thinning_method'] = best_parameters['Thinning method']
+        self.processing_parameters['filter_size'] = best_parameters['Filter size']
+        self.processing_parameters['global_threshold'] = best_parameters['Global threshold']
+        self.set_configuration_processing()
 
