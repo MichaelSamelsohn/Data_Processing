@@ -150,7 +150,7 @@ class MetaShell:
                     -1j * 2 * math.pi * n * k * normalization_factor)
             self.fourier_coefficients.append(a)
 
-    def process(self):
+    def set_configuration_processing(self):
         """
         TODO: Complete the docstring.
         """
@@ -171,7 +171,7 @@ class MetaShell:
 
         self.dft_2d()
 
-    def optimal_process(self):
+    def empirical_processing(self):
         """
         TODO: Complete the docstring.
         """
@@ -181,6 +181,7 @@ class MetaShell:
         best_parameters = {}
         best_metrics = {}
         best_score = math.inf
+        # TODO: Add explanation about adding more loops if necessary to extend the optimal search.
         for thinning_method in ["ZS", "BST", "GH1", "GH2", "DLH"]:
             for filter_size in range(3, 50, 2):
                 for global_threshold in [i / 10 for i in range(1, 10)]:
