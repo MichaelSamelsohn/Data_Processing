@@ -7,12 +7,10 @@ Created by Michael Samelsohn, 19/07/25.
 """
 
 # Imports #
-import random
 from Settings.settings import log
-import numpy as np
 
 
-def lfsr(sequence_length: int, seed=random.randint(1, 127)) -> list[int]:
+def lfsr(sequence_length: int, seed=127) -> list[int]:
     """
     LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
     state. The initial value of the LFSR is called the seed, and because the operation of the register is deterministic,
@@ -48,3 +46,13 @@ def lfsr(sequence_length: int, seed=random.randint(1, 127)) -> list[int]:
         lfsr_state = [feedback] + lfsr_state[:-1]
 
     return lfsr_sequence
+
+
+def scramble(data_bits: list[int]) -> list[int]:
+    """
+    TODO: Complete the docstring.
+    """
+
+    lfsr_sequence = lfsr(sequence_length=len(data_bits))
+    return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
+
