@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
-from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, RATE_CODING, \
-    generate_signal_field
+from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
+    SIGNAL_FIELD_PHY_RATE_CODING, \
+    generate_signal_field, bcc_encode, interleave
 
 # Constants #
 RANDOM_TESTS = 10
@@ -61,6 +62,26 @@ LFSR_SEQUENCE_SEED_1011101 = [
     0, 0, 0, 1, 0, 1, 1, 1, 0, 1
 ]
 
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.1 SIGNAL field bit assignment, p. 4156, Table I-7—Bit assignment
+# for SIGNAL field.
+SIGNAL_FIELD = [1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.2 Coding the SIGNAL field bits, p. 4157, Table I-8—SIGNAL field
+# bits after encoding.
+ENCODED_SIGNAL_FIELD = [
+    1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0
+]
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.3 Interleaving the SIGNAL field bits, p. 4157, Table I-9—SIGNAL
+# field bits after interleaving.
+INTERLEAVED_SIGNAL_FIELD = [
+    1, 0, 0, 1, 0, 1, 0, 0,  # 0–7
+    1, 1, 0, 1, 0, 0, 0, 0,  # 8–15
+    0, 0, 0, 1, 0, 1, 0, 0,  # 16–23
+    1, 0, 0, 0, 0, 0, 1, 1,  # 24–31
+    0, 0, 1, 0, 0, 1, 0, 0,  # 32–39
+    1, 0, 0, 1, 0, 1, 0, 0  # 40–47
+]
+
 
 @pytest.mark.parametrize(
     "style, expected_outcome",
@@ -111,7 +132,7 @@ def test_crc32(data_bytes):
     assert cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
-@pytest.mark.parametrize("rate, length", [(random.choice(list(RATE_CODING.keys())), random.randint(1, 4095))
+@pytest.mark.parametrize("rate, length", [(random.choice(list(SIGNAL_FIELD_PHY_RATE_CODING.keys())), random.randint(1, 4095))
                                           for _ in range(RANDOM_TESTS)])
 def test_generate_signal_field(rate, length):
     """
@@ -128,7 +149,7 @@ def test_generate_signal_field(rate, length):
     signal_field = generate_signal_field(rate=rate, length=length)
 
     # Assert all sub-fields.
-    assert signal_field[:4] == RATE_CODING[rate]                                     # Assert RATE.
+    assert signal_field[:4] == SIGNAL_FIELD_PHY_RATE_CODING[rate]                                     # Assert RATE.
     assert signal_field[4] == 0                                                      # Assert RESERVED.
     assert signal_field[5:17] == [int(bit) for bit in format(length, '012b')][::-1]  # Assert LENGTH.
     assert signal_field[17] == 0 if np.sum(signal_field[:17]) % 2 == 0 else 1        # Assert PARITY.
@@ -189,3 +210,23 @@ def test_scramble():
     # expected value.
     with patch('wifi.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
         assert scramble(data_bits=data_bits, seed=93) == expected_scrambled_bits
+
+
+def test_bcc_encode():
+    """
+    Test purpose - Basic functionality of encoding using BCC.
+    Criteria: Generated coded data is bit-exact to a known sequence [*].
+
+    Test steps:
+    1) Encode SIGNAL field data (taken from [**]).
+    2) Assert that coded SIGNAL data is bit-exact to the expected value [*].
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.2 Coding the SIGNAL field bits, p. 4157, Table I-8—SIGNAL
+    field bits after encoding.
+    [**] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.1 SIGNAL field bit assignment, p. 4156, Table I-7—Bit
+    assignment for SIGNAL field.
+    """
+
+    # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
+    assert bcc_encode(data_bits=SIGNAL_FIELD, coding_rate='1/2') == ENCODED_SIGNAL_FIELD
+

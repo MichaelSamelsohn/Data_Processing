@@ -13,7 +13,7 @@ from Settings.settings import log
 
 # Constants #
 # SIGNAL field ??
-RATE_CODING = {  # R1-R4.
+SIGNAL_FIELD_PHY_RATE_CODING = {  # R1-R4.
     6:  [1, 1, 0, 1],
     9:  [1, 1, 1, 1],
     12: [0, 1, 0, 1],
@@ -106,13 +106,13 @@ def generate_signal_field(rate: int, length: int):
     rest of the PPDU. The encoding of the SIGNAL single OFDM symbol shall be performed with BPSK modulation of the
     sub-carriers and using convolutional coding at R = 1/2. The contents of the SIGNAL field are not scrambled.
 
-                      RATE                            LENGTH                                SIGNAL TAIL
-                    (4 bits)                         (12 bits)                               (6 bits)
+                    RATE                              LENGTH                              SIGNAL TAIL
+                  (4 bits)                           (12 bits)                             (6 bits)
 
-                R1  R2  R3  R4  R  LSB                                          MSB  P  “0” “0” “0” “0” “0” “0”
-                0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19  20  21  22  23
+             R1  R2  R3  R4  R  LSB                                          MSB  P  “0” “0” “0” “0” “0” “0”
+             0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19  20  21  22  23
 
-                Transmit Order ------------------------------------------------------------------------------>
+             Transmit Order ------------------------------------------------------------------------------>
 
     RATE (4 bits) - Dependent on RATE, p. 2815, Table 17-6.
     R (1 bit) - Bit 4 is reserved. It shall be set to 0 on transmit and ignored on receive.
@@ -133,7 +133,7 @@ def generate_signal_field(rate: int, length: int):
     signal_field = 24 * [0]
 
     # Setting the rate bits, 0-3.
-    signal_field[:4] = RATE_CODING[rate]
+    signal_field[:4] = SIGNAL_FIELD_PHY_RATE_CODING[rate]
 
     # Setting the length bits, 5-16.
     signal_field[5:17] = [int(bit) for bit in format(length, '012b')][::-1]
@@ -193,13 +193,18 @@ def scramble(data_bits: list[int], seed=93) -> list[int]:
     return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
 
 
-def bcc_encode(data_bits, rate='1/2'):
+def bcc_encode(data_bits, coding_rate='1/2'):
     """
     The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
     G2 = int('171', 8), of rate R = 1/2.
     Higher rates are derived from it by employing “puncturing.” Puncturing is a procedure for omitting some of the
     encoded bits in the transmitter (thus reducing the number of transmitted bits and increasing the coding rate) and
     inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted bits.
+
+    :param data_bits: ??
+    :param coding_rate: ??
+
+    :return: ??
     """
 
     log.debug("Encoding with base rate 1/2 (binary) convolutional code")
@@ -216,16 +221,15 @@ def bcc_encode(data_bits, rate='1/2'):
             encoded_bit = np.sum(shift_reg * g) % 2  # Calculating the XOR outcome.
             encoded.append(encoded_bit)
 
-    # Converting the encoded bits list to a numpy array to better perform puncturing.
-    encoded = np.array(encoded)
-
     # Puncture if necessary (rate is not 1/2).
-    if rate == '1/2':
+    if coding_rate == '1/2':
         return encoded
     else:
-        log.debug(f"Puncturing to increase rate to {rate}")
+        log.debug(f"Puncturing to increase rate to {coding_rate}")
+        # Converting the encoded bits list to a numpy array to better perform puncturing.
+        encoded = np.array(encoded)
         # Selecting the puncturing pattern based on the rate selection.
-        puncturing_pattern = PUNCTURING_PATTERNS[rate]
+        puncturing_pattern = PUNCTURING_PATTERNS[coding_rate]
         # Calculating the number of repeats based on the rate between the puncturing array size and number of encoded
         # bits.
         repeat = int(np.ceil(len(encoded) / len(puncturing_pattern)))
@@ -235,18 +239,18 @@ def bcc_encode(data_bits, rate='1/2'):
         return encoded[mask == 1].tolist()
 
 
-def encode(data_bits, coding='BCC', rate='1/2'):
+def encode(data_bits, coding='BCC', coding_rate='1/2'):
     """
     TODO: Complete the docstring.
     """
 
     # Validating rate.
-    if rate not in PUNCTURING_PATTERNS:
-        log.error(f"Invalid rate - {rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
+    if coding_rate not in PUNCTURING_PATTERNS:
+        log.error(f"Invalid rate - {coding_rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
         return
 
     if coding == 'BCC':
-        encoded = bcc_encode(data_bits, rate)
+        encoded = bcc_encode(data_bits, coding_rate)
     elif coding == 'LDPC':
         # TODO: Implement LDPC coding.
         pass
@@ -254,5 +258,5 @@ def encode(data_bits, coding='BCC', rate='1/2'):
         log.error(f"Incorrect coding option selected - {coding}. Available options are: BCC/LDPC")
         return
 
-    log.info(f"Rate {rate} -> Encoded ({len(encoded)} bits): {encoded}")
+    log.info(f"Rate {coding_rate} -> Encoded ({len(encoded)} bits): {encoded}")
     return encoded
