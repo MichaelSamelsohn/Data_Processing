@@ -12,7 +12,19 @@ import numpy as np
 from Settings.settings import log
 
 # Constants #
-# Constraint length.
+# SIGNAL field ??
+RATE_CODING = {  # R1-R4.
+    6:  [1, 1, 0, 1],
+    9:  [1, 1, 1, 1],
+    12: [0, 1, 0, 1],
+    18: [0, 1, 1, 1],
+    24: [1, 0, 0, 1],
+    36: [1, 0, 1, 1],
+    48: [0, 0, 0, 1],
+    54: [0, 0, 1, 1]
+}
+
+# Constraint length for BCC encoder.
 K = 7
 # Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2820.
 G1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
@@ -87,13 +99,58 @@ def cyclic_redundancy_check_32(data: bytes) -> bytes:
     return crc32.to_bytes(4, 'little')
 
 
+def generate_signal_field(rate: int, length: int):
+    """
+    The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields of
+    the TXVECTOR. The RATE field conveys information about the type of modulation and the coding rate as used in the
+    rest of the PPDU. The encoding of the SIGNAL single OFDM symbol shall be performed with BPSK modulation of the
+    sub-carriers and using convolutional coding at R = 1/2. The contents of the SIGNAL field are not scrambled.
+
+                      RATE                            LENGTH                                SIGNAL TAIL
+                    (4 bits)                         (12 bits)                               (6 bits)
+
+                R1  R2  R3  R4  R  LSB                                          MSB  P  “0” “0” “0” “0” “0” “0”
+                0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19  20  21  22  23
+
+                Transmit Order ------------------------------------------------------------------------------>
+
+    RATE (4 bits) - Dependent on RATE, p. 2815, Table 17-6.
+    R (1 bit) - Bit 4 is reserved. It shall be set to 0 on transmit and ignored on receive.
+    LENGTH (12 bits) - Unsigned 12-bit integer that indicates the number of octets in the PSDU that the MAC is currently
+    requesting the PHY to transmit.
+    P (1 bit) - Bit 17 shall be a positive parity (even parity) bit for bits 0–16.
+    SIGNAL TAIL (6 bits) - Bits 18–23 constitute the SIGNAL TAIL field, and all 6 bits shall be set to 0.
+
+    Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.4 SIGNAL field, p. 2814-2816.
+
+    :param rate: Rate of the transmission.
+    :param length: Length of the transmission.
+
+    :return: List of SIGNAL field bits.
+    """
+
+    # Initialize the signal field.
+    signal_field = 24 * [0]
+
+    # Setting the rate bits, 0-3.
+    signal_field[:4] = RATE_CODING[rate]
+
+    # Setting the length bits, 5-16.
+    signal_field[5:17] = [int(bit) for bit in format(length, '012b')][::-1]
+
+    # Setting the parity bit 17.
+    signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
+
+    return signal_field
+
+
 def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
     """
     LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
     state. The initial value of the LFSR is called the seed, and because the operation of the register is deterministic,
     the stream of values produced by the register is completely determined by its current (or previous) state. Likewise,
     because the register has a finite number of possible states, it must eventually enter a repeating cycle.
-    The LFSR used in WiFi communications is as follows (as specified in [*]):
+    The LFSR used in WiFi communications is as follows (as specified in 'Reference'):
 
                    -----------------------------> XOR (Feedback bit) -----------------------------------
                    |                               ^                                                   |
@@ -102,7 +159,7 @@ def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
                 | X7 |<-----| X6 |<-----| X5 |<---------| X4 |<-----| X3 |<-----| X2 |<-----| X1 |<-----
                 +----+      +----+      +----+          +----+      +----+      +----+      +----+
 
-    [*] - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817.
+    Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817.
 
     :param sequence_length: Sequence length.
     :param seed: Initial 7-bit seed for LFSR (non-zero).

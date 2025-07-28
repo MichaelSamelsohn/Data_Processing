@@ -2,12 +2,16 @@
 import zlib
 import os
 import random
+import numpy as np
 import pytest
 
 from unittest.mock import patch
-from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32
+from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, RATE_CODING, \
+    generate_signal_field
 
 # Constants #
+RANDOM_TESTS = 10
+
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.2 The message for the BCC example, p. 4150.
 MESSAGE = """Joy, bright spark of divinity,
 Daughter of Elysium,
@@ -58,7 +62,15 @@ LFSR_SEQUENCE_SEED_1011101 = [
 ]
 
 
-def test_convert_string_to_bits():
+@pytest.mark.parametrize(
+    "style, expected_outcome",
+    [
+        ('binary', MESSAGE_IN_BITS),
+        ('bytes', MESSAGE_IN_BYTES),
+        ('hex', [f'0x{byte:02X}' for byte in MESSAGE_IN_BYTES]),
+    ]
+)
+def test_convert_string_to_bits(style, expected_outcome):
     """
     Test purpose - Basic functionality of converting strings to bits.
     Criteria:
@@ -67,23 +79,16 @@ def test_convert_string_to_bits():
     2) Correct data conversion when style='hex'.
 
     Test steps:
-    1) Convert test message using the 'binary' style.
+    1) Convert test message using the selected style.
     2) Assert that generated list is bit-exact to expected outcome.
-    3) Convert test message using the 'bytes' style.
-    4) Assert that generated list is bit-exact to expected outcome.
-    5) Convert test message using the 'hex' style.
-    6) Assert that generated list is bit-exact to expected outcome.
     """
 
     # Steps (1)+(2) - Convert message to bits and compare to expected outcome.
-    assert convert_string_to_bits(text=MESSAGE, style='binary') == MESSAGE_IN_BITS
-    # Steps (3)+(4) - Convert message to bytes and compare to expected outcome.
-    assert convert_string_to_bits(text=MESSAGE, style='bytes') == MESSAGE_IN_BYTES
-    # Steps (5)+(6) - Convert message to hex strings and compare to expected outcome.
-    assert convert_string_to_bits(text=MESSAGE, style='hex') == [f'0x{byte:02X}' for byte in MESSAGE_IN_BYTES]
+    assert convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
 
 
-def test_crc32():
+@pytest.mark.parametrize("data_bytes", [os.urandom(50) for _ in range(RANDOM_TESTS)])
+def test_crc32(data_bytes):
     """
     Test purpose - Basic functionality of generating CRC.
     Criteria - Correct CRC value generated for a random byte sequence.
@@ -106,6 +111,30 @@ def test_crc32():
     assert cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
+@pytest.mark.parametrize("rate, length", [(random.choice(list(RATE_CODING.keys())), random.randint(1, 4095))
+                                          for _ in range(RANDOM_TESTS)])
+def test_generate_signal_field(rate, length):
+    """
+    Test purpose - Basic functionality of generating SIGNAL field based on rate and length parameters.
+    Criteria - All SIGNAL field bits are generated correctly.
+
+    Test steps:
+    1) Generate random rate (from a pool of possible values) and length between 1-4095 (2^12).
+    2) Generate the SIGNAL field.
+    3) Assert that each sub-field is bit-exact to expected outcome.
+    """
+
+    # Step (2) - Generate SIGNAL field.
+    signal_field = generate_signal_field(rate=rate, length=length)
+
+    # Assert all sub-fields.
+    assert signal_field[:4] == RATE_CODING[rate]                                     # Assert RATE.
+    assert signal_field[4] == 0                                                      # Assert RESERVED.
+    assert signal_field[5:17] == [int(bit) for bit in format(length, '012b')][::-1]  # Assert LENGTH.
+    assert signal_field[17] == 0 if np.sum(signal_field[:17]) % 2 == 0 else 1        # Assert PARITY.
+    assert signal_field[18:] == 6 * [0]                                              # Assert SIGNAL TAIL.
+
+
 @pytest.mark.parametrize(
     "sequence_length, expected_lfsr_sequence",
     [
@@ -122,7 +151,7 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     [*]-IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817, Figure 17-7.
 
     Test steps:
-    1) Generate LFSR sequence with seed 127.
+    1) Generate LFSR sequence with seed 93.
     2) Assert that generated LFSR sequence is bit-exact to the expected value (provided by the standard).
     """
 
