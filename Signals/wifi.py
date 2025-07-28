@@ -7,7 +7,22 @@ Created by Michael Samelsohn, 19/07/25.
 """
 
 # Imports #
+import numpy as np
+
 from Settings.settings import log
+
+# Constants #
+# Constraint length.
+K = 7
+# Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2820.
+G1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
+G2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
+# Standard WiFi rates. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2821.
+PUNCTURING_PATTERNS = {
+    '1/2': [1, 1],
+    '2/3': [1, 1, 1, 0],
+    '3/4': [1, 1, 1, 0, 0, 1],
+}
 
 
 def convert_string_to_bits(text: str, style='binary') -> list[int | str]:
@@ -120,3 +135,67 @@ def scramble(data_bits: list[int], seed=93) -> list[int]:
     # XOR input bits with LFSR sequence.
     return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
 
+
+def bcc_encode(data_bits, rate='1/2'):
+    """
+    The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
+    G2 = int('171', 8), of rate R = 1/2.
+    Higher rates are derived from it by employing “puncturing.” Puncturing is a procedure for omitting some of the
+    encoded bits in the transmitter (thus reducing the number of transmitted bits and increasing the coding rate) and
+    inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted bits.
+    """
+
+    log.debug("Encoding with base rate 1/2 (binary) convolutional code")
+    shift_reg = [0] * K  # Initializing the shift register to all zeros.
+    encoded = []
+
+    for bit in data_bits:
+        # Updating register values with data bit as the input bit.
+        shift_reg = np.roll(shift_reg, 1)
+        shift_reg[0] = bit
+
+        # Extracting the outputs of the encoder using the standard generator polynomials.
+        for g in [G1, G2]:
+            encoded_bit = np.sum(shift_reg * g) % 2  # Calculating the XOR outcome.
+            encoded.append(encoded_bit)
+
+    # Converting the encoded bits list to a numpy array to better perform puncturing.
+    encoded = np.array(encoded)
+
+    # Puncture if necessary (rate is not 1/2).
+    if rate == '1/2':
+        return encoded
+    else:
+        log.debug(f"Puncturing to increase rate to {rate}")
+        # Selecting the puncturing pattern based on the rate selection.
+        puncturing_pattern = PUNCTURING_PATTERNS[rate]
+        # Calculating the number of repeats based on the rate between the puncturing array size and number of encoded
+        # bits.
+        repeat = int(np.ceil(len(encoded) / len(puncturing_pattern)))
+        # Generating the puncturing mask.
+        mask = np.tile(puncturing_pattern, repeat)[:len(encoded)]
+        # Puncturing the encoded bits.
+        return encoded[mask == 1].tolist()
+
+
+def encode(data_bits, coding='BCC', rate='1/2'):
+    """
+    TODO: Complete the docstring.
+    """
+
+    # Validating rate.
+    if rate not in PUNCTURING_PATTERNS:
+        log.error(f"Invalid rate - {rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
+        return
+
+    if coding == 'BCC':
+        encoded = bcc_encode(data_bits, rate)
+    elif coding == 'LDPC':
+        # TODO: Implement LDPC coding.
+        pass
+    else:
+        log.error(f"Incorrect coding option selected - {coding}. Available options are: BCC/LDPC")
+        return
+
+    log.info(f"Rate {rate} -> Encoded ({len(encoded)} bits): {encoded}")
+    return encoded
