@@ -230,3 +230,21 @@ def test_bcc_encode():
     # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
     assert bcc_encode(data_bits=SIGNAL_FIELD, coding_rate='1/2') == ENCODED_SIGNAL_FIELD
 
+
+def test_interleave():
+    """
+    Test purpose - Basic functionality of interleaving.
+    Criteria: Generated interleaved data is bit-exact to a known sequence [*].
+
+    Test steps:
+    1) Interleave encoded SIGNAL field data (taken from [**]).
+    2) Assert that interleaved coded SIGNAL data is bit-exact to the expected value [*].
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.3 Interleaving the SIGNAL field bits, p. 4157, Table
+    I-9—SIGNAL field bits after interleaving.
+    [**] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.2 Coding the SIGNAL field bits, p. 4157, Table I-8—SIGNAL
+    field bits after encoding.
+    """
+
+    # Steps (1)+(2) - Interleave and assert that outcome is bit-exact to expected one.
+    assert interleave(data_bits=ENCODED_SIGNAL_FIELD, phy_rate=6) == INTERLEAVED_SIGNAL_FIELD

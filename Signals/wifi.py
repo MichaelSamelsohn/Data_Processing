@@ -36,6 +36,18 @@ PUNCTURING_PATTERNS = {
     '3/4': [1, 1, 1, 0, 0, 1],
 }
 
+# Interleaving.
+PHY_RATE_INTERLEAVING = {
+    6: 1,
+    9: 1,
+    12: 2,
+    18: 2,
+    24: 4,
+    36: 4,
+    48: 6,
+    54: 6
+}
+
 
 def convert_string_to_bits(text: str, style='binary') -> list[int | str]:
     """
@@ -260,3 +272,45 @@ def encode(data_bits, coding='BCC', coding_rate='1/2'):
 
     log.info(f"Rate {coding_rate} -> Encoded ({len(encoded)} bits): {encoded}")
     return encoded
+
+
+def interleave(data_bits, phy_rate):
+    """
+    All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number of
+    bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
+    1) The first permutation causes adjacent coded bits to be mapped onto nonadjacent sub-carriers.
+                            i = (Ncbps/16)•(k mod 16) + floor(k/16), k=0,1,...,Ncbps-1
+    2) The second causes adjacent coded bits to be mapped alternately onto less and more significant bits of the
+    constellation and, thereby, long runs of low reliability (LSB) bits are avoided.
+                      j = s•floor(i/s) + [(i + Ncbps - floor(16i/Ncbps)) mod s], i=0,1,...,Ncbps-1
+
+    Where the index of the coded bit before the first permutation shall be denoted by k; i shall be the index after the
+    first and before the second permutation; and j shall be the index after the second permutation, just prior to
+    modulation mapping. The value of s is determined by the number of coded bits per subcarrier, Nbpsc, according to,
+                                            s = max(Nbpsc/2,1)
+
+    Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.7 Data interleaving, p. 2822.
+
+    :param data_bits: The data bit list to be interleaved.
+    :param phy_rate: The rate of the transmission (modulation + coding).
+
+    :return: Interleaved data bits.
+    """
+
+    # Identify the base values of Nbpsc and Ncbps based on the rate (modulation + coding).
+    n_bpsc = PHY_RATE_INTERLEAVING[phy_rate]
+    # TODO: Adjust for higher formats.
+    n_cbps = 48 * n_bpsc  # 48 data sub-carriers in 802.11 legacy formats.
+
+    # Calculate s and prepare the pre-interleave index list, k.
+    s = max(n_bpsc // 2, 1)
+    k = np.arange(n_cbps)
+
+    # First permutation - Ensures that adjacent coded bits are mapped onto nonadjacent sub-carriers.
+    i = (n_cbps // 16) * (k % 16) + k // 16
+
+    # Second permutation - Ensures bits are spread over different constellation bits.
+    j = s * (i // s) + ((i + n_cbps - (16 * i // n_cbps)) % s)
+
+    # Interleaving the data bits according to the indexes in j.
+    return [data_bits[np.where(j == index)[0][0]] for index in k]
