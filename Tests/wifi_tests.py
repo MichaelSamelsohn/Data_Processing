@@ -8,10 +8,6 @@ from unittest.mock import patch
 from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32
 
 # Constants #
-BASIC_LFSR_SEQUENCE = [0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0,
-                       0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0,
-                       1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
-                       1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.2 The message for the BCC example, p. 4150.
 MESSAGE = """Joy, bright spark of divinity,
 Daughter of Elysium,
@@ -113,11 +109,11 @@ def test_crc32():
 @pytest.mark.parametrize(
     "sequence_length, expected_lfsr_sequence",
     [
-        (127, BASIC_LFSR_SEQUENCE),  # Basic sequence.
-        (2 * 127, 2 * BASIC_LFSR_SEQUENCE),  # Cyclic sequence
+        (127, LFSR_SEQUENCE_SEED_1011101),         # Basic sequence.
+        (2 * 127, 2 * LFSR_SEQUENCE_SEED_1011101)  # Cyclic sequence.
     ]
 )
-def test_lfsr(sequence_length, expected_lfsr_sequence):
+def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     """
     Test purpose - Basic functionality of generating an LFSR sequence.
     Criteria:
@@ -131,7 +127,7 @@ def test_lfsr(sequence_length, expected_lfsr_sequence):
     """
 
     # Steps (1)+(2) - Generate LFSR sequence and assert it is bit-exact to the expected value.
-    assert lfsr(sequence_length=sequence_length, seed=127) == expected_lfsr_sequence
+    assert generate_lfsr_sequence(sequence_length=sequence_length, seed=93) == expected_lfsr_sequence
 
 
 def test_scramble():
@@ -158,9 +154,9 @@ def test_scramble():
 
     # Step (2) - Scramble data bits with known LFSR sequence (provided by the standard) using simplified XOR
     # implementation.
-    expected_scrambled_bits = [1 if data_bits[i] != BASIC_LFSR_SEQUENCE[i] else 0 for i in range(127)]
+    expected_scrambled_bits = [1 if data_bits[i] != LFSR_SEQUENCE_SEED_1011101[i] else 0 for i in range(127)]
 
     # Steps (3)+(4) - Scramble data bits (with mocked LFSR) and assert that scrambled sequence is bit-exact to the
     # expected value.
-    with patch('wifi.lfsr', return_value=BASIC_LFSR_SEQUENCE):
-        assert scramble(data_bits=data_bits) == expected_scrambled_bits
+    with patch('wifi.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
+        assert scramble(data_bits=data_bits, seed=93) == expected_scrambled_bits

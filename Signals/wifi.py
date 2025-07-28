@@ -72,6 +72,7 @@ def cyclic_redundancy_check_32(data: bytes) -> bytes:
     return crc32.to_bytes(4, 'little')
 
 
+def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
     """
     LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
     state. The initial value of the LFSR is called the seed, and because the operation of the register is deterministic,
@@ -91,7 +92,7 @@ def cyclic_redundancy_check_32(data: bytes) -> bytes:
     :param sequence_length: Sequence length.
     :param seed: Initial 7-bit seed for LFSR (non-zero).
 
-    :return: Scrambling sequence.
+    :return: LFSR sequence.
     """
 
     lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
@@ -109,11 +110,13 @@ def cyclic_redundancy_check_32(data: bytes) -> bytes:
     return lfsr_sequence
 
 
-def scramble(data_bits: list[int]) -> list[int]:
+def scramble(data_bits: list[int], seed=93) -> list[int]:
     """
     TODO: Complete the docstring.
     """
 
-    lfsr_sequence = lfsr(sequence_length=len(data_bits))
+    # Generate LFSR sequence matching the length of the data bits.
+    lfsr_sequence = generate_lfsr_sequence(sequence_length=len(data_bits), seed=seed)
+    # XOR input bits with LFSR sequence.
     return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
 
