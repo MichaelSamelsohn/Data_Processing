@@ -49,6 +49,9 @@ PHY_RATE_INTERLEAVING = {
 }
 
 
+# PSDU construction #
+
+
 def convert_string_to_bits(text: str, style='binary') -> list[int | str]:
     """
     Convert text string to bits according to ASCII convention - https://www.ascii-code.com/.
@@ -111,6 +114,9 @@ def cyclic_redundancy_check_32(data: bytes) -> bytes:
     return crc32.to_bytes(4, 'little')
 
 
+# PHY header + DATA #
+
+
 def generate_signal_field(rate: int, length: int):
     """
     The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields of
@@ -154,6 +160,15 @@ def generate_signal_field(rate: int, length: int):
     signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
 
     return signal_field
+
+
+def zero_padding():
+    """
+    TODO: Complete the docstring.
+    """
+
+
+# Coding (scrambling, encoding, interleaving, mapping, modulation) #
 
 
 def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
@@ -205,7 +220,7 @@ def scramble(data_bits: list[int], seed=93) -> list[int]:
     return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
 
 
-def bcc_encode(data_bits, coding_rate='1/2'):
+def bcc_encode(data_bits: list[int], coding_rate='1/2') -> list[int]:
     """
     The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
     G2 = int('171', 8), of rate R = 1/2.
@@ -251,15 +266,14 @@ def bcc_encode(data_bits, coding_rate='1/2'):
         return encoded[mask == 1].tolist()
 
 
-def encode(data_bits, coding='BCC', coding_rate='1/2'):
+def encode(data_bits: list[int], coding='BCC', coding_rate='1/2') -> list[int]:
     """
     TODO: Complete the docstring.
     """
 
     # Validating rate.
     if coding_rate not in PUNCTURING_PATTERNS:
-        log.error(f"Invalid rate - {coding_rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
-        return
+        log.exit(f"Invalid rate - {coding_rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
 
     if coding == 'BCC':
         encoded = bcc_encode(data_bits, coding_rate)
@@ -267,14 +281,13 @@ def encode(data_bits, coding='BCC', coding_rate='1/2'):
         # TODO: Implement LDPC coding.
         pass
     else:
-        log.error(f"Incorrect coding option selected - {coding}. Available options are: BCC/LDPC")
-        return
+        log.exit(f"Incorrect coding option selected - {coding}. Available options are: BCC/LDPC")
 
     log.info(f"Rate {coding_rate} -> Encoded ({len(encoded)} bits): {encoded}")
     return encoded
 
 
-def interleave(data_bits, phy_rate):
+def interleave(data_bits: list[int], phy_rate: int) -> list[int]:
     """
     All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number of
     bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
