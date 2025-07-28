@@ -1,4 +1,6 @@
 # Imports #
+import zlib
+import os
 import random
 import pytest
 
@@ -50,6 +52,16 @@ MESSAGE_IN_BITS = [
     0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
     1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1
 ]
+
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.5.2 Scrambling the BCC example, p. 4162, Table I-14.
+LFSR_SEQUENCE_SEED_1011101 = [
+    0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0,
+    0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1,
+    0, 0, 0, 1, 0, 1, 1, 1, 0, 1
+]
+
+
 def test_convert_string_to_bits():
     """
     Test purpose - Basic functionality of converting strings to bits.
@@ -73,6 +85,29 @@ def test_convert_string_to_bits():
     assert convert_string_to_bits(text=MESSAGE, style='bytes') == MESSAGE_IN_BYTES
     # Steps (5)+(6) - Convert message to hex strings and compare to expected outcome.
     assert convert_string_to_bits(text=MESSAGE, style='hex') == [f'0x{byte:02X}' for byte in MESSAGE_IN_BYTES]
+
+
+def test_crc32():
+    """
+    Test purpose - Basic functionality of generating CRC.
+    Criteria - Correct CRC value generated for a random byte sequence.
+
+    Test steps:
+    1) Generate random byte sequence.
+    2) Use known library (zlib) to generate expected outcome.
+    3) Generate CRC-32 sequence.
+    4) Assert that generated sequence is bit-exact to expected outcome.
+    """
+
+    # Step (1) - Generate random byte sequence.
+    data_bytes = os.urandom(50)
+
+    # Step (2) - Generate expected outcome using the zlib library.
+    expected_crc = zlib.crc32(data_bytes) & 0xFFFFFFFF
+    expected_crc = expected_crc.to_bytes(4, 'little')  # Convert to little endian bytes.
+
+    # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
+    assert cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
 @pytest.mark.parametrize(
