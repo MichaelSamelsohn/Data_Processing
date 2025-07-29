@@ -7,7 +7,8 @@ import pytest
 
 from unittest.mock import patch
 from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
-    generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits
+    generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits, \
+    subcarrier_modulation_mapping
 
 # Constants #
 RANDOM_TESTS = 10
@@ -75,6 +76,12 @@ ENCODED_SIGNAL_FIELD = [
 INTERLEAVED_SIGNAL_FIELD = [
     1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0,
     0, 1, 0, 0, 1, 0, 1, 0, 0
+]
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158, Table I-10—Frequency
+# domain representation of SIGNAL field.
+SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD = [
+    1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, -1, -1, -1, 1, 1,
+    -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1
 ]
 
 
@@ -165,6 +172,7 @@ def test_calculate_padding_bits():
     p. 4160.
     """
 
+    # Steps (1)+(2) - Calculate number of padding bits and assert that it's equal to reference value.
     assert calculate_padding_bits(phy_rate=36, length=100) == 42
 
 
@@ -228,7 +236,7 @@ def test_scramble():
 def test_bcc_encode():
     """
     Test purpose - Basic functionality of encoding using BCC.
-    Criteria: Generated coded data is bit-exact to a known sequence [*].
+    Criteria - Generated coded data is bit-exact to a known sequence [*].
 
     Test steps:
     1) Encode SIGNAL field data (taken from [**]).
@@ -247,7 +255,7 @@ def test_bcc_encode():
 def test_interleave():
     """
     Test purpose - Basic functionality of interleaving.
-    Criteria: Generated interleaved data is bit-exact to a known sequence [*].
+    Criteria - Generated interleaved data is bit-exact to a known sequence [*].
 
     Test steps:
     1) Interleave encoded SIGNAL field data (taken from [**]).
@@ -261,3 +269,23 @@ def test_interleave():
 
     # Steps (1)+(2) - Interleave and assert that outcome is bit-exact to expected one.
     assert interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) == INTERLEAVED_SIGNAL_FIELD
+
+
+def test_subcarrier_modulation_mapping():
+    """
+    Test purpose - Basic functionality of modulation mapping.
+    Criteria - Generated modulated data is bit-exact to a known sequence [*].
+
+    Test steps:
+    1) Modulate interleaved SIGNAL field data (taken from [**]).
+    2) Assert that modulated interleaved SIGNAL data is bit-exact to the expected value [*].
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158, Table
+    I-10—Frequency domain representation of SIGNAL field.
+    [**] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.3 Interleaving the SIGNAL field bits, p. 4157, Table
+    I-9—SIGNAL field bits after interleaving.
+    """
+
+    # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
+    assert (subcarrier_modulation_mapping(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+            SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD)
