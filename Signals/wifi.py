@@ -12,50 +12,23 @@ import numpy as np
 from Settings.settings import log
 
 # Constants #
-# SIGNAL field ??
-SIGNAL_FIELD_PHY_RATE_CODING = {  # R1-R4.
-    6:  [1, 1, 0, 1],
-    9:  [1, 1, 1, 1],
-    12: [0, 1, 0, 1],
-    18: [0, 1, 1, 1],
-    24: [1, 0, 0, 1],
-    36: [1, 0, 1, 1],
-    48: [0, 0, 0, 1],
-    54: [0, 0, 1, 1]
-}
-
-# Constraint length for BCC encoder.
-K = 7
-# Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2820.
-G1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
-G2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
-# Standard WiFi rates. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2821.
-PUNCTURING_PATTERNS = {
-    '1/2': [1, 1],
-    '2/3': [1, 1, 1, 0],
-    '3/4': [1, 1, 1, 0, 0, 1],
-}
-
-# Interleaving.
-PHY_RATE_INTERLEAVING = {
-    6: 1,
-    9: 1,
-    12: 2,
-    18: 2,
-    24: 4,
-    36: 4,
-    48: 6,
-    54: 6
-}
-PHY_RATE_CODING_RATE = {
-    6: 1/2,
-    9: 3/4,
-    12: 1/2,
-    18: 3/4,
-    24: 1/2,
-    36: 3/4,
-    48: 2/3,
-    54: 3/4
+MODULATION_CODING_SCHEME_PARAMETERS = {
+    6:  {"MODULATION": 'BPSK',   "CODING_RATE": 1/2, "N_BPSC": 1,
+         "N_CBPS": 48,  "N_DBPS": 24,  "SIGNAL_FIELD_CODING": [1, 1, 0, 1]},
+    9:  {"MODULATION": 'BPSK',   "CODING_RATE": 3/4, "N_BPSC": 1,
+         "N_CBPS": 48,  "N_DBPS": 36,  "SIGNAL_FIELD_CODING": [1, 1, 1, 1]},
+    12: {"MODULATION": 'QPSK',   "CODING_RATE": 1/2, "N_BPSC": 2,
+         "N_CBPS": 96,  "N_DBPS": 48,  "SIGNAL_FIELD_CODING": [0, 1, 0, 1]},
+    18: {"MODULATION": 'QPSK',   "CODING_RATE": 3/4, "N_BPSC": 2,
+         "N_CBPS": 96,  "N_DBPS": 72,  "SIGNAL_FIELD_CODING": [0, 1, 1, 1]},
+    24: {"MODULATION": '16-QAM', "CODING_RATE": 1/2, "N_BPSC": 4,
+         "N_CBPS": 192, "N_DBPS": 96,  "SIGNAL_FIELD_CODING": [1, 0, 0, 1]},
+    36: {"MODULATION": '16-QAM', "CODING_RATE": 3/4, "N_BPSC": 4,
+         "N_CBPS": 192, "N_DBPS": 144, "SIGNAL_FIELD_CODING": [1, 0, 1, 1]},
+    48: {"MODULATION": '64-QAM', "CODING_RATE": 2/3, "N_BPSC": 6,
+         "N_CBPS": 288, "N_DBPS": 192, "SIGNAL_FIELD_CODING": [0, 0, 0, 1]},
+    54: {"MODULATION": '64-QAM', "CODING_RATE": 3/4, "N_BPSC": 6,
+         "N_CBPS": 288, "N_DBPS": 216, "SIGNAL_FIELD_CODING": [0, 0, 1, 1]}
 }
 
 
@@ -161,7 +134,7 @@ def generate_signal_field(rate: int, length: int):
     signal_field = 24 * [0]
 
     # Setting the rate bits, 0-3.
-    signal_field[:4] = SIGNAL_FIELD_PHY_RATE_CODING[rate]
+    signal_field[:4] = MODULATION_CODING_SCHEME_PARAMETERS[rate]["SIGNAL_FIELD_CODING"]
 
     # Setting the length bits, 5-16.
     signal_field[5:17] = [int(bit) for bit in format(length, '012b')][::-1]
@@ -190,11 +163,8 @@ def calculate_padding_bits(phy_rate: int, length: int) -> int:
     :return: Number of padding bits required to complete an OFDM symbol.
     """
 
-    # Identify the base values of Nbpsc, Ncbps and Ndbps based on the rate (modulation + coding).
-    n_bpsc = PHY_RATE_INTERLEAVING[phy_rate]
-    # TODO: Adjust for higher formats.
-    n_cbps = 48 * n_bpsc  # 48 data sub-carriers in 802.11 legacy formats.
-    n_dbps = n_cbps * PHY_RATE_CODING_RATE[phy_rate]
+    # Identify the base values of Ndbps based on the PHY rate (modulation + coding).
+    n_dbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_DBPS"]
 
     # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits per
     # OFDM symbol.
@@ -246,18 +216,18 @@ def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
     return lfsr_sequence
 
 
-def scramble(data_bits: list[int], seed=93) -> list[int]:
+def scramble(bits: list[int], seed=93) -> list[int]:
     """
     TODO: Complete the docstring.
     """
 
     # Generate LFSR sequence matching the length of the data bits.
-    lfsr_sequence = generate_lfsr_sequence(sequence_length=len(data_bits), seed=seed)
+    lfsr_sequence = generate_lfsr_sequence(sequence_length=len(bits), seed=seed)
     # XOR input bits with LFSR sequence.
-    return [a ^ b for a, b in zip(lfsr_sequence, data_bits)]
+    return [a ^ b for a, b in zip(lfsr_sequence, bits)]
 
 
-def bcc_encode(data_bits: list[int], coding_rate='1/2') -> list[int]:
+def bcc_encode(bits: list[int], coding_rate='1/2') -> list[int]:
     """
     The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
     G2 = int('171', 8), of rate R = 1/2.
@@ -265,23 +235,28 @@ def bcc_encode(data_bits: list[int], coding_rate='1/2') -> list[int]:
     encoded bits in the transmitter (thus reducing the number of transmitted bits and increasing the coding rate) and
     inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted bits.
 
-    :param data_bits: ??
+    :param bits: ??
     :param coding_rate: ??
 
     :return: ??
     """
 
     log.debug("Encoding with base rate 1/2 (binary) convolutional code")
-    shift_reg = [0] * K  # Initializing the shift register to all zeros.
+    shift_reg = [0] * 7  # Initializing the shift register to all zeros.
     encoded = []
 
-    for bit in data_bits:
+    # Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder,
+    # p. 2820.
+    g1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
+    g2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
+
+    for bit in bits:
         # Updating register values with data bit as the input bit.
         shift_reg = np.roll(shift_reg, 1)
         shift_reg[0] = bit
 
         # Extracting the outputs of the encoder using the standard generator polynomials.
-        for g in [G1, G2]:
+        for g in [g1, g2]:
             encoded_bit = np.sum(shift_reg * g) % 2  # Calculating the XOR outcome.
             encoded.append(encoded_bit)
 
@@ -293,7 +268,12 @@ def bcc_encode(data_bits: list[int], coding_rate='1/2') -> list[int]:
         # Converting the encoded bits list to a numpy array to better perform puncturing.
         encoded = np.array(encoded)
         # Selecting the puncturing pattern based on the rate selection.
-        puncturing_pattern = PUNCTURING_PATTERNS[coding_rate]
+        # Standard WiFi rates. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2821.
+        puncturing_patterns = {
+            '2/3': [1, 1, 1, 0],
+            '3/4': [1, 1, 1, 0, 0, 1],
+        }
+        puncturing_pattern = puncturing_patterns[coding_rate]
         # Calculating the number of repeats based on the rate between the puncturing array size and number of encoded
         # bits.
         repeat = int(np.ceil(len(encoded) / len(puncturing_pattern)))
@@ -303,28 +283,7 @@ def bcc_encode(data_bits: list[int], coding_rate='1/2') -> list[int]:
         return encoded[mask == 1].tolist()
 
 
-def encode(data_bits: list[int], coding='BCC', coding_rate='1/2') -> list[int]:
-    """
-    TODO: Complete the docstring.
-    """
-
-    # Validating rate.
-    if coding_rate not in PUNCTURING_PATTERNS:
-        log.exit(f"Invalid rate - {coding_rate}. Legal rates are - {list(PUNCTURING_PATTERNS.keys())}")
-
-    if coding == 'BCC':
-        encoded = bcc_encode(data_bits, coding_rate)
-    elif coding == 'LDPC':
-        # TODO: Implement LDPC coding.
-        pass
-    else:
-        log.exit(f"Incorrect coding option selected - {coding}. Available options are: BCC/LDPC")
-
-    log.info(f"Rate {coding_rate} -> Encoded ({len(encoded)} bits): {encoded}")
-    return encoded
-
-
-def interleave(data_bits: list[int], phy_rate: int) -> list[int]:
+def interleave(bits: list[int], phy_rate: int) -> list[int]:
     """
     All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number of
     bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
@@ -336,21 +295,20 @@ def interleave(data_bits: list[int], phy_rate: int) -> list[int]:
 
     Where the index of the coded bit before the first permutation shall be denoted by k; i shall be the index after the
     first and before the second permutation; and j shall be the index after the second permutation, just prior to
-    modulation mapping. The value of s is determined by the number of coded bits per subcarrier, Nbpsc, according to,
+    modulation mapping. The value of s is determined by the number of coded bits per sub-carrier, Nbpsc, according to,
                                             s = max(Nbpsc/2,1)
 
     Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.7 Data interleaving, p. 2822.
 
-    :param data_bits: The data bit list to be interleaved.
+    :param bits: The data bit list to be interleaved.
     :param phy_rate: The rate of the transmission (modulation + coding).
 
     :return: Interleaved data bits.
     """
 
     # Identify the base values of Nbpsc and Ncbps based on the rate (modulation + coding).
-    n_bpsc = PHY_RATE_INTERLEAVING[phy_rate]
-    # TODO: Adjust for higher formats.
-    n_cbps = 48 * n_bpsc  # 48 data sub-carriers in 802.11 legacy formats.
+    n_bpsc = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"]
+    n_cbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_CBPS"]
 
     # Calculate s and prepare the pre-interleave index list, k.
     s = max(n_bpsc // 2, 1)
