@@ -163,14 +163,14 @@ def calculate_padding_bits(phy_rate: int, length: int) -> int:
     :return: Number of padding bits required to complete an OFDM symbol.
     """
 
-    # Identify the base values of Ndbps based on the PHY rate (modulation + coding).
+    # Identify the base value of Ndbps based on the PHY rate (modulation + coding).
     n_dbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_DBPS"]
 
     # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits per
     # OFDM symbol.
-    n_symbol = np.ceil((16 + 8 * length + 6) / n_dbps)
-    n_data = n_symbol * n_dbps
-    n_pad = n_data - (16 + 8 * length + 6)
+    n_symbol = np.ceil((16 + 8 * length + 6) / n_dbps)  # Number of symbols (that can hold the SERVICE, data and TAIL).
+    n_data = n_symbol * n_dbps                          # Number of bits in the DATA (full symbols).
+    n_pad = n_data - (16 + 8 * length + 6)              # Number of PAD bits (for full symbols).
 
     return n_pad
 

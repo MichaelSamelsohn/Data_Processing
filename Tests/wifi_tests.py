@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
-from Signals.wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
-    generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS
+from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
+    generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits
 
 # Constants #
 RANDOM_TESTS = 10
@@ -152,6 +152,22 @@ def test_generate_signal_field(rate, length):
     assert signal_field[18:] == 6 * [0]                                                          # Assert SIGNAL TAIL.
 
 
+def test_calculate_padding_bits():
+    """
+    Test purpose - Pad bits calculation correctness based on reference [*].
+    Criteria - Calculated value is equal to reference value.
+
+    Test steps:
+    1) Calculate the padding bits necessary.
+    2) Assert that calculated value is equal to reference.
+
+    [*]-IEEE Std 802.11-2020 OFDM PHY specification, I.1.5.1 Delineating, SERVICE field prepending, and zero padding,
+    p. 4160.
+    """
+
+    assert calculate_padding_bits(phy_rate=36, length=100) == 42
+
+
 @pytest.mark.parametrize(
     "sequence_length, expected_lfsr_sequence",
     [
@@ -165,11 +181,12 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     Criteria:
     1) 127-bit sequence generated repeatedly is equal to a known sequence [*] when the all 1s initial state is used.
     2) Cyclic - Generated sequence cycle is 127 bits.
-    [*]-IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817, Figure 17-7.
 
     Test steps:
     1) Generate LFSR sequence with seed 93.
     2) Assert that generated LFSR sequence is bit-exact to the expected value (provided by the standard).
+
+    [*]-IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817, Figure 17-7.
     """
 
     # Steps (1)+(2) - Generate LFSR sequence and assert it is bit-exact to the expected value.
