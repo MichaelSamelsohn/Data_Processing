@@ -132,8 +132,9 @@ def test_crc32(data_bytes):
     assert cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
-@pytest.mark.parametrize("rate, length", [(random.choice(list(SIGNAL_FIELD_PHY_RATE_CODING.keys())), random.randint(1, 4095))
-                                          for _ in range(RANDOM_TESTS)])
+@pytest.mark.parametrize("rate, length",
+                         [(random.choice(list(SIGNAL_FIELD_PHY_RATE_CODING.keys())), random.randint(1, 4095))
+                          for _ in range(RANDOM_TESTS)])
 def test_generate_signal_field(rate, length):
     """
     Test purpose - Basic functionality of generating SIGNAL field based on rate and length parameters.
@@ -148,8 +149,8 @@ def test_generate_signal_field(rate, length):
     # Step (2) - Generate SIGNAL field.
     signal_field = generate_signal_field(rate=rate, length=length)
 
-    # Assert all sub-fields.
-    assert signal_field[:4] == SIGNAL_FIELD_PHY_RATE_CODING[rate]                                     # Assert RATE.
+    # Step (3) - Assert all sub-fields.
+    assert signal_field[:4] == SIGNAL_FIELD_PHY_RATE_CODING[rate]                    # Assert RATE.
     assert signal_field[4] == 0                                                      # Assert RESERVED.
     assert signal_field[5:17] == [int(bit) for bit in format(length, '012b')][::-1]  # Assert LENGTH.
     assert signal_field[17] == 0 if np.sum(signal_field[:17]) % 2 == 0 else 1        # Assert PARITY.

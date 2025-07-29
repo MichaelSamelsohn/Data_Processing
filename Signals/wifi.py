@@ -47,6 +47,16 @@ PHY_RATE_INTERLEAVING = {
     48: 6,
     54: 6
 }
+PHY_RATE_CODING_RATE = {
+    6: 1/2,
+    9: 3/4,
+    12: 1/2,
+    18: 3/4,
+    24: 1/2,
+    36: 3/4,
+    48: 2/3,
+    54: 3/4
+}
 
 
 # PSDU construction #
@@ -142,7 +152,7 @@ def generate_signal_field(rate: int, length: int):
     Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.4 SIGNAL field, p. 2814-2816.
 
     :param rate: Rate of the transmission.
-    :param length: Length of the transmission.
+    :param length: Length of the transmission (in octets).
 
     :return: List of SIGNAL field bits.
     """
@@ -162,10 +172,37 @@ def generate_signal_field(rate: int, length: int):
     return signal_field
 
 
-def zero_padding():
+def calculate_padding_bits(phy_rate: int, length: int) -> int:
     """
-    TODO: Complete the docstring.
+    The number of bits in the DATA field shall be a multiple of Ncbps, the number of coded bits in an OFDM symbol (48,
+    96, 192, or 288 bits). To achieve that, the length of the message is extended so that it becomes a multiple of
+    Ndbps, the number of data bits per OFDM symbol. At least 6 bits are appended to the message, in order to accommodate
+    the TAIL bits. The number of OFDM symbols, Nsym; the number of bits in the DATA field, Ndata; and the number of pad
+    bits, Npad, are computed from the length of the PSDU (LENGTH in octets).
+    The appended bits (“pad bits”) are set to 0 and are subsequently scrambled with the rest of the bits in the DATA
+    field.
+
+    Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.4 Pad bits (PAD), p. 2816-2817.
+
+    :param phy_rate: The rate of the transmission (modulation + coding).
+    :param length: Length of the transmission (in octets).
+
+    :return: Number of padding bits required to complete an OFDM symbol.
     """
+
+    # Identify the base values of Nbpsc, Ncbps and Ndbps based on the rate (modulation + coding).
+    n_bpsc = PHY_RATE_INTERLEAVING[phy_rate]
+    # TODO: Adjust for higher formats.
+    n_cbps = 48 * n_bpsc  # 48 data sub-carriers in 802.11 legacy formats.
+    n_dbps = n_cbps * PHY_RATE_CODING_RATE[phy_rate]
+
+    # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits per
+    # OFDM symbol.
+    n_symbol = np.ceil((16 + 8 * length + 6) / n_dbps)
+    n_data = n_symbol * n_dbps
+    n_pad = n_data - (16 + 8 * length + 6)
+
+    return n_pad
 
 
 # Coding (scrambling, encoding, interleaving, mapping, modulation) #
