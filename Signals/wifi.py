@@ -321,4 +321,75 @@ def interleave(bits: list[int], phy_rate: int) -> list[int]:
     j = s * (i // s) + ((i + n_cbps - (16 * i // n_cbps)) % s)
 
     # Interleaving the data bits according to the indexes in j.
-    return [data_bits[np.where(j == index)[0][0]] for index in k]
+    return [bits[np.where(j == index)[0][0]] for index in k]
+
+
+def subcarrier_modulation_mapping(bits: list[int], phy_rate: int) -> list[complex]:
+    """
+    The OFDM sub-carriers shall be modulated by using BPSK, QPSK, 16-QAM, or 64-QAM, depending on the RATE requested.
+    The encoded and interleaved binary serial input data shall be divided into groups of Nbpsc (1, 2, 4, or 6) bits and
+    converted into complex numbers representing BPSK, QPSK, 16-QAM, or 64-QAM constellation points. The conversion shall
+    be performed according to Gray-coded constellation mappings.
+
+    The normalization factor, Kmod, depends on the base modulation mode,
+                                            Modulation       KMOD
+                                               BPSK           1
+                                               QPSK        1/sqrt(2)
+                                              16-QAM       1/sqrt(10)
+                                              64-QAM       1/sqrt(42)
+
+    Note that the modulation type can be different from the start to the end of the transmission, as the signal changes
+    from SIGNAL to DATA. The purpose of the normalization factor is to achieve the same average power for all mappings.
+    In practical implementations, an approximate value of the normalization factor may be used, as long as the device
+    complies with the modulation accuracy requirements.
+
+    Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.8 Subcarrier modulation mapping, p. 2822-2825.
+
+    :param bits: The data bit list to be mapped according to modulation scheme.
+    :param phy_rate: The rate of the transmission (modulation + coding).
+
+    :return: List of complex values representing the mapped bits.
+    """
+
+    # Mapped bits array initialization.
+    mapped_bits = []
+
+    # Reshape the bits to groups of 2.
+    grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"])
+
+    # Determining the modulation and mapping the bits.
+    match MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]:
+        case 'BPSK':
+            mapped_bits = [2 * bit - 1 + 0j for bit in bits]
+
+        case 'QPSK':
+            qpsk_modulation_mapping = {0: -1, 1: 1}
+
+            # Mapping the bits.
+            for b in grouped_bits:
+                mapped_bits.append(complex(
+                    qpsk_modulation_mapping[b[0]],  # I.
+                    qpsk_modulation_mapping[b[1]])  # Q.
+                                   / np.sqrt(2))
+
+        case '16-QAM':
+            qam16_modulation_mapping = {0: -3, 1: -1, 2: 3, 3: 1}
+
+            # Mapping the bits.
+            for b in grouped_bits:
+                mapped_bits.append(complex(
+                    qam16_modulation_mapping[2 * b[0] + b[1]],  # I.
+                    qam16_modulation_mapping[2 * b[2] + b[3]])  # Q.
+                                   / np.sqrt(10))
+
+        case '64-QAM':
+            qam64_modulation_mapping = {0: -7, 1: -5, 2: -1, 3: -3, 4: 7, 5: 5, 6: 1, 7: 3}
+
+            # Mapping the bits.
+            for b in grouped_bits:
+                mapped_bits.append(complex(
+                    qam64_modulation_mapping[4 * b[0] + 2 * b[1] + b[2]],  # I.
+                    qam64_modulation_mapping[4 * b[3] + 2 * b[4] + b[5]])  # Q.
+                                   / np.sqrt(42))
+
+    return mapped_bits
