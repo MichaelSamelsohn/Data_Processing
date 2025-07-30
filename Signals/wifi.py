@@ -462,5 +462,11 @@ def convert_to_time_domain(ofdm_symbol: list[complex]) -> list[complex]:
     # Compute the inverse FFT.
     time_signal = np.fft.ifft(reordered_ofdm_symbol)
 
-    # Adding 6 lower guard band sub-carriers, 5 upper guard band sub-carriers.
-    return [0, 0, 0, 0, 0, 0] + ofdm_symbol + [0, 0, 0, 0, 0]
+    # Add cyclic prefix and overlap sample suffix.
+    time_signal = np.concatenate((time_signal[-16:], time_signal, [time_signal[0]]))
+
+    # Apply window function.
+    time_signal[0] *= 0.5
+    time_signal[-1] *= 0.5
+
+    return time_signal.tolist()
