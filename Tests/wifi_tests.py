@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import patch
 from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
     generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits, \
-    subcarrier_modulation_mapping
+    subcarrier_modulation_mapping, ofdm_symbol_modulation
 
 # Constants #
 RANDOM_TESTS = 10
@@ -82,6 +82,12 @@ INTERLEAVED_SIGNAL_FIELD = [
 SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD = [
     1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, -1, -1, -1, 1, 1,
     -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1
+]
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158-4159, Table I-11—Frequency
+# domain representation of SIGNAL field with pilots inserted.
+MODULATED_SIGNAL_FIELD = [
+    0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, 1, -1, -1, 0,
+    1, -1, -1, -1, -1, -1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, 0, 0, 0, 0, 0
 ]
 
 
@@ -289,3 +295,12 @@ def test_subcarrier_modulation_mapping():
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
     assert (subcarrier_modulation_mapping(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD)
+
+
+def test_ofdm_symbol_modulation():
+    """
+    TODO: Complete the docstring.
+    """
+
+    assert (ofdm_symbol_modulation(mapped_bits=SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD, pilot_polarity=1) ==
+            MODULATED_SIGNAL_FIELD)

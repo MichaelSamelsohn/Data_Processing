@@ -8,6 +8,7 @@ Created by Michael Samelsohn, 19/07/25.
 
 # Imports #
 import numpy as np
+import copy
 
 from Settings.settings import log
 
@@ -354,7 +355,7 @@ def subcarrier_modulation_mapping(bits: list[int], phy_rate: int) -> list[comple
     # Mapped bits array initialization.
     mapped_bits = []
 
-    # Reshape the bits to groups of 2.
+    # Reshape the bits to groups of N_bpsc.
     grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"])
 
     # Determining the modulation and mapping the bits.
@@ -393,3 +394,27 @@ def subcarrier_modulation_mapping(bits: list[int], phy_rate: int) -> list[comple
                                    / np.sqrt(42))
 
     return mapped_bits
+
+
+def ofdm_symbol_modulation(mapped_bits: list[complex], pilot_polarity: int) -> list[complex]:
+    """
+    TODO: Complete the docstring.
+    """
+
+    ofdm_symbol = 53 * [0]
+    mapped_bits_copy = copy.deepcopy(mapped_bits)
+    pilot_subcarriers = np.array([1, 1, 1, -1]) * pilot_polarity
+    pilot_subcarriers = pilot_subcarriers.tolist()
+
+    for i in range(53):
+        if i in [5, 19, 33, 47]:
+            # Pilot sub-carrier.
+            ofdm_symbol[i] = pilot_subcarriers.pop(0)
+        elif i == 26:
+            continue  # DC value.
+        else:
+            # Data sub-carrier.
+            ofdm_symbol[i] = mapped_bits_copy.pop(0)
+
+    # Adding 6 lower guard band sub-carriers, 5 upper guard band sub-carriers.
+    return [0, 0, 0, 0, 0, 0] + ofdm_symbol + [0, 0, 0, 0, 0]
