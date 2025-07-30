@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import patch
 from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
     generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits, \
-    subcarrier_modulation_mapping, ofdm_symbol_modulation
+    data_subcarrier_modulation, pilot_subcarrier_insertion, convert_to_time_domain
 
 # Constants #
 RANDOM_TESTS = 10
@@ -79,15 +79,15 @@ INTERLEAVED_SIGNAL_FIELD = [
 ]
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158, Table I-10—Frequency
 # domain representation of SIGNAL field.
-SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD = [
+MODULATED_SIGNAL_FIELD = [
     1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, 1, -1, -1, -1, -1, -1, 1, 1,
     -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1
 ]
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158-4159, Table I-11—Frequency
 # domain representation of SIGNAL field with pilots inserted.
-MODULATED_SIGNAL_FIELD = [
-    0, 0, 0, 0, 0, 0, 1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, 1, -1, -1, 0,
-    1, -1, -1, -1, -1, -1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, 0, 0, 0, 0, 0
+FREQUENCY_DOMAIN_SIGNAL_FIELD = [
+    1, -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, 1, -1, -1,
+    1, -1, -1, -1, -1, -1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1
 ]
 
 
@@ -277,9 +277,9 @@ def test_interleave():
     assert interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) == INTERLEAVED_SIGNAL_FIELD
 
 
-def test_subcarrier_modulation_mapping():
+def test_data_subcarrier_modulation():
     """
-    Test purpose - Basic functionality of modulation mapping.
+    Test purpose - Basic functionality of data subcarrier modulation.
     Criteria - Generated modulated data is bit-exact to a known sequence [*].
 
     Test steps:
@@ -293,12 +293,29 @@ def test_subcarrier_modulation_mapping():
     """
 
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
-    assert (subcarrier_modulation_mapping(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
-            SUBCARRIER_MODULATION_MAPPING_SIGNAL_FIELD)
+    assert (data_subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+            MODULATED_SIGNAL_FIELD)
 
 
-def test_ofdm_symbol_modulation():
+def test_pilot_subcarrier_insertion():
     """
+    Test purpose - Basic functionality of OFDM pilot subcarrier insertion.
+    Criteria - Generated OFDM symbol (frequency domain) data is bit-exact to a known sequence [*].
+
+    Test steps:
+    1) Insert pilot subcarriers into a modulated interleaved SIGNAL field data (taken from [**]).
+    2) Assert that modulated SIGNAL data (with pilot sub-carriers) is bit-exact to the expected value [*].
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.4 SIGNAL field frequency domain, p. 4158-4159, Table
+    I-11—Frequency domain representation of SIGNAL field with pilots inserted.
+    [**] - IEEE Std 802.11-2020 OFDM PHY specification, I.1.4.3 Interleaving the SIGNAL field bits, p. 4157, Table
+    I-9—SIGNAL field bits after interleaving.
+    """
+
+    # Steps (1)+(2) - Modulate OFDM symbol (for SIGNAL data) and assert that outcome is bit-exact to reference.
+    assert (pilot_subcarrier_insertion(modulated_subcarriers=MODULATED_SIGNAL_FIELD, pilot_polarity=1) ==
+            FREQUENCY_DOMAIN_SIGNAL_FIELD)
+
     TODO: Complete the docstring.
     """
 
