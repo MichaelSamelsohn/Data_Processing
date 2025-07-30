@@ -433,7 +433,7 @@ def pilot_subcarrier_insertion(modulated_subcarriers: list[complex], pilot_polar
 
 
 
-def convert_to_time_domain(ofdm_symbol: list[complex]) -> list[complex]:
+def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[complex]:
     """
     The following descriptions of the discrete time implementation are informational.
     In a typical implementation, the windowing function is represented in discrete time. As an example, when a windowing
@@ -450,6 +450,10 @@ def convert_to_time_domain(ofdm_symbol: list[complex]) -> list[complex]:
     OFDM symbol length.
 
     :param ofdm_symbol: OFDM symbol (data + pilot sub-carriers) in the frequency domain.
+    :param field_type: Parameter defining the type of the field for IFFT. Possible values are:
+        * 'STF' (Short Training Field) - No GI, 161 samples (~8[us]).
+        * 'LTF' (Long Training Field) - 2xGI, 161 samples (~8[us]).
+        * 'DATA'/'SIGNAL' - 1xGI, 81 samples (~4[us]).
 
     :return: Time domain OFDM symbol.
     """
@@ -463,7 +467,13 @@ def convert_to_time_domain(ofdm_symbol: list[complex]) -> list[complex]:
     time_signal = np.fft.ifft(reordered_ofdm_symbol)
 
     # Add cyclic prefix and overlap sample suffix.
-    time_signal = np.concatenate((time_signal[-16:], time_signal, [time_signal[0]]))
+    match field_type:
+        case 'STF':
+            time_signal = np.concatenate((time_signal, time_signal, [time_signal[:33]]))
+        case 'LTF':
+            time_signal = np.concatenate((time_signal[-32:], time_signal, time_signal, [time_signal[0]]))
+        case 'SIGNAL' | 'DATA':
+            time_signal = np.concatenate((time_signal[-16:], time_signal, [time_signal[0]]))
 
     # Apply window function.
     time_signal[0] *= 0.5
