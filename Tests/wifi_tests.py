@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
-from wifi import generate_lfsr_sequence, scramble, convert_string_to_bits, cyclic_redundancy_check_32, \
-    generate_signal_field, bcc_encode, interleave, MODULATION_CODING_SCHEME_PARAMETERS, calculate_padding_bits, \
-    data_subcarrier_modulation, pilot_subcarrier_insertion, convert_to_time_domain
+from mac import MAC
+from phy import PHY
+from wifi import CHIP, MODULATION_CODING_SCHEME_PARAMETERS
 
 # Constants #
 RANDOM_TESTS = 10
@@ -224,7 +224,7 @@ def test_convert_string_to_bits(style, expected_outcome):
     """
 
     # Steps (1)+(2) - Convert message to bits and compare to expected outcome.
-    assert convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
+    assert CHIP().convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
 
 
 @pytest.mark.parametrize("data_bytes", [os.urandom(50) for _ in range(RANDOM_TESTS)])
@@ -248,7 +248,7 @@ def test_crc32(data_bytes):
     expected_crc = expected_crc.to_bytes(4, 'little')  # Convert to little endian bytes.
 
     # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
-    assert cyclic_redundancy_check_32(data=data_bytes) == expected_crc
+    assert MAC().cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
 @pytest.mark.parametrize("rate, length",
@@ -266,7 +266,7 @@ def test_generate_signal_field(rate, length):
     """
 
     # Step (2) - Generate SIGNAL field.
-    signal_field = generate_signal_field(rate=rate, length=length)
+    signal_field = PHY().generate_signal_field(rate=rate, length=length)
 
     # Step (3) - Assert all sub-fields.
     assert signal_field[:4] == MODULATION_CODING_SCHEME_PARAMETERS[rate]["SIGNAL_FIELD_CODING"]  # Assert RATE.
@@ -290,7 +290,7 @@ def test_calculate_padding_bits():
     """
 
     # Steps (1)+(2) - Calculate number of padding bits and assert that it's equal to reference value.
-    assert calculate_padding_bits(phy_rate=36, length=100) == 42
+    assert PHY().calculate_padding_bits(phy_rate=36, length=100) == 42
 
 
 @pytest.mark.parametrize(
@@ -315,7 +315,7 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     """
 
     # Steps (1)+(2) - Generate LFSR sequence and assert it is bit-exact to the expected value.
-    assert generate_lfsr_sequence(sequence_length=sequence_length, seed=93) == expected_lfsr_sequence
+    assert PHY().generate_lfsr_sequence(sequence_length=sequence_length, seed=93) == expected_lfsr_sequence
 
 
 def test_scramble():
@@ -346,8 +346,8 @@ def test_scramble():
 
     # Steps (3)+(4) - Scramble data bits (with mocked LFSR) and assert that scrambled sequence is bit-exact to the
     # expected value.
-    with patch('wifi.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
-        assert scramble(bits=data_bits, seed=93) == expected_scrambled_bits
+    with patch('phy.PHY.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
+        assert PHY().scramble(bits=data_bits, seed=93) == expected_scrambled_bits
 
 
 def test_bcc_encode():
@@ -366,7 +366,7 @@ def test_bcc_encode():
     """
 
     # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
-    assert bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') == ENCODED_SIGNAL_FIELD
+    assert PHY().bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') == ENCODED_SIGNAL_FIELD
 
 
 def test_interleave():
@@ -385,7 +385,7 @@ def test_interleave():
     """
 
     # Steps (1)+(2) - Interleave and assert that outcome is bit-exact to expected one.
-    assert interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) == INTERLEAVED_SIGNAL_FIELD
+    assert PHY().interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) == INTERLEAVED_SIGNAL_FIELD
 
 
 def test_data_subcarrier_modulation():
@@ -404,7 +404,7 @@ def test_data_subcarrier_modulation():
     """
 
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
-    assert (data_subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY().data_subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             MODULATED_SIGNAL_FIELD)
 
 
@@ -424,7 +424,7 @@ def test_pilot_subcarrier_insertion():
     """
 
     # Steps (1)+(2) - Modulate OFDM symbol (for SIGNAL data) and assert that outcome is bit-exact to reference.
-    assert (pilot_subcarrier_insertion(modulated_subcarriers=MODULATED_SIGNAL_FIELD, pilot_polarity=1) ==
+    assert (PHY().pilot_subcarrier_insertion(modulated_subcarriers=MODULATED_SIGNAL_FIELD, pilot_polarity=1) ==
             FREQUENCY_DOMAIN_SIGNAL_FIELD)
 
 
@@ -449,4 +449,4 @@ def test_convert_to_time_domain(ofdm_symbol, field_type, expected_value):
     """
 
     # Steps (1)+(2) - Convert OFDM symbol to time domain and assert it is bit-exact to the reference.
-    assert convert_to_time_domain(ofdm_symbol=ofdm_symbol, field_type=field_type) == expected_value
+    assert PHY().convert_to_time_domain(ofdm_symbol=ofdm_symbol, field_type=field_type) == expected_value
