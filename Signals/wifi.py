@@ -439,12 +439,13 @@ def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[
     In a typical implementation, the windowing function is represented in discrete time. As an example, when a windowing
     function with parameters T = 4.0[us] and a Ttr = 100[ns] is applied, and the signal is sampled at 20 Msample/s, it
     becomes,
-                                                    ??
+                                wT[n] = wT(nTs) = {1, 1<=n<=79; 0.5, n=0, 80; 0 otherwise}
 
     The common way to implement the inverse Fourier transform is by an IFFT algorithm. If, for example, a 64-point IFFT
     is used, the coefficients 1 to 26 are mapped to the same numbered IFFT inputs, while the coefficients –26 to –1 are
     copied into IFFT inputs 38 to 63. The rest of the inputs, 27 to 37 and the 0 (dc) input, are set to 0. This mapping
-    is illustrated below.
+    is illustrated below,
+            TODO: Add diagram from 'Figure 17-3—Inputs and outputs of inverse Fourier transform', p. 2813.
 
     After performing an IFFT, the output is cyclically extended and the resulting waveform is windowed to the required
     OFDM symbol length.
@@ -454,6 +455,8 @@ def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[
         * 'STF' (Short Training Field) - No GI, 161 samples (~8[us]).
         * 'LTF' (Long Training Field) - 2xGI, 161 samples (~8[us]).
         * 'DATA'/'SIGNAL' - 1xGI, 81 samples (~4[us]).
+
+                        TODO: Add diagram from 'Figure 17-4—OFDM training structure', p. 2813.
 
     :return: Time domain OFDM symbol.
     """
@@ -465,11 +468,12 @@ def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[
 
     # Compute the inverse FFT.
     time_signal = np.fft.ifft(reordered_ofdm_symbol)
+    time_signal = [complex(round(value.real, 3), round(value.imag, 3)) for value in time_signal]
 
     # Add cyclic prefix and overlap sample suffix.
     match field_type:
         case 'STF':
-            time_signal = np.concatenate((time_signal, time_signal, [time_signal[:33]]))
+            time_signal = np.concatenate((time_signal, time_signal, time_signal[:33]))
         case 'LTF':
             time_signal = np.concatenate((time_signal[-32:], time_signal, time_signal, [time_signal[0]]))
         case 'SIGNAL' | 'DATA':
