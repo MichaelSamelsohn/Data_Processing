@@ -203,7 +203,6 @@ def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
     """
 
     lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
-    log.debug(f"LFSR initialized with seed {seed} - {lfsr_state[::-1]}")
     lfsr_sequence = []
 
     for i in range(sequence_length):
@@ -242,7 +241,6 @@ def bcc_encode(bits: list[int], coding_rate='1/2') -> list[int]:
     :return: ??
     """
 
-    log.debug("Encoding with base rate 1/2 (binary) convolutional code")
     shift_reg = [0] * 7  # Initializing the shift register to all zeros.
     encoded = []
 
@@ -265,7 +263,6 @@ def bcc_encode(bits: list[int], coding_rate='1/2') -> list[int]:
     if coding_rate == '1/2':
         return encoded
     else:
-        log.debug(f"Puncturing to increase rate to {coding_rate}")
         # Converting the encoded bits list to a numpy array to better perform puncturing.
         encoded = np.array(encoded)
         # Selecting the puncturing pattern based on the rate selection.
