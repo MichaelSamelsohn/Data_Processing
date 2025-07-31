@@ -7,12 +7,40 @@ from wifi import MODULATION_CODING_SCHEME_PARAMETERS
 
 class PHY:
     def __init__(self):
-        pass
+        self._tx_vector = None
+
+        self._phy_rate = None
+        self._length = None
+
+        self._modulation = None
+        self._data_coding_rate = None
+        self._n_bpsc = None
+        self._n_cbps = None
+        self._n_dbps = None
+        self._signal_field_coding = None
+
+    @property
+    def tx_vector(self):
+        return self._tx_vector
+
+    @tx_vector.setter
+    def tx_vector(self, tx_vector: list):
+        self._tx_vector = tx_vector
+
+        self._phy_rate = self._tx_vector[0]
+        self._length = self._tx_vector[1]
+
+        mcs_parameters = MODULATION_CODING_SCHEME_PARAMETERS[self._phy_rate]
+        self._modulation = mcs_parameters["MODULATION"]
+        self._data_coding_rate = mcs_parameters["DATA_CODING_RATE"]
+        self._n_bpsc = mcs_parameters["N_BPSC"]
+        self._n_cbps = mcs_parameters["N_CBPS"]
+        self._n_dbps = mcs_parameters["N_DBPS"]
+        self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
 
     # PHY header + DATA #
 
-    @staticmethod
-    def generate_signal_field(rate: int, length: int):
+    def generate_signal_field(self):
         """
         The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields of
         the TXVECTOR. The RATE field conveys information about the type of modulation and the coding rate as used in the
@@ -36,9 +64,6 @@ class PHY:
 
         Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.4 SIGNAL field, p. 2814-2816.
 
-        :param rate: Rate of the transmission.
-        :param length: Length of the transmission (in octets).
-
         :return: List of SIGNAL field bits.
         """
 
@@ -46,18 +71,17 @@ class PHY:
         signal_field = 24 * [0]
 
         # Setting the rate bits, 0-3.
-        signal_field[:4] = MODULATION_CODING_SCHEME_PARAMETERS[rate]["SIGNAL_FIELD_CODING"]
+        signal_field[:4] = self._signal_field_coding
 
         # Setting the length bits, 5-16.
-        signal_field[5:17] = [int(bit) for bit in format(length, '012b')][::-1]
+        signal_field[5:17] = [int(bit) for bit in format(self._length, '012b')][::-1]
 
         # Setting the parity bit 17.
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
 
         return signal_field
 
-    @staticmethod
-    def calculate_padding_bits(phy_rate: int, length: int) -> int:
+    def calculate_padding_bits(self) -> int:
         """
         The number of bits in the DATA field shall be a multiple of Ncbps, the number of coded bits in an OFDM symbol (48,
         96, 192, or 288 bits). To achieve that, the length of the message is extended so that it becomes a multiple of
@@ -69,21 +93,15 @@ class PHY:
 
         Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.4 Pad bits (PAD), p. 2816-2817.
 
-        :param phy_rate: The rate of the transmission (modulation + coding).
-        :param length: Length of the transmission (in octets).
-
         :return: Number of padding bits required to complete an OFDM symbol.
         """
-
-        # Identify the base value of Ndbps based on the PHY rate (modulation + coding).
-        n_dbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_DBPS"]
 
         # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits per
         # OFDM symbol.
         n_symbol = np.ceil(
-            (16 + 8 * length + 6) / n_dbps)  # Number of symbols (that can hold the SERVICE, data and TAIL).
-        n_data = n_symbol * n_dbps  # Number of bits in the DATA (full symbols).
-        n_pad = n_data - (16 + 8 * length + 6)  # Number of PAD bits (for full symbols).
+            (16 + 8 * self._length + 6) / self._n_dbps)  # Number of symbols (that can hold the SERVICE, data and TAIL).
+        n_data = n_symbol * self._n_dbps  # Number of bits in the DATA (full symbols).
+        n_pad = n_data - (16 + 8 * self._length + 6)  # Number of PAD bits (for full symbols).
 
         return n_pad
 
@@ -232,7 +250,7 @@ class PHY:
         return [bits[np.where(j == index)[0][0]] for index in k]
 
     @staticmethod
-    def data_subcarrier_modulation(bits: list[int], phy_rate: int) -> list[complex]:
+    def subcarrier_modulation(bits: list[int], phy_rate: int) -> list[complex]:
         """
         The OFDM sub-carriers shall be modulated by using BPSK, QPSK, 16-QAM, or 64-QAM, depending on the RATE requested.
         The encoded and interleaved binary serial input data shall be divided into groups of Nbpsc (1, 2, 4, or 6) bits and
