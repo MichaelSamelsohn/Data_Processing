@@ -18,9 +18,10 @@ class CHIP:
 
         :param text: Text string.
         :param style: Type of output. There are two options:
-        1) 'binary' - List of binary values where each ASCII byte is split into 8 bits from MSB to LSB with zeros prepended
-        if necessary.
+        1) 'binary' - List of binary values where each ASCII byte is split into 8 bits from MSB to LSB with zeros
+        prepended if necessary.
         2) 'hex' - List of bytes in string format (for example, '0xAB').
+        3) 'bytes' - TODO: Complete.
 
         :return: List of byte values represented either as binary values or string hex values.
         """

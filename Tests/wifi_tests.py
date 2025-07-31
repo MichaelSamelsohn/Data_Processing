@@ -398,7 +398,7 @@ def test_interleave():
 
 def test_data_subcarrier_modulation():
     """
-    Test purpose - Basic functionality of data subcarrier modulation.
+    Test purpose - Basic functionality of data sub-carrier modulation.
     Criteria - Generated modulated data is bit-exact to a known sequence [*].
 
     Test steps:

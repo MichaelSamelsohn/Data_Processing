@@ -59,10 +59,10 @@ class PHY:
 
     def generate_signal_field(self):
         """
-        The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields of
-        the TXVECTOR. The RATE field conveys information about the type of modulation and the coding rate as used in the
-        rest of the PPDU. The encoding of the SIGNAL single OFDM symbol shall be performed with BPSK modulation of the
-        sub-carriers and using convolutional coding at R = 1/2. The contents of the SIGNAL field are not scrambled.
+        The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields
+        of the TXVECTOR. The RATE field conveys information about the type of modulation and the coding rate as used in
+        the rest of the PPDU. The encoding of the SIGNAL single OFDM symbol shall be performed with BPSK modulation of
+        the sub-carriers and using convolutional coding at R = 1/2. The contents of the SIGNAL field are not scrambled.
 
                         RATE                              LENGTH                              SIGNAL TAIL
                       (4 bits)                           (12 bits)                             (6 bits)
@@ -74,8 +74,8 @@ class PHY:
 
         RATE (4 bits) - Dependent on RATE, p. 2815, Table 17-6.
         R (1 bit) - Bit 4 is reserved. It shall be set to 0 on transmit and ignored on receive.
-        LENGTH (12 bits) - Unsigned 12-bit integer that indicates the number of octets in the PSDU that the MAC is currently
-        requesting the PHY to transmit.
+        LENGTH (12 bits) - Unsigned 12-bit integer that indicates the number of octets in the PSDU that the MAC is
+        currently requesting the PHY to transmit.
         P (1 bit) - Bit 17 shall be a positive parity (even parity) bit for bits 0–16.
         SIGNAL TAIL (6 bits) - Bits 18–23 constitute the SIGNAL TAIL field, and all 6 bits shall be set to 0.
 
@@ -100,11 +100,11 @@ class PHY:
 
     def calculate_padding_bits(self) -> int:
         """
-        The number of bits in the DATA field shall be a multiple of Ncbps, the number of coded bits in an OFDM symbol (48,
-        96, 192, or 288 bits). To achieve that, the length of the message is extended so that it becomes a multiple of
-        Ndbps, the number of data bits per OFDM symbol. At least 6 bits are appended to the message, in order to accommodate
-        the TAIL bits. The number of OFDM symbols, Nsym; the number of bits in the DATA field, Ndata; and the number of pad
-        bits, Npad, are computed from the length of the PSDU (LENGTH in octets).
+        The number of bits in the DATA field shall be a multiple of Ncbps, the number of coded bits in an OFDM symbol
+        (48, 96, 192, or 288 bits). To achieve that, the length of the message is extended so that it becomes a multiple
+        of Ndbps, the number of data bits per OFDM symbol. At least 6 bits are appended to the message, in order to
+        accommodate the TAIL bits. The number of OFDM symbols, Nsym; the number of bits in the DATA field, Ndata; and
+        the number of pad bits, Npad, are computed from the length of the PSDU (LENGTH in octets).
         The appended bits (“pad bits”) are set to 0 and are subsequently scrambled with the rest of the bits in the DATA
         field.
 
@@ -113,8 +113,8 @@ class PHY:
         :return: Number of padding bits required to complete an OFDM symbol.
         """
 
-        # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits per
-        # OFDM symbol.
+        # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits
+        # per OFDM symbol.
         n_symbol = np.ceil(
             (16 + 8 * self._length + 6) / self._n_dbps)  # Number of symbols (that can hold the SERVICE, data and TAIL).
         n_data = n_symbol * self._n_dbps  # Number of bits in the DATA (full symbols).
@@ -128,10 +128,10 @@ class PHY:
     def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
         """
         LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
-        state. The initial value of the LFSR is called the seed, and because the operation of the register is deterministic,
-        the stream of values produced by the register is completely determined by its current (or previous) state. Likewise,
-        because the register has a finite number of possible states, it must eventually enter a repeating cycle.
-        The LFSR used in WiFi communications is as follows (as specified in 'Reference'):
+        state. The initial value of the LFSR is called the seed, and because the operation of the register is
+        deterministic, the stream of values produced by the register is completely determined by its current (or
+        previous) state. Likewise, because the register has a finite number of possible states, it must eventually enter
+        a repeating cycle. The LFSR used in WiFi communications is as follows (as specified in 'Reference'):
 
                        -----------------------------> XOR (Feedback bit) -----------------------------------
                        |                               ^                                                   |
@@ -177,11 +177,12 @@ class PHY:
         The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
         G2 = int('171', 8), of rate R = 1/2.
         Higher rates are derived from it by employing “puncturing.” Puncturing is a procedure for omitting some of the
-        encoded bits in the transmitter (thus reducing the number of transmitted bits and increasing the coding rate) and
-        inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted bits.
+        encoded bits in the transmitter (thus reducing the number of transmitted bits and increasing the coding rate)
+        and inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted
+        bits.
 
-        :param bits: ??
-        :param coding_rate: ??
+        :param bits: ??  TODO: Complete.
+        :param coding_rate: ??  TODO: Complete.
 
         :return: ??
         """
@@ -217,8 +218,8 @@ class PHY:
                 '3/4': [1, 1, 1, 0, 0, 1],
             }
             puncturing_pattern = puncturing_patterns[coding_rate]
-            # Calculating the number of repeats based on the rate between the puncturing array size and number of encoded
-            # bits.
+            # Calculating the number of repeats based on the rate between the puncturing array size and number of
+            # encoded bits.
             repeat = int(np.ceil(len(encoded) / len(puncturing_pattern)))
             # Generating the puncturing mask.
             mask = np.tile(puncturing_pattern, repeat)[:len(encoded)]
@@ -228,17 +229,18 @@ class PHY:
     @staticmethod
     def interleave(bits: list[int], phy_rate: int) -> list[int]:
         """
-        All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number of
-        bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
+        All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number
+        of bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
         1) The first permutation causes adjacent coded bits to be mapped onto nonadjacent sub-carriers.
                                 i = (Ncbps/16)•(k mod 16) + floor(k/16), k=0,1,...,Ncbps-1
         2) The second causes adjacent coded bits to be mapped alternately onto less and more significant bits of the
         constellation and, thereby, long runs of low reliability (LSB) bits are avoided.
                           j = s•floor(i/s) + [(i + Ncbps - floor(16i/Ncbps)) mod s], i=0,1,...,Ncbps-1
 
-        Where the index of the coded bit before the first permutation shall be denoted by k; i shall be the index after the
-        first and before the second permutation; and j shall be the index after the second permutation, just prior to
-        modulation mapping. The value of s is determined by the number of coded bits per sub-carrier, Nbpsc, according to,
+        Where the index of the coded bit before the first permutation shall be denoted by k; i shall be the index after
+        the first and before the second permutation; and j shall be the index after the second permutation, just prior
+        to modulation mapping. The value of s is determined by the number of coded bits per sub-carrier, Nbpsc,
+        according to,
                                                 s = max(Nbpsc/2,1)
 
         Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.7 Data interleaving, p. 2822.
@@ -269,10 +271,10 @@ class PHY:
     @staticmethod
     def subcarrier_modulation(bits: list[int], phy_rate: int) -> list[complex]:
         """
-        The OFDM sub-carriers shall be modulated by using BPSK, QPSK, 16-QAM, or 64-QAM, depending on the RATE requested.
-        The encoded and interleaved binary serial input data shall be divided into groups of Nbpsc (1, 2, 4, or 6) bits and
-        converted into complex numbers representing BPSK, QPSK, 16-QAM, or 64-QAM constellation points. The conversion shall
-        be performed according to Gray-coded constellation mappings.
+        The OFDM sub-carriers shall be modulated by using BPSK, QPSK, 16-QAM, or 64-QAM, depending on the RATE
+        requested. The encoded and interleaved binary serial input data shall be divided into groups of Nbpsc (1, 2, 4,
+        or 6) bits and converted into complex numbers representing BPSK, QPSK, 16-QAM, or 64-QAM constellation points.
+        The conversion shall be performed according to Gray-coded constellation mappings.
 
         The normalization factor, Kmod, depends on the base modulation mode,
                                                 Modulation       KMOD
@@ -281,10 +283,10 @@ class PHY:
                                                   16-QAM       1/sqrt(10)
                                                   64-QAM       1/sqrt(42)
 
-        Note that the modulation type can be different from the start to the end of the transmission, as the signal changes
-        from SIGNAL to DATA. The purpose of the normalization factor is to achieve the same average power for all mappings.
-        In practical implementations, an approximate value of the normalization factor may be used, as long as the device
-        complies with the modulation accuracy requirements.
+        Note that the modulation type can be different from the start to the end of the transmission, as the signal
+        changes from SIGNAL to DATA. The purpose of the normalization factor is to achieve the same average power for
+        all mappings. In practical implementations, an approximate value of the normalization factor may be used, as
+        long as the device complies with the modulation accuracy requirements.
 
         Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.8 Subcarrier modulation mapping, p. 2822-2825.
 
@@ -340,15 +342,15 @@ class PHY:
     @staticmethod
     def pilot_subcarrier_insertion(modulated_subcarriers: list[complex], pilot_polarity: int) -> list[complex]:
         """
-        In each OFDM symbol, four of the sub-carriers are dedicated to pilot signals in order to make the coherent detection
-        robust against frequency offsets and phase noise. These pilot signals shall be put in sub-carriers –21, –7, 7, and
-        21. The pilots shall be BPSK modulated by a pseudo-random binary sequence to prevent the generation of spectral
-        lines.
+        In each OFDM symbol, four of the sub-carriers are dedicated to pilot signals in order to make the coherent
+        detection robust against frequency offsets and phase noise. These pilot signals shall be put in sub-carriers
+        –21, –7, 7, and 21. The pilots shall be BPSK modulated by a pseudo-random binary sequence to prevent the
+        generation of spectral lines.
 
         The polarity of the pilot subcarriers is controlled by the sequence, pn. The sequence pn is generated by the
-        scrambler defined by Figure when the all 1s initial state is used, and by replacing all 1s with –1 and all 0s with
-        1. Each sequence element is used for one OFDM symbol. The first element, p0, multiplies the pilot subcarriers of the
-        SIGNAL symbol, while the elements from p1 on are used for the DATA symbols.
+        scrambler defined by Figure when the all 1s initial state is used, and by replacing all 1s with –1 and all 0s
+        with 1. Each sequence element is used for one OFDM symbol. The first element, p0, multiplies the pilot
+        sub-carriers of the SIGNAL symbol, while the elements from p1 on are used for the DATA symbols.
 
         :param modulated_subcarriers:
         :param pilot_polarity: Either 1 or -1 depending on the OFDM symbol count.
@@ -379,19 +381,19 @@ class PHY:
     def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[complex]:
         """
         The following descriptions of the discrete time implementation are informational.
-        In a typical implementation, the windowing function is represented in discrete time. As an example, when a windowing
-        function with parameters T = 4.0[us] and a Ttr = 100[ns] is applied, and the signal is sampled at 20 Msample/s, it
-        becomes,
-                                    wT[n] = wT(nTs) = {1, 1<=n<=79; 0.5, n=0, 80; 0 otherwise}
+        In a typical implementation, the windowing function is represented in discrete time. As an example, when a
+        windowing function with parameters T = 4.0[us] and a Ttr = 100[ns] is applied, and the signal is sampled at 20
+        Msample/s, it becomes,
+                                  wT[n] = wT(nTs) = {1, 1<=n<=79; 0.5, n=0, 80; 0 otherwise}
 
-        The common way to implement the inverse Fourier transform is by an IFFT algorithm. If, for example, a 64-point IFFT
-        is used, the coefficients 1 to 26 are mapped to the same numbered IFFT inputs, while the coefficients –26 to –1 are
-        copied into IFFT inputs 38 to 63. The rest of the inputs, 27 to 37 and the 0 (dc) input, are set to 0. This mapping
-        is illustrated below,
+        The common way to implement the inverse Fourier transform is by an IFFT algorithm. If, for example, a 64-point
+        IFFT is used, the coefficients 1 to 26 are mapped to the same numbered IFFT inputs, while the coefficients –26
+        to –1 are copied into IFFT inputs 38 to 63. The rest of the inputs, 27 to 37 and the 0 (dc) input, are set to 0.
+        This mapping is illustrated below,
                 TODO: Add diagram from 'Figure 17-3—Inputs and outputs of inverse Fourier transform', p. 2813.
 
-        After performing an IFFT, the output is cyclically extended and the resulting waveform is windowed to the required
-        OFDM symbol length.
+        After performing an IFFT, the output is cyclically extended and the resulting waveform is windowed to the
+        required OFDM symbol length.
 
         :param ofdm_symbol: OFDM symbol (data + pilot sub-carriers) in the frequency domain.
         :param field_type: Parameter defining the type of the field for IFFT. Possible values are:
