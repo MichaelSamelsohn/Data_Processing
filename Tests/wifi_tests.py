@@ -7,8 +7,8 @@ import pytest
 
 from unittest.mock import patch
 from mac import MAC
-from phy import PHY
-from wifi import CHIP, MODULATION_CODING_SCHEME_PARAMETERS
+from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS
+from wifi import CHIP
 
 # Constants #
 RANDOM_TESTS = 10
@@ -251,25 +251,29 @@ def test_crc32(data_bytes):
     assert MAC().cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
-@pytest.mark.parametrize("rate, length",
+@pytest.mark.parametrize("phy_rate, length",
                          [(random.choice(list(MODULATION_CODING_SCHEME_PARAMETERS.keys())), random.randint(1, 4095))
                           for _ in range(RANDOM_TESTS)])
-def test_generate_signal_field(rate, length):
+def test_generate_signal_field(phy_rate, length):
     """
     Test purpose - Basic functionality of generating SIGNAL field based on rate and length parameters.
     Criteria - All SIGNAL field bits are generated correctly.
 
     Test steps:
-    1) Generate random rate (from a pool of possible values) and length between 1-4095 (2^12).
+    1) Generate random PHY rate (from a pool of possible values) and length between 1-4095 (2^12).
     2) Generate the SIGNAL field.
     3) Assert that each sub-field is bit-exact to expected outcome.
     """
 
     # Step (2) - Generate SIGNAL field.
-    signal_field = PHY().generate_signal_field(rate=rate, length=length)
+    phy = PHY()
+    phy._length = length
+    signal_field_coding = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["SIGNAL_FIELD_CODING"]
+    phy._signal_field_coding = signal_field_coding
+    signal_field = phy.generate_signal_field()
 
     # Step (3) - Assert all sub-fields.
-    assert signal_field[:4] == MODULATION_CODING_SCHEME_PARAMETERS[rate]["SIGNAL_FIELD_CODING"]  # Assert RATE.
+    assert signal_field[:4] == signal_field_coding                                               # Assert RATE.
     assert signal_field[4] == 0                                                                  # Assert RESERVED.
     assert signal_field[5:17] == [int(bit) for bit in format(length, '012b')][::-1]              # Assert LENGTH.
     assert signal_field[17] == 0 if np.sum(signal_field[:17]) % 2 == 0 else 1                    # Assert PARITY.
@@ -290,7 +294,11 @@ def test_calculate_padding_bits():
     """
 
     # Steps (1)+(2) - Calculate number of padding bits and assert that it's equal to reference value.
-    assert PHY().calculate_padding_bits(phy_rate=36, length=100) == 42
+    phy = PHY()
+    phy._length = 100
+    phy._n_dbps = 144
+
+    assert phy.calculate_padding_bits() == 42
 
 
 @pytest.mark.parametrize(
@@ -404,7 +412,7 @@ def test_data_subcarrier_modulation():
     """
 
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
-    assert (PHY().data_subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY().subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             MODULATED_SIGNAL_FIELD)
 
 
