@@ -297,6 +297,7 @@ def test_calculate_padding_bits():
     phy = PHY()
     phy._length = 100
     phy._n_dbps = 144
+    phy._n_symbols = 6
 
     assert phy.calculate_padding_bits() == 42
 

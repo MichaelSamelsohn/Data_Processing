@@ -21,6 +21,20 @@ MODULATION_CODING_SCHEME_PARAMETERS = {
     54: {"MODULATION": '64-QAM', "DATA_CODING_RATE": '3/4', "N_BPSC": 6,
          "N_CBPS": 288, "N_DBPS": 216, "SIGNAL_FIELD_CODING": [0, 0, 1, 1]}
 }
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.1 Generation of the short sequences, p. 4151, Table I-2—Frequency
+# domain representation of the short sequences.
+FREQUENCY_DOMAIN_STF = [
+    0, 0, 1.472 + 1.472j, 0, 0, 0, -1.472 - 1.472j, 0, 0, 0, 1.472 + 1.472j, 0, 0, 0, -1.472 - 1.472j, 0, 0, 0,
+    -1.472 - 1.472j, 0, 0, 0, 1.472 + 1.472j, 0, 0, 0, 0, 0, 0, -1.472 - 1.472j, 0, 0, 0, -1.472 - 1.472j, 0, 0, 0,
+    1.472 + 1.472j, 0, 0, 0, 1.472 + 1.472j, 0, 0, 0, 1.472 + 1.472j, 0, 0, 0, 1.472 + 1.472j, 0, 0
+]
+# IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.2 Generation of the long sequences, p. 4154, Table I-5—Frequency
+# domain representation of the long sequences.
+FREQUENCY_DOMAIN_LTF = [
+    1,  1, -1, -1, 1,  1, -1,  1, -1,  1,  1,  1,  1,  1, 1, -1, -1,  1, 1, -1, 1, -1, 1, 1, 1, 1,
+    1, -1, -1,  1, 1, -1,  1, -1,  1, -1, -1, -1, -1, -1, 1,  1, -1, -1, 1, -1, 1, -1, 1, 1, 1, 1
+]
+
 
 class PHY:
     def __init__(self):
@@ -55,7 +69,31 @@ class PHY:
         self._n_dbps = mcs_parameters["N_DBPS"]
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
 
-    # PHY header + DATA #
+    def generate_preamble(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        short_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')
+        long_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_LTF, field_type='LTF')
+        return (short_training_field[:-1] +                                 # STF.
+                [short_training_field[-1] + long_training_field[0]] +       # Overlap.
+                long_training_field[1:])                                    # LTF.
+
+    # SIGNAL - 1 OFDM symbol #
+
+    def generate_signal_symbol(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        signal_field = self.generate_signal_field()
+        coded_signal_field = self.bcc_encode(bits=signal_field, coding_rate='1/2')
+        interleaved_signal_field = self.interleave(bits=coded_signal_field, phy_rate=self._phy_rate)
+        modulated_signal_field = self.subcarrier_modulation(bits=interleaved_signal_field, phy_rate=self._phy_rate)
+        frequency_domain_signal_field = self.pilot_subcarrier_insertion(modulated_subcarriers=modulated_signal_field,
+                                                                        pilot_polarity=1)
+        return self.convert_to_time_domain(ofdm_symbol=frequency_domain_signal_field, field_type='SIGNAL')
 
     def generate_signal_field(self):
         """
@@ -418,14 +456,14 @@ class PHY:
         # Add cyclic prefix and overlap sample suffix.
         match field_type:
             case 'STF':
-                time_signal = np.concatenate((time_signal, time_signal, time_signal[:33]))
+                time_signal = time_signal + time_signal + time_signal[:33]
             case 'LTF':
-                time_signal = np.concatenate((time_signal[-32:], time_signal, time_signal, [time_signal[0]]))
+                time_signal = time_signal[-32:] + time_signal + time_signal + [time_signal[0]]
             case 'SIGNAL' | 'DATA':
-                time_signal = np.concatenate((time_signal[-16:], time_signal, [time_signal[0]]))
+                time_signal = time_signal[-16:] + time_signal + [time_signal[0]]
 
         # Apply window function.
         time_signal[0] *= 0.5
         time_signal[-1] *= 0.5
 
-        return time_signal.tolist()
+        return time_signal
