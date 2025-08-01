@@ -49,6 +49,7 @@ class PHY:
         self._n_cbps = None
         self._n_dbps = None
         self._signal_field_coding = None
+        self._n_symbols = None
 
     @property
     def tx_vector(self):
@@ -71,6 +72,30 @@ class PHY:
         # Number of full symbols (that can hold the SERVICE, data and TAIL).
         self._n_symbols = np.ceil((16 + 8 * self._length + 6) / self._n_dbps)
 
+    @property
+    def psdu(self):
+        return self._psdu
+
+    @psdu.setter
+    def psdu(self, new_psdu: list):
+        self._psdu = new_psdu
+
+    def generate_ppdu(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        preamble = self.generate_preamble()
+        signal_symbol = self.generate_signal_symbol()
+        data_symbols = self.generate_data_symbols()
+
+        return (preamble[:-1] +                             # Preamble.
+                [preamble[-1] + signal_symbol[0]] +         # Overlap between preamble and SIGNAL.
+                signal_symbol[1:-1] +                       # SIGNAL.
+                [signal_symbol[-1] + data_symbols[0]] +     # Overlap between SIGNAL and DATA.
+                data_symbols[1:])                           # DATA.
+
+    # PHY preamble - STF, LTF - 12 symbols #
 
     def generate_preamble(self):
         """
