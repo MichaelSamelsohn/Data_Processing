@@ -68,6 +68,9 @@ class PHY:
         self._n_cbps = mcs_parameters["N_CBPS"]
         self._n_dbps = mcs_parameters["N_DBPS"]
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
+        # Number of full symbols (that can hold the SERVICE, data and TAIL).
+        self._n_symbols = np.ceil((16 + 8 * self._length + 6) / self._n_dbps)
+
 
     def generate_preamble(self):
         """
@@ -153,9 +156,7 @@ class PHY:
 
         # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits
         # per OFDM symbol.
-        n_symbol = np.ceil(
-            (16 + 8 * self._length + 6) / self._n_dbps)  # Number of symbols (that can hold the SERVICE, data and TAIL).
-        n_data = n_symbol * self._n_dbps  # Number of bits in the DATA (full symbols).
+        n_data = self._n_symbols * self._n_dbps  # Number of bits in the DATA (full symbols).
         n_pad = n_data - (16 + 8 * self._length + 6)  # Number of PAD bits (for full symbols).
 
         return n_pad
