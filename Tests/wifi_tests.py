@@ -7,7 +7,7 @@ import pytest
 
 from unittest.mock import patch
 from mac import MAC
-from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS
+from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
 from wifi import CHIP
 
 # Constants #
@@ -109,13 +109,6 @@ TIME_DOMAIN_SIGNAL_FIELD = [
 
     -0.1095 + 0.000j  # Serves as an overlap with the following OFDM symbol.
 ]
-# IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.1 Generation of the short sequences, p. 4151, Table
-# I-2—Frequency domain representation of the short sequences.
-FREQUENCY_DOMAIN_STF = [
-    0, 0, 1.472+1.472j, 0, 0, 0, -1.472-1.472j, 0, 0, 0, 1.472+1.472j, 0, 0, 0, -1.472-1.472j, 0, 0, 0, -1.472-1.472j,
-    0, 0, 0, 1.472+1.472j, 0, 0, 0, 0, 0, 0, -1.472-1.472j, 0, 0, 0, -1.472-1.472j, 0, 0, 0, 1.472+1.472j, 0, 0, 0,
-    1.472+1.472j, 0, 0, 0, 1.472+1.472j, 0, 0, 0, 1.472+1.472j, 0, 0
-]
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.1 Generation of the short sequences, p. 4152-4153, Table I-4—Time
 # domain representation of the short sequence.
 TIME_DOMAIN_STF = [
@@ -160,12 +153,6 @@ TIME_DOMAIN_STF = [
     -0.079 - 0.013j, 0.002 - 0.132j,  # t10.
 
     0.023 + 0.023j  # Serves as an overlap with the following OFDM symbol.
-]
-# IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.2 Generation of the long sequences, p. 4154, Table I-5—Frequency
-# domain representation of the long sequences.
-FREQUENCY_DOMAIN_LTF = [
-    1,  1, -1, -1, 1,  1, -1,  1, -1,  1,  1,  1,  1,  1, 1, -1, -1,  1, 1, -1, 1, -1, 1, 1, 1, 1,
-    1, -1, -1,  1, 1, -1,  1, -1,  1, -1, -1, -1, -1, -1, 1,  1, -1, -1, 1, -1, 1, -1, 1, 1, 1, 1
 ]
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.2 Generation of the long sequences, p. 4154, Table I-6—Time domain
 # representation of the long sequence.
