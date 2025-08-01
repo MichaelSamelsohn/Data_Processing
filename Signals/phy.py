@@ -38,6 +38,8 @@ FREQUENCY_DOMAIN_LTF = [
 
 class PHY:
     def __init__(self):
+        self._psdu = None
+
         self._tx_vector = None
 
         self._phy_rate = None
@@ -163,6 +165,63 @@ class PHY:
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
 
         return signal_field
+
+    # DATA (symbol count depends on length) #
+
+    def generate_data_symbols(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Delineating, SERVICE field prepending, and zero padding.
+        service_field = 16 * [0]
+        tail = 6 * [0]
+        pad_bits = self.calculate_padding_bits()
+        zero_padding = pad_bits * [0]
+        data = service_field + self._psdu + tail + zero_padding
+
+        # Scrambling.
+        scrambled_data = self.scramble(bits=data, seed=93)
+        # The PPDU TAIL field is produced by replacing six scrambled zero bits following the message end with six
+        # non-scrambled zero bits.
+        scrambled_data[-pad_bits - 6: -pad_bits] = tail
+
+        # Encoding.
+        encoded_data = self.bcc_encode(bits=scrambled_data, coding_rate=self._data_coding_rate)
+
+        # Symbol division.
+        symbols = [encoded_data[self._n_cbps * i: self._n_cbps * (i+1)] for i in range(self._n_symbols)]
+
+        # Generate the pilot polarity sequence.
+        pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
+        pilot_polarity_index = 1  # For DATA only (index zero is for the SIGNAL field).
+
+        time_domain_symbols = []
+        for symbol in symbols:
+            # Interleaving.
+            interleaved_symbol = self.interleave(bits=symbol, phy_rate=self._phy_rate)
+
+            # Modulating.
+            modulated_symbol = self.subcarrier_modulation(bits=interleaved_symbol, phy_rate=self._phy_rate)
+
+            # Pilot insertion.
+            frequency_domain_symbol = self.pilot_subcarrier_insertion(
+                modulated_subcarriers=modulated_symbol,
+                pilot_polarity=pilot_polarity_sequence[pilot_polarity_index])
+            pilot_polarity_index += 1
+
+            # Time domain.
+            time_domain_symbols.append(
+                self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
+            )
+
+        # Overlapping.
+        ofdm_data = [0]
+        for i in range(self._n_symbols):
+            ofdm_data[-1] += time_domain_symbols[i][0]  # Overlap.
+            ofdm_data += time_domain_symbols[i][1:]     # Rest of the symbol.
+
+        return ofdm_data
 
     def calculate_padding_bits(self) -> int:
         """
