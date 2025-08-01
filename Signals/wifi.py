@@ -6,10 +6,68 @@ TODO: Add explanation as to what this script does.
 Created by Michael Samelsohn, 19/07/25.
 """
 
+# Imports #
+import socket
+import threading
+import time
+
+from mac import MAC
+from phy import PHY
+
 
 class CHIP:
-    def __init__(self):
-        pass
+    def __init__(self, host='127.0.0.1', port=0, debug_mode=False):
+        self._debug_mode = debug_mode
+        if not debug_mode:
+            self.host = host
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.bind((host, port))
+            self.server.listen(2)
+            self.port = self.server.getsockname()[1]
+
+            print(f"Server listening on {self.host}:{self.port}")
+
+            # Start server handler in a thread
+            threading.Thread(target=self.accept_connections, daemon=True).start()
+
+            # Start clients after a slight delay to ensure server is ready
+            time.sleep(0.1)
+            self.mac = MAC(self.host, self.port)
+            self.phy = PHY(self.host, self.port)
+
+    def accept_connections(self):
+        if not self._debug_mode:
+            clients = {}
+            while len(clients) < 2:
+                conn, addr = self.server.accept()
+                id_msg = conn.recv(1024).decode().strip()
+                if id_msg == "MAC":
+                    print("MAC connected")
+                    clients['MAC'] = conn
+                elif id_msg == "PHY":
+                    print("PHY connected")
+                    clients['PHY'] = conn
+                else:
+                    print(f"Unknown client ID '{id_msg}', closing connection")
+                    conn.close()
+
+            # Once both clients are connected, start forwarding messages
+            threading.Thread(target=self.forward, args=(clients['MAC'], clients['PHY']), daemon=True).start()
+            threading.Thread(target=self.forward, args=(clients['PHY'], clients['MAC']), daemon=True).start()
+
+    def forward(self, src, dst):
+        if not self._debug_mode:
+            try:
+                while True:
+                    data = src.recv(1024)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception as e:
+                print(f"Forwarding error: {e}")
+            finally:
+                src.close()
+                dst.close()
 
     @staticmethod
     def convert_string_to_bits(text: str, style='binary') -> list[int | str]:

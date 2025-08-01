@@ -1,8 +1,38 @@
 # Imports #
+import socket
+import threading
+import time
+
 
 class MAC:
-    def __init__(self):
-        pass
+    def __init__(self, host, port, debug=False):
+        self._debug = debug
+        if not self._debug:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((host, port))
+            # Send ID immediately upon connection
+            self.send("MAC")
+            # Start listener thread
+            threading.Thread(target=self.listen, daemon=True).start()
+            time.sleep(0.1)  # Allow server to read ID before sending other messages
+
+    def send(self, msg):
+        if not self._debug:
+            self.socket.sendall(msg.encode())
+
+    def listen(self):
+        if not self._debug:
+            try:
+                while True:
+                    data = self.socket.recv(1024)
+                    if data:
+                        print("MAC received:", data.decode())
+                    else:
+                        break
+            except Exception as e:
+                print(f"MAC listen error: {e}")
+            finally:
+                self.socket.close()
 
     @staticmethod
     def cyclic_redundancy_check_32(data: bytes) -> bytes:

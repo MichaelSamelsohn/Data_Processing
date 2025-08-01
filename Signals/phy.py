@@ -1,6 +1,9 @@
 # Imports #
 import copy
+import time
 import numpy as np
+import socket
+import threading
 
 # Constants #
 MODULATION_CODING_SCHEME_PARAMETERS = {
@@ -37,7 +40,18 @@ FREQUENCY_DOMAIN_LTF = [
 
 
 class PHY:
-    def __init__(self):
+    def __init__(self, host, port, debug=False):
+        self._debug = debug
+        if not self._debug:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((host, port))
+
+            # Send ID immediately upon connection
+            self.send("PHY")
+            # Start listener thread
+            threading.Thread(target=self.listen, daemon=True).start()
+            time.sleep(0.1)  # Allow server to read ID before sending other messages
+
         self._psdu = None
 
         self._tx_vector = None
@@ -52,6 +66,24 @@ class PHY:
         self._n_dbps = None
         self._signal_field_coding = None
         self._n_symbols = None
+
+    def send(self, msg):
+        if not self._debug:
+            self.socket.sendall(msg.encode())
+
+    def listen(self):
+        if not self._debug:
+            try:
+                while True:
+                    data = self.socket.recv(1024)
+                    if data:
+                        print("PHY received:", data.decode())
+                    else:
+                        break
+            except Exception as e:
+                print(f"PHY listen error: {e}")
+            finally:
+                self.socket.close()
 
     @property
     def tx_vector(self):
