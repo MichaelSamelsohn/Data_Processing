@@ -437,12 +437,87 @@ def test_convert_to_time_domain(ofdm_symbol, field_type, expected_value):
     """
     Test purpose - Basic functionality conversion to time domain which includes IFFT, addition of cyclic prefix, overlap
     sample suffix and window function.
-    Criteria - Generated OFDM symbol (time domain) data is bit-exact to a known sequence.
+    Criteria - Generated OFDM symbol (time domain) is bit-exact to a known sequence. The known sequences cover:
+    1) STF.
+    2) LTF.
+    3) SIGNAL field.
 
     Test steps:
     1) Convert OFDM symbol to time domain.
-    2) Assert that time domain OFM symbol is bit-exact to the reference value.
+    2) Assert that time domain OFDM symbol(s) is bit-exact to the reference value.
     """
 
     # Steps (1)+(2) - Convert OFDM symbol to time domain and assert it is bit-exact to the reference.
     assert PHY().convert_to_time_domain(ofdm_symbol=ofdm_symbol, field_type=field_type) == expected_value
+
+
+def test_generate_preamble():
+    """
+    Test purpose - Basic functionality of preamble generation.
+    Criteria - Generated preamble (time domain) is bit-exact to expected outcome.
+
+    Test steps:
+    1) Generate preamble.
+    2) Assert that time domain preamble is bit-exact to the expected outcome.
+    """
+
+    # Steps (1)+(2) - Generate preamble and assert it's bit-exact to expected outcome.
+    assert (PHY().generate_preamble() ==
+            TIME_DOMAIN_STF[:-1] +                          # STF.
+            [TIME_DOMAIN_STF[-1] + TIME_DOMAIN_LTF[0]] +    # Overlap between STF and LTF.
+            TIME_DOMAIN_LTF[1:])                            # LTF.
+
+
+def test_generate_signal_symbol():
+    """
+    Test purpose - Basic functionality of SIGNAL field generation.
+    Criteria - Generated SIGNAL (time domain) is bit-exact to expected outcome.
+
+    Test steps:
+    1) Generate SIGNAL.
+    2) Assert that time domain SIGNAL is bit-exact to the expected outcome.
+    """
+
+    phy = PHY()
+    phy._length = 100
+    phy._signal_field_coding = [1, 0, 1, 1]  # According to PHY rate = 36.
+
+    # Steps (1)+(2) - Generate time domain SIGNAL symbol and assert it's bit-exact to expected value.
+    assert phy.generate_signal_symbol() == TIME_DOMAIN_SIGNAL_FIELD
+
+
+def test_generate_signal_symbol_no_scrambling():
+    """
+    Test purpose - SIGNAL field generation doesn't use scrambling.
+    Criteria - SIGNAL generation does encoding, interleaving, modulation, pilot insertion and time domain conversion but
+    not scrambling.
+
+    Test steps:
+    1) Mock all function calls to keep track of call number.
+    2) Generate SIGNAL.
+    3) Assert that encoding, interleaving, modulation, pilot insertion and time domain conversion occur once.
+    4) Assert that scrambling doesn't occur at all.
+    """
+
+    # Step (1) - Mock all relevant functions.
+    with (patch.object(PHY, 'generate_signal_field') as mock_generate_signal_field,
+          patch.object(PHY, 'bcc_encode') as mock_bcc_encode,
+          patch.object(PHY, 'interleave') as mock_interleave,
+          patch.object(PHY, 'subcarrier_modulation') as mock_subcarrier_modulation,
+          patch.object(PHY, 'pilot_subcarrier_insertion') as mock_pilot_subcarrier_insertion,
+          patch.object(PHY, 'convert_to_time_domain') as mock_convert_to_time_domain,
+          patch.object(PHY, 'scramble') as mock_scramble):
+
+        # Step (2) - Generate time domain SIGNAL.
+        PHY().generate_signal_symbol()
+
+        # Step (3) - Assert all relevant calls were made.
+        assert mock_generate_signal_field.call_count == 1
+        assert mock_bcc_encode.call_count == 1
+        assert mock_interleave.call_count == 1
+        assert mock_subcarrier_modulation.call_count == 1
+        assert mock_pilot_subcarrier_insertion.call_count == 1
+        assert mock_convert_to_time_domain.call_count == 1
+
+        # Step (4) - Assert there was no call for scrambling.
+        assert mock_scramble.call_count == 0

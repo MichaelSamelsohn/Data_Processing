@@ -274,7 +274,7 @@ class PHY:
         lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
         lfsr_sequence = []
 
-        for i in range(sequence_length):
+        for _ in range(sequence_length):
             # Calculate the feedback bit.
             feedback = lfsr_state[6] ^ lfsr_state[3]  # x^7 XOR x^4.
             # append feedback bit.
