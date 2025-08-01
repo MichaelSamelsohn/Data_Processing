@@ -119,8 +119,8 @@ class PHY:
 
         signal_field = self.generate_signal_field()
         coded_signal_field = self.bcc_encode(bits=signal_field, coding_rate='1/2')
-        interleaved_signal_field = self.interleave(bits=coded_signal_field, phy_rate=self._phy_rate)
-        modulated_signal_field = self.subcarrier_modulation(bits=interleaved_signal_field, phy_rate=self._phy_rate)
+        interleaved_signal_field = self.interleave(bits=coded_signal_field, phy_rate=6)
+        modulated_signal_field = self.subcarrier_modulation(bits=interleaved_signal_field, phy_rate=6)
         frequency_domain_signal_field = self.pilot_subcarrier_insertion(modulated_subcarriers=modulated_signal_field,
                                                                         pilot_polarity=1)
         return self.convert_to_time_domain(ofdm_symbol=frequency_domain_signal_field, field_type='SIGNAL')
