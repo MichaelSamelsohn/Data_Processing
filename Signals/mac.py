@@ -42,6 +42,27 @@ class MAC:
             finally:
                 self.socket.close()
 
+    def controller(self, message):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Unpacking the message.
+        message = json.loads(message.decode())
+        primitive = message['PRIMITIVE']
+        data = message['DATA']
+
+        match primitive:
+            case "MAC-STATUS":
+                self.send(primitive=self._status, data=[])
+            case "PHY-TXSTART.confirm":
+                self.send(primitive="PHY-DATA.request", data=self._data)
+            case "PHY-DATA.confirm":
+                self.send(primitive="PHY-TXEND.request", data=[])
+            case "PHY-TXEND.confirm":
+                print("Transmission successful")
+            # TODO: Add a flush request for PHY.
+
     @staticmethod
     def cyclic_redundancy_check_32(data: bytes) -> bytes:
         """

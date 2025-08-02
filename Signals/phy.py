@@ -95,6 +95,52 @@ class PHY:
             finally:
                 self.socket.close()
 
+    def controller(self, message):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Unpacking the message.
+        message = json.loads(message.decode())
+        primitive = message['PRIMITIVE']
+        data = message['DATA']
+
+        match primitive:
+            case "PHY-STATUS":
+                self.send(primitive=self._status, data=[])
+            case "PHY-TXSTART.request":
+                self._status = "BUSY"  # Status update.
+                # Update TXVECTOR information.
+                self.tx_vector = data
+                # Generate preamble and SIGNAL.
+                self._preamble = self.generate_preamble()
+                self._signal = self.generate_signal_symbol()
+
+                time.sleep(5)  # Buffer time for viewing/debug purposes.
+
+                # Confirm TXSTART.
+                self._status = "IDLE"  # Status update.
+                self.send(primitive="PHY-TXSTART.confirm", data=[])
+            case "PHY-DATA.request":
+                self._status = "BUSY"  # Status update.
+                # Generate DATA.
+                self._psdu = data
+                self._data = self.generate_data_symbols()
+
+                time.sleep(5)  # Buffer time for viewing/debug purposes.
+
+                # Confirm DATA.
+                self._status = "IDLE"  # Status update.
+                self.send(primitive="PHY-DATA.confirm", data=[])
+            case "PHY-TXEND.request":
+                self._status = "BUSY"  # Status update.
+                self._ppdu = self.generate_ppdu()
+
+                time.sleep(5)  # Buffer time for viewing/debug purposes.
+
+                self._status = "IDLE"  # Status update.
+                self.send(primitive="PHY-TXEND.confirm", data=[])
+
     @property
     def tx_vector(self):
         return self._tx_vector
