@@ -7,6 +7,7 @@ Created by Michael Samelsohn, 19/07/25.
 """
 
 # Imports #
+import json
 import socket
 import threading
 import time
@@ -40,11 +41,15 @@ class CHIP:
             clients = {}
             while len(clients) < 2:
                 conn, addr = self.server.accept()
-                id_msg = conn.recv(1024).decode().strip()
-                if id_msg == "MAC":
+                id_msg = conn.recv(1024)
+
+                # Unpacking the message.
+                primitive = json.loads(id_msg.decode())['PRIMITIVE']
+
+                if primitive == "MAC":
                     print("MAC connected")
                     clients['MAC'] = conn
-                elif id_msg == "PHY":
+                elif primitive == "PHY":
                     print("PHY connected")
                     clients['PHY'] = conn
                 else:

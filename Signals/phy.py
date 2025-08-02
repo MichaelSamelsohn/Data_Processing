@@ -1,5 +1,6 @@
 # Imports #
 import copy
+import json
 import time
 import numpy as np
 import socket
@@ -46,11 +47,13 @@ class PHY:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, port))
 
-            # Send ID immediately upon connection
-            self.send("PHY")
-            # Start listener thread
+            # Sending ID immediately upon connection (so server can identify the current client).
+            self.send(primitive="PHY", data=[])
+
+            # Start listener thread.
             threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages
+            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+            self._status = "IDLE"
 
         self._psdu = None
 
@@ -67,17 +70,24 @@ class PHY:
         self._signal_field_coding = None
         self._n_symbols = None
 
-    def send(self, msg):
+        self._preamble = None
+        self._signal = None
+        self._data = None
+        self._ppdu = None
+
+    def send(self, primitive, data):
         if not self._debug:
-            self.socket.sendall(msg.encode())
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+            self.socket.sendall(message.encode())
 
     def listen(self):
         if not self._debug:
             try:
                 while True:
-                    data = self.socket.recv(1024)
-                    if data:
-                        print("PHY received:", data.decode())
+                    message = self.socket.recv(1024)
+                    if message:
+                        print("PHY received:", message.decode())
+                        self.controller(message=message)
                     else:
                         break
             except Exception as e:
@@ -119,15 +129,11 @@ class PHY:
         TODO: Complete the docstring.
         """
 
-        preamble = self.generate_preamble()
-        signal_symbol = self.generate_signal_symbol()
-        data_symbols = self.generate_data_symbols()
-
-        return (preamble[:-1] +                             # Preamble.
-                [preamble[-1] + signal_symbol[0]] +         # Overlap between preamble and SIGNAL.
-                signal_symbol[1:-1] +                       # SIGNAL.
-                [signal_symbol[-1] + data_symbols[0]] +     # Overlap between SIGNAL and DATA.
-                data_symbols[1:])                           # DATA.
+        return (self._preamble[:-1] +                      # Preamble.
+                [self._preamble[-1] + self._signal[0]] +   # Overlap between preamble and SIGNAL.
+                self._signal[1:-1] +                       # SIGNAL.
+                [self._signal[-1] + self._data[0]] +       # Overlap between SIGNAL and DATA.
+                self._data[1:])                            # DATA.
 
     # PHY preamble - STF, LTF - 12 symbols #
 

@@ -1,4 +1,5 @@
 # Imports #
+import json
 import socket
 import threading
 import time
@@ -10,23 +11,30 @@ class MAC:
         if not self._debug:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, port))
-            # Send ID immediately upon connection
-            self.send("MAC")
-            # Start listener thread
-            threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages
 
-    def send(self, msg):
+            # Sending ID immediately upon connection (so server can identify the current client).
+            self.send(primitive="MAC", data=[])
+
+            # Start listener thread.
+            threading.Thread(target=self.listen, daemon=True).start()
+            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+            self._status = "IDLE"
+
+        self._data = None
+
+    def send(self, primitive, data):
         if not self._debug:
-            self.socket.sendall(msg.encode())
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+            self.socket.sendall(message.encode())
 
     def listen(self):
         if not self._debug:
             try:
                 while True:
-                    data = self.socket.recv(1024)
-                    if data:
-                        print("MAC received:", data.decode())
+                    message = self.socket.recv(1024)
+                    if message:
+                        print("MAC received:", message.decode())
+                        self.controller(message=message)
                     else:
                         break
             except Exception as e:
