@@ -31,7 +31,7 @@ class MAC:
         if not self._debug:
             try:
                 while True:
-                    message = self.socket.recv(1024)
+                    message = self.socket.recv(16384)
                     if message:
                         print("MAC received:", message.decode())
                         self.controller(message=message)

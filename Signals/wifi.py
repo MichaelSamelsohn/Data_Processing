@@ -64,7 +64,7 @@ class CHIP:
         if not self._debug_mode:
             try:
                 while True:
-                    data = src.recv(1024)
+                    data = src.recv(16384)
                     if not data:
                         break
                     dst.sendall(data)
