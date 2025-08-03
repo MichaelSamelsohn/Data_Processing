@@ -213,7 +213,7 @@ def test_convert_string_to_bits(style, expected_outcome):
     """
 
     # Steps (1)+(2) - Convert message to bits and compare to expected outcome.
-    assert CHIP(debug_mode=True).convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
+    assert CHIP(is_stub=True).convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
 
 
 @pytest.mark.parametrize("data_bytes", [os.urandom(50) for _ in range(RANDOM_TESTS)])
@@ -237,7 +237,7 @@ def test_crc32(data_bytes):
     expected_crc = expected_crc.to_bytes(4, 'little')  # Convert to little endian bytes.
 
     # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
-    assert MAC(host=HOST, port=PORT, debug=True).cyclic_redundancy_check_32(data=data_bytes) == expected_crc
+    assert MAC(host=HOST, port=PORT, is_stub=True).cyclic_redundancy_check_32(data=data_bytes) == expected_crc
 
 
 @pytest.mark.parametrize("phy_rate, length",
@@ -255,7 +255,7 @@ def test_generate_signal_field(phy_rate, length):
     """
 
     # Step (2) - Generate SIGNAL field.
-    phy = PHY(host=HOST, port=PORT, debug=True)
+    phy = PHY(host=HOST, port=PORT, is_stub=True)
     phy._length = length
     signal_field_coding = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["SIGNAL_FIELD_CODING"]
     phy._signal_field_coding = signal_field_coding
@@ -283,7 +283,7 @@ def test_calculate_padding_bits():
     """
 
     # Steps (1)+(2) - Calculate number of padding bits and assert that it's equal to reference value.
-    phy = PHY(host=HOST, port=PORT, debug=True)
+    phy = PHY(host=HOST, port=PORT, is_stub=True)
     phy._length = 100
     phy._n_dbps = 144
     phy._n_symbols = 6
@@ -313,7 +313,7 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     """
 
     # Steps (1)+(2) - Generate LFSR sequence and assert it is bit-exact to the expected value.
-    assert (PHY(host=HOST, port=PORT, debug=True).generate_lfsr_sequence(sequence_length=sequence_length, seed=93) ==
+    assert (PHY(host=HOST, port=PORT, is_stub=True).generate_lfsr_sequence(sequence_length=sequence_length, seed=93) ==
             expected_lfsr_sequence)
 
 
@@ -346,7 +346,7 @@ def test_scramble():
     # Steps (3)+(4) - Scramble data bits (with mocked LFSR) and assert that scrambled sequence is bit-exact to the
     # expected value.
     with patch('phy.PHY.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
-        assert PHY(host=HOST, port=PORT, debug=True).scramble(bits=data_bits, seed=93) == expected_scrambled_bits
+        assert PHY(host=HOST, port=PORT, is_stub=True).scramble(bits=data_bits, seed=93) == expected_scrambled_bits
 
 
 def test_bcc_encode():
@@ -365,7 +365,7 @@ def test_bcc_encode():
     """
 
     # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
-    assert (PHY(host=HOST, port=PORT, debug=True).bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') ==
+    assert (PHY(host=HOST, port=PORT, is_stub=True).bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') ==
             ENCODED_SIGNAL_FIELD)
 
 
@@ -385,7 +385,7 @@ def test_interleave():
     """
 
     # Steps (1)+(2) - Interleave and assert that outcome is bit-exact to expected one.
-    assert (PHY(host=HOST, port=PORT, debug=True).interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY(host=HOST, port=PORT, is_stub=True).interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) ==
             INTERLEAVED_SIGNAL_FIELD)
 
 
@@ -405,7 +405,7 @@ def test_data_subcarrier_modulation():
     """
 
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
-    assert (PHY(host=HOST, port=PORT, debug=True).subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY(host=HOST, port=PORT, is_stub=True).subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             MODULATED_SIGNAL_FIELD)
 
 
@@ -425,7 +425,7 @@ def test_pilot_subcarrier_insertion():
     """
 
     # Steps (1)+(2) - Modulate OFDM symbol (for SIGNAL data) and assert that outcome is bit-exact to reference.
-    assert (PHY(host=HOST, port=PORT, debug=True).pilot_subcarrier_insertion(
+    assert (PHY(host=HOST, port=PORT, is_stub=True).pilot_subcarrier_insertion(
         modulated_subcarriers=MODULATED_SIGNAL_FIELD,
         pilot_polarity=1) == FREQUENCY_DOMAIN_SIGNAL_FIELD)
 
@@ -454,7 +454,7 @@ def test_convert_to_time_domain(ofdm_symbol, field_type, expected_value):
     """
 
     # Steps (1)+(2) - Convert OFDM symbol to time domain and assert it is bit-exact to the reference.
-    assert PHY(host=HOST, port=PORT, debug=True).convert_to_time_domain(
+    assert PHY(host=HOST, port=PORT, is_stub=True).convert_to_time_domain(
         ofdm_symbol=ofdm_symbol,
         field_type=field_type) == expected_value
 
@@ -470,9 +470,9 @@ def test_generate_preamble():
     """
 
     # Steps (1)+(2) - Generate preamble and assert it's bit-exact to expected outcome.
-    assert (PHY(host=HOST, port=PORT, debug=True).generate_preamble() ==
-            TIME_DOMAIN_STF[:-1] +                          # STF.
-            [TIME_DOMAIN_STF[-1] + TIME_DOMAIN_LTF[0]] +    # Overlap between STF and LTF.
+    assert (PHY(host=HOST, port=PORT, is_stub=True).generate_preamble() ==
+            TIME_DOMAIN_STF[:-1] +  # STF.
+            [TIME_DOMAIN_STF[-1] + TIME_DOMAIN_LTF[0]] +  # Overlap between STF and LTF.
             TIME_DOMAIN_LTF[1:])                            # LTF.
 
 
@@ -486,7 +486,7 @@ def test_generate_signal_symbol():
     2) Assert that time domain SIGNAL is bit-exact to the expected outcome.
     """
 
-    phy = PHY(host=HOST, port=PORT, debug=True)
+    phy = PHY(host=HOST, port=PORT, is_stub=True)
     phy._length = 100
     phy._signal_field_coding = [1, 0, 1, 1]  # According to PHY rate = 36.
 
@@ -517,7 +517,7 @@ def test_generate_signal_symbol_no_scrambling():
           patch.object(PHY, 'scramble') as mock_scramble):
 
         # Step (2) - Generate time domain SIGNAL.
-        PHY(host=HOST, port=PORT, debug=True).generate_signal_symbol()
+        PHY(host=HOST, port=PORT, is_stub=True).generate_signal_symbol()
 
         # Step (3) - Assert all relevant calls were made.
         assert mock_generate_signal_field.call_count == 1

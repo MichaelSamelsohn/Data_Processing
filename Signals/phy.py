@@ -41,9 +41,10 @@ FREQUENCY_DOMAIN_LTF = [
 
 
 class PHY:
-    def __init__(self, host, port, debug=False):
-        self._debug = debug
-        if not self._debug:
+    def __init__(self, host, port, debug_mode=True, is_stub=False):
+        self._debug_mode = debug_mode
+        self._is_stub = is_stub
+        if not self._is_stub:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, port))
 
@@ -76,12 +77,12 @@ class PHY:
         self._ppdu = None
 
     def send(self, primitive, data):
-        if not self._debug:
+        if not self._is_stub:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
             self.socket.sendall(message.encode())
 
     def listen(self):
-        if not self._debug:
+        if not self._is_stub:
             try:
                 while True:
                     message = self.socket.recv(16384)
@@ -504,7 +505,7 @@ class PHY:
         """
 
         # Mapped bits array initialization.
-        mapped_bits = []
+        symbols = []
 
         # Reshape the bits to groups of N_bpsc.
         grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"])
@@ -512,14 +513,14 @@ class PHY:
         # Determining the modulation and mapping the bits.
         match MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]:
             case 'BPSK':
-                mapped_bits = [2 * bit - 1 + 0j for bit in bits]
+                symbols = [2 * bit - 1 + 0j for bit in bits]
 
             case 'QPSK':
                 qpsk_modulation_mapping = {0: -1, 1: 1}
 
                 # Mapping the bits.
                 for b in grouped_bits:
-                    mapped_bits.append(complex(
+                    symbols.append(complex(
                         qpsk_modulation_mapping[b[0]],  # I.
                         qpsk_modulation_mapping[b[1]])  # Q.
                                        / np.sqrt(2))
@@ -529,7 +530,7 @@ class PHY:
 
                 # Mapping the bits.
                 for b in grouped_bits:
-                    mapped_bits.append(complex(
+                    symbols.append(complex(
                         qam16_modulation_mapping[2 * b[0] + b[1]],  # I.
                         qam16_modulation_mapping[2 * b[2] + b[3]])  # Q.
                                        / np.sqrt(10))
@@ -539,12 +540,12 @@ class PHY:
 
                 # Mapping the bits.
                 for b in grouped_bits:
-                    mapped_bits.append(complex(
+                    symbols.append(complex(
                         qam64_modulation_mapping[4 * b[0] + 2 * b[1] + b[2]],  # I.
                         qam64_modulation_mapping[4 * b[3] + 2 * b[4] + b[5]])  # Q.
                                        / np.sqrt(42))
 
-        return mapped_bits
+        return symbols
 
     @staticmethod
     def pilot_subcarrier_insertion(modulated_subcarriers: list[complex], pilot_polarity: int) -> list[complex]:

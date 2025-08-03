@@ -7,77 +7,24 @@ Created by Michael Samelsohn, 19/07/25.
 """
 
 # Imports #
-import json
-import socket
-import threading
 import time
 
 from mac import MAC
+from mpif import MPIF
 from phy import PHY
 
 
 class CHIP:
-    def __init__(self, host='127.0.0.1', port=0, debug_mode=False):
-        self._debug_mode = debug_mode
-        if not debug_mode:
-            self.host = host
-            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server.bind((host, port))
-            self.server.listen(2)
-            self.port = self.server.getsockname()[1]
+    def __init__(self, host='127.0.0.1', port=0, is_stub=False):
+        self.mpif = MPIF(host=host, port=port)
 
-            print(f"Server listening on {self.host}:{self.port}")
-
-            # Start server handler in a thread
-            threading.Thread(target=self.accept_connections, daemon=True).start()
-
-            # Start clients after a slight delay to ensure server is ready
-            time.sleep(0.1)
-            self.mac = MAC(self.host, self.port)
-            self.phy = PHY(self.host, self.port)
-
-        self.phy_rate = 6  # Default value.
+        # Start clients after a slight delay to ensure server is ready
+        time.sleep(0.1)
+        self.mac = MAC(self.mpif.host, self.mpif.port)
+        self.phy = PHY(self.mpif.host, self.mpif.port)
 
         self._text = None
         self._ascii_text = None
-
-    def accept_connections(self):
-        if not self._debug_mode:
-            clients = {}
-            while len(clients) < 2:
-                conn, addr = self.server.accept()
-                id_msg = conn.recv(1024)
-
-                # Unpacking the message.
-                primitive = json.loads(id_msg.decode())['PRIMITIVE']
-
-                if primitive == "MAC":
-                    print("MAC connected")
-                    clients['MAC'] = conn
-                elif primitive == "PHY":
-                    print("PHY connected")
-                    clients['PHY'] = conn
-                else:
-                    print(f"Unknown client ID '{id_msg}', closing connection")
-                    conn.close()
-
-            # Once both clients are connected, start forwarding messages.
-            threading.Thread(target=self.forward, args=(clients['MAC'], clients['PHY']), daemon=True).start()
-            threading.Thread(target=self.forward, args=(clients['PHY'], clients['MAC']), daemon=True).start()
-
-    def forward(self, src, dst):
-        if not self._debug_mode:
-            try:
-                while True:
-                    data = src.recv(16384)
-                    if not data:
-                        break
-                    dst.sendall(data)
-            except Exception as e:
-                print(f"Forwarding error: {e}")
-            finally:
-                src.close()
-                dst.close()
 
     @property
     def text(self):
@@ -90,7 +37,6 @@ class CHIP:
         self._ascii_text = self.convert_string_to_bits(text=self._text, style='bytes')
 
         # Start TX chain.
-        self.mac._phy_rate = self.phy_rate
         self.mac.data = self._ascii_text
 
     @staticmethod

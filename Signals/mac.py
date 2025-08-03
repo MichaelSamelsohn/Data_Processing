@@ -6,9 +6,9 @@ import time
 
 
 class MAC:
-    def __init__(self, host, port, debug=False):
-        self._debug = debug
-        if not self._debug:
+    def __init__(self, host, port, is_stub=False):
+        self._is_stub = is_stub
+        if not self._is_stub:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, port))
 
@@ -20,7 +20,7 @@ class MAC:
             time.sleep(0.1)  # Allow server to read ID before sending other messages.
             self._status = "IDLE"
 
-        self._phy_rate = None
+        self.phy_rate = 6  # Default value.
 
         self._data = None
         self._mac_header = None
@@ -29,12 +29,12 @@ class MAC:
         self._psdu = None
 
     def send(self, primitive, data):
-        if not self._debug:
+        if not self._is_stub:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
             self.socket.sendall(message.encode())
 
     def listen(self):
-        if not self._debug:
+        if not self._is_stub:
             try:
                 while True:
                     message = self.socket.recv(16384)
@@ -81,7 +81,7 @@ class MAC:
 
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         self.send(primitive="PHY-TXSTART.request",
-                  data=[self._phy_rate, len(self._psdu)]  # TX VECTOR.
+                  data=[self.phy_rate, len(self._psdu)]  # TX VECTOR.
                   )
 
     def generate_psdu(self):
