@@ -20,7 +20,13 @@ class MAC:
             time.sleep(0.1)  # Allow server to read ID before sending other messages.
             self._status = "IDLE"
 
+        self._phy_rate = None
+
         self._data = None
+        self._mac_header = None
+        self._crc = None
+
+        self._psdu = None
 
     def send(self, primitive, data):
         if not self._debug:
@@ -56,12 +62,47 @@ class MAC:
             case "MAC-STATUS":
                 self.send(primitive=self._status, data=[])
             case "PHY-TXSTART.confirm":
-                self.send(primitive="PHY-DATA.request", data=self._data)
+                self.send(primitive="PHY-DATA.request", data=[int(bit) for byte in self._psdu for bit in f'{byte:08b}'])
             case "PHY-DATA.confirm":
                 self.send(primitive="PHY-TXEND.request", data=[])
             case "PHY-TXEND.confirm":
                 print("Transmission successful")
             # TODO: Add a flush request for PHY.
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, new_data: list):
+        self._data = new_data
+        # Generate psdu.
+        self._psdu = self.generate_psdu()
+
+        # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
+        self.send(primitive="PHY-TXSTART.request",
+                  data=[self._phy_rate, len(self._psdu)]  # TX VECTOR.
+                  )
+
+    def generate_psdu(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Append MAC header.
+        # TODO: Generate MAC header.
+        self._mac_header = [
+            0x04, 0x02, 0x00, 0x2E, 0x00,
+            0x60, 0x08, 0xCD, 0x37, 0xA6,
+            0x00, 0x20, 0xD6, 0x01, 0x3C,
+            0xF1, 0x00, 0x60, 0x08, 0xAD,
+            0x3B, 0xAF, 0x00, 0x00
+        ]
+        # CRC-32.
+        self._crc = list(self.cyclic_redundancy_check_32(data=self._mac_header + self._data))
+
+        # TODO: Convert to binary list.
+        return self._mac_header + self._data + self._crc
 
     @staticmethod
     def cyclic_redundancy_check_32(data: bytes) -> bytes:

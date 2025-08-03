@@ -160,7 +160,7 @@ class PHY:
         self._n_dbps = mcs_parameters["N_DBPS"]
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
         # Number of full symbols (that can hold the SERVICE, data and TAIL).
-        self._n_symbols = np.ceil((16 + 8 * self._length + 6) / self._n_dbps)
+        self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
 
     @property
     def psdu(self):

@@ -36,6 +36,11 @@ class CHIP:
             self.mac = MAC(self.host, self.port)
             self.phy = PHY(self.host, self.port)
 
+        self.phy_rate = 6  # Default value.
+
+        self._text = None
+        self._ascii_text = None
+
     def accept_connections(self):
         if not self._debug_mode:
             clients = {}
@@ -56,7 +61,7 @@ class CHIP:
                     print(f"Unknown client ID '{id_msg}', closing connection")
                     conn.close()
 
-            # Once both clients are connected, start forwarding messages
+            # Once both clients are connected, start forwarding messages.
             threading.Thread(target=self.forward, args=(clients['MAC'], clients['PHY']), daemon=True).start()
             threading.Thread(target=self.forward, args=(clients['PHY'], clients['MAC']), daemon=True).start()
 
@@ -73,6 +78,20 @@ class CHIP:
             finally:
                 src.close()
                 dst.close()
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, new_text: str):
+        self._text = new_text
+        # Convert to bytes.
+        self._ascii_text = self.convert_string_to_bits(text=self._text, style='bytes')
+
+        # Start TX chain.
+        self.mac._phy_rate = self.phy_rate
+        self.mac.data = self._ascii_text
 
     @staticmethod
     def convert_string_to_bits(text: str, style='binary') -> list[int | str]:
