@@ -6,6 +6,8 @@ import numpy as np
 import socket
 import threading
 
+from Settings.settings import log
+
 # Constants #
 MODULATION_CODING_SCHEME_PARAMETERS = {
     6:  {"MODULATION": 'BPSK',   "DATA_CODING_RATE": '1/2', "N_BPSC": 1,
@@ -42,13 +44,16 @@ FREQUENCY_DOMAIN_LTF = [
 
 class PHY:
     def __init__(self, host, port, debug_mode=True, is_stub=False):
+        log.info("Establishing PHY layer")
+
         self._debug_mode = debug_mode
         self._is_stub = is_stub
         if not self._is_stub:
+            log.debug("PHY connecting to MPIF socket")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, port))
 
-            # Sending ID immediately upon connection (so server can identify the current client).
+            log.debug("PHY sending ID to MPIF")
             self.send(primitive="PHY", data=[])
 
             # Start listener thread.
@@ -87,8 +92,14 @@ class PHY:
                 while True:
                     message = self.socket.recv(16384)
                     if message:
-                        print("PHY received:", message.decode())
-                        self.controller(message=message)
+                        # Unpacking the message.
+                        message = json.loads(message.decode())
+                        primitive = message['PRIMITIVE']
+                        data = message['DATA']
+
+                        log.traffic(f"PHY received: {primitive} "
+                                    f"({'no data' if not data else f'data length {len(data)}'})")
+                        self.controller(primitive=primitive, data=data)
                     else:
                         break
             except Exception as e:
@@ -96,48 +107,52 @@ class PHY:
             finally:
                 self.socket.close()
 
-    def controller(self, message):
+    def controller(self, primitive, data):
         """
         TODO: Complete the docstring.
         """
 
-        # Unpacking the message.
-        message = json.loads(message.decode())
-        primitive = message['PRIMITIVE']
-        data = message['DATA']
-
         match primitive:
             case "PHY-STATUS":
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 self.send(primitive=self._status, data=[])
             case "PHY-TXSTART.request":
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 self._status = "BUSY"  # Status update.
-                # Update TXVECTOR information.
+
+                log.info("Updating TXVECTOR information")
                 self.tx_vector = data
-                # Generate preamble and SIGNAL.
+                log.info("Generating preamble")
                 self._preamble = self.generate_preamble()
+                log.info("Generating SIGNAL symbol")
                 self._signal = self.generate_signal_symbol()
 
-                time.sleep(5)  # Buffer time for viewing/debug purposes.
+                time.sleep(3)  # Buffer time for viewing/debug purposes.
 
                 # Confirm TXSTART.
                 self._status = "IDLE"  # Status update.
                 self.send(primitive="PHY-TXSTART.confirm", data=[])
             case "PHY-DATA.request":
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 self._status = "BUSY"  # Status update.
-                # Generate DATA.
+
+                log.info("Generate DATA")
                 self._psdu = data
                 self._data = self.generate_data_symbols()
 
-                time.sleep(5)  # Buffer time for viewing/debug purposes.
+                time.sleep(3)  # Buffer time for viewing/debug purposes.
 
                 # Confirm DATA.
                 self._status = "IDLE"  # Status update.
                 self.send(primitive="PHY-DATA.confirm", data=[])
             case "PHY-TXEND.request":
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 self._status = "BUSY"  # Status update.
+
+                log.info("Generating PPDU")
                 self._ppdu = self.generate_ppdu()
 
-                time.sleep(5)  # Buffer time for viewing/debug purposes.
+                time.sleep(3)  # Buffer time for viewing/debug purposes.
 
                 self._status = "IDLE"  # Status update.
                 self.send(primitive="PHY-TXEND.confirm", data=[])
@@ -189,8 +204,11 @@ class PHY:
         TODO: Complete the docstring.
         """
 
+        log.debug("Generating short training field - STF")
         short_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')
+        log.debug("Generating long training field - LTF")
         long_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_LTF, field_type='LTF')
+        log.debug("Overlapping the STF and LTF")
         return (short_training_field[:-1] +                                 # STF.
                 [short_training_field[-1] + long_training_field[0]] +       # Overlap.
                 long_training_field[1:])                                    # LTF.
@@ -202,12 +220,18 @@ class PHY:
         TODO: Complete the docstring.
         """
 
+        log.debug("Generating the SIGNAL field")
         signal_field = self.generate_signal_field()
+        log.debug("Encoding the SIGNAL field")
         coded_signal_field = self.bcc_encode(bits=signal_field, coding_rate='1/2')
+        log.debug("Interleaving the SIGNAL")
         interleaved_signal_field = self.interleave(bits=coded_signal_field, phy_rate=6)
+        log.debug("Modulating the SIGNAL")
         modulated_signal_field = self.subcarrier_modulation(bits=interleaved_signal_field, phy_rate=6)
+        log.debug("Pilot subcarrier insertion for SIGNAL")
         frequency_domain_signal_field = self.pilot_subcarrier_insertion(modulated_subcarriers=modulated_signal_field,
                                                                         pilot_polarity=1)
+        log.debug("Converting SIGNAL to time domain")
         return self.convert_to_time_domain(ofdm_symbol=frequency_domain_signal_field, field_type='SIGNAL')
 
     def generate_signal_field(self):
@@ -242,12 +266,15 @@ class PHY:
 
         # Setting the rate bits, 0-3.
         signal_field[:4] = self._signal_field_coding
+        log.debug(f"Rate bits 0-3, {signal_field[:4]}")
 
         # Setting the length bits, 5-16.
         signal_field[5:17] = [int(bit) for bit in format(self._length, '012b')][::-1]
+        log.debug(f"Length bits 5-17, {signal_field[5:17]}")
 
         # Setting the parity bit 17.
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
+        log.debug(f"Parity bit 17, [{signal_field[17]}]")
 
         return signal_field
 
@@ -259,48 +286,58 @@ class PHY:
         """
 
         # Delineating, SERVICE field prepending, and zero padding.
+        log.debug("Generating SERVICE field")
         service_field = 16 * [0]
+        log.debug("Generating tail")
         tail = 6 * [0]
+        log.debug("Generating zero padding bits")
         pad_bits = self.calculate_padding_bits()
         zero_padding = pad_bits * [0]
         data = service_field + self._psdu + tail + zero_padding
 
-        # Scrambling.
+        log.debug("Scrambling the DATA")
         scrambled_data = self.scramble(bits=data, seed=93)
+
+        log.debug("Nullifying the tail bits")
         # The PPDU TAIL field is produced by replacing six scrambled zero bits following the message end with six
         # non-scrambled zero bits.
         scrambled_data[-pad_bits - 6: -pad_bits] = tail
 
-        # Encoding.
+        log.debug(f"Encoding the DATA field")
         encoded_data = self.bcc_encode(bits=scrambled_data, coding_rate=self._data_coding_rate)
 
-        # Symbol division.
+        log.debug("Dividing the DATA into OFDM symbol chunks")
         symbols = [encoded_data[self._n_cbps * i: self._n_cbps * (i+1)] for i in range(self._n_symbols)]
 
-        # Generate the pilot polarity sequence.
+        log.debug("Generating the pilot polarity sequence")
         pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
         pilot_polarity_index = 1  # For DATA only (index zero is for the SIGNAL field).
 
         time_domain_symbols = []
+        i = 1  # Symbol counter, for debugging purposes.
         for symbol in symbols:
-            # Interleaving.
+            log.info(f"Symbol #{i}")
+
+            log.debug(f"Interleaving DATA symbol")
             interleaved_symbol = self.interleave(bits=symbol, phy_rate=self._phy_rate)
 
-            # Modulating.
+            log.debug(f"Modulating DATA symbol")
             modulated_symbol = self.subcarrier_modulation(bits=interleaved_symbol, phy_rate=self._phy_rate)
 
-            # Pilot insertion.
+            log.debug(f"Pilot subcarrier insertion for DATA symbol")
             frequency_domain_symbol = self.pilot_subcarrier_insertion(
                 modulated_subcarriers=modulated_symbol,
                 pilot_polarity=pilot_polarity_sequence[pilot_polarity_index])
-            pilot_polarity_index += 1
+            pilot_polarity_index += 1  # Increment pilot polarity index.
 
-            # Time domain.
+            log.debug(f"Converting DATA symbol to time domain")
             time_domain_symbols.append(
                 self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
             )
 
-        # Overlapping.
+            i += 1  # Increment symbol counter.
+
+        log.debug("Overlapping DATA symbols")
         ofdm_data = [0]
         for i in range(self._n_symbols):
             ofdm_data[-1] += time_domain_symbols[i][0]  # Overlap.
@@ -327,7 +364,7 @@ class PHY:
         # per OFDM symbol.
         n_data = self._n_symbols * self._n_dbps  # Number of bits in the DATA (full symbols).
         n_pad = n_data - (16 + 8 * self._length + 6)  # Number of PAD bits (for full symbols).
-
+        log.debug(f"Zero padding bits - {n_pad}")
         return n_pad
 
     # Coding (scrambling, encoding, interleaving, mapping, modulation) #
@@ -357,6 +394,7 @@ class PHY:
         """
 
         lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
+        log.debug(f"Selected LFSR seed ({seed}) - {lfsr_state}")
         lfsr_sequence = []
 
         for _ in range(sequence_length):
@@ -374,9 +412,9 @@ class PHY:
         TODO: Complete the docstring.
         """
 
-        # Generate LFSR sequence matching the length of the data bits.
+        log.debug("Generating LFSR sequence matching the length of the data bits")
         lfsr_sequence = self.generate_lfsr_sequence(sequence_length=len(bits), seed=seed)
-        # XOR input bits with LFSR sequence.
+        log.debug("XORing input bits with LFSR sequence")
         return [a ^ b for a, b in zip(lfsr_sequence, bits)]
 
     @staticmethod
@@ -394,6 +432,8 @@ class PHY:
 
         :return: ??
         """
+
+        log.debug(f"Coding rate - {coding_rate}")
 
         shift_reg = [0] * 7  # Initializing the shift register to all zeros.
         encoded = []
@@ -417,6 +457,8 @@ class PHY:
         if coding_rate == '1/2':
             return encoded
         else:
+            log.debug("Performing puncturing")
+
             # Converting the encoded bits list to a numpy array to better perform puncturing.
             encoded = np.array(encoded)
             # Selecting the puncturing pattern based on the rate selection.
@@ -467,13 +509,13 @@ class PHY:
         s = max(n_bpsc // 2, 1)
         k = np.arange(n_cbps)
 
-        # First permutation - Ensures that adjacent coded bits are mapped onto nonadjacent sub-carriers.
+        log.debug("First permutation - Ensures that adjacent coded bits are mapped onto nonadjacent sub-carriers")
         i = (n_cbps // 16) * (k % 16) + k // 16
 
-        # Second permutation - Ensures bits are spread over different constellation bits.
+        log.debug("Second permutation - Ensures bits are spread over different constellation bits")
         j = s * (i // s) + ((i + n_cbps - (16 * i // n_cbps)) % s)
 
-        # Interleaving the data bits according to the indexes in j.
+        log.debug("Interleaving the data bits according to the indexes of second permutation result")
         return [bits[np.where(j == index)[0][0]] for index in k]
 
     @staticmethod
@@ -504,6 +546,7 @@ class PHY:
         :return: List of complex values representing the mapped bits.
         """
 
+
         # Mapped bits array initialization.
         symbols = []
 
@@ -511,14 +554,17 @@ class PHY:
         grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"])
 
         # Determining the modulation and mapping the bits.
-        match MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]:
+        modulation = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]
+        log.debug(f"Modulation scheme - {modulation}")
+        match modulation:
             case 'BPSK':
+                log.debug(f"Modulating the bits, normalization factor - {1}")
                 symbols = [2 * bit - 1 + 0j for bit in bits]
 
             case 'QPSK':
                 qpsk_modulation_mapping = {0: -1, 1: 1}
 
-                # Mapping the bits.
+                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(2), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qpsk_modulation_mapping[b[0]],  # I.
@@ -528,7 +574,7 @@ class PHY:
             case '16-QAM':
                 qam16_modulation_mapping = {0: -3, 1: -1, 2: 3, 3: 1}
 
-                # Mapping the bits.
+                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(10), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qam16_modulation_mapping[2 * b[0] + b[1]],  # I.
@@ -538,7 +584,7 @@ class PHY:
             case '64-QAM':
                 qam64_modulation_mapping = {0: -7, 1: -5, 2: -1, 3: -3, 4: 7, 5: 5, 6: 1, 7: 3}
 
-                # Mapping the bits.
+                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(42), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qam64_modulation_mapping[4 * b[0] + 2 * b[1] + b[2]],  # I.
@@ -614,25 +660,28 @@ class PHY:
         :return: Time domain OFDM symbol.
         """
 
-        # Re-ordering the OFDM symbol.
+        log.debug("Re-ordering the OFDM symbol")
         reordered_ofdm_symbol = 64 * [0]
         reordered_ofdm_symbol[1:27] = ofdm_symbol[26:]
         reordered_ofdm_symbol[38:] = ofdm_symbol[:26]
 
-        # Compute the inverse FFT.
+        log.debug("Computing the inverse FFT")
         time_signal = np.fft.ifft(reordered_ofdm_symbol)
         time_signal = [complex(round(value.real, 3), round(value.imag, 3)) for value in time_signal]
 
         # Add cyclic prefix and overlap sample suffix.
         match field_type:
             case 'STF':
+                log.debug("STF symbols - Cyclic extension")
                 time_signal = time_signal + time_signal + time_signal[:33]
             case 'LTF':
+                log.debug("LTF symbols - Adding double guard interval")
                 time_signal = time_signal[-32:] + time_signal + time_signal + [time_signal[0]]
             case 'SIGNAL' | 'DATA':
+                log.debug(f"{field_type} symbol - Adding guard interval")
                 time_signal = time_signal[-16:] + time_signal + [time_signal[0]]
 
-        # Apply window function.
+        log.debug("Applying window function")
         time_signal[0] *= 0.5
         time_signal[-1] *= 0.5
 

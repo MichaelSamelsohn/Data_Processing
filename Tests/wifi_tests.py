@@ -6,12 +6,14 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
+from Settings.settings import log
 from mac import MAC
 from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
 from wifi import CHIP
 
 # Constants #
 RANDOM_TESTS = 10
+log.stream_handler = False
 HOST = '127.0.0.1'
 PORT = 0
 

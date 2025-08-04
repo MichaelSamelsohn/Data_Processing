@@ -144,6 +144,11 @@ class Logger(logging.Logger):
         # Super call.
         super().__init__(name="Logger")
 
+        logging.SUCCESS = 25
+        logging.addLevelName(25, "SUCCESS")
+        logging.TRAFFIC = 35
+        logging.addLevelName(35, "TRAFFIC")
+
         # Set class parameters.
         self._log_level = log_level
         self._color_scheme = color_scheme
@@ -319,6 +324,14 @@ class Logger(logging.Logger):
             file_handler.setFormatter(self._formatter)  # Set formatter to the handler.
             self.addHandler(file_handler)
 
+    def success(self, msg, *args, **kwargs):
+        """TODO: Complete the docstring."""
+        self._log(logging.SUCCESS, msg, args, **kwargs)
+
+    def traffic(self, msg, *args, **kwargs):
+        """TODO: Complete the docstring."""
+        self._log(logging.TRAFFIC, msg, args, **kwargs)
+
     def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
         self.critical(message)
@@ -366,11 +379,13 @@ class ColorFormatter(logging.Formatter):
         https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html.
         """
         self._COLORS = {
-            logging.DEBUG: "\u001b[36m" if self._color_scheme else "\x1b[38;21m",  # Cyan/Grey.,
-            logging.INFO: "\u001b[30m" if self._color_scheme else "\x1b[38;5;39m",  # Black/Blue.
+            logging.DEBUG: "\u001b[36m" if self._color_scheme else "\x1b[38;21m",         # Cyan/Grey.,
+            logging.INFO: "\u001b[30m" if self._color_scheme else "\x1b[38;5;39m",        # Black/Blue.
             logging.WARNING: "\u001b[33;1m" if self._color_scheme else "\x1b[38;5;226m",  # Bright Yellow/Yellow.
-            logging.ERROR: "\x1b[38;5;196m",  # Red.
-            logging.CRITICAL: "\x1b[31;1m"  # Bold red.
+            logging.ERROR: "\x1b[38;5;196m",                                              # Red.
+            logging.CRITICAL: "\x1b[31;1m",                                               # Bold red.
+            logging.SUCCESS: "\x1b[32;1m",                                                # Bright Green.
+            logging.TRAFFIC: "\x1b[38;5;208m",                                            # Deep Violet / Grape.
         }
         self._RESET_COLOR = "\x1b[0m"
 
