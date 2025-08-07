@@ -12,15 +12,12 @@ from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, 
 from wifi import CHIP
 
 # Constants #
-RANDOM_TESTS = 10
 log.stream_handler = False
 HOST = '127.0.0.1'
 PORT = 0
 
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.2 The message for the BCC example, p. 4150.
-MESSAGE = """Joy, bright spark of divinity,
-Daughter of Elysium,
-Fire-insired we trea"""
+MESSAGE = """Joy, bright spark of divinity,\nDaughter of Elysium,\nFire-insired we trea"""
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.2 The message for the BCC example, p. 4150, Table I-1—The message for
 # the BCC example, octets 25-96 (included).
 # Note - These 72 bytes correspond to the 72 bytes of the message (including line breaks).

@@ -187,9 +187,34 @@ class PHY:
     def psdu(self, new_psdu: list):
         self._psdu = new_psdu
 
-    def generate_ppdu(self):
+    def generate_ppdu(self) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        The PPDU (PLCP Protocol Data Unit) is the output of the PHY layer, converting data from higher layers (like the
+        MAC layer) into a format suitable for transmission over the air. PPDU includes a preamble (containing
+        information for synchronization and channel estimation), a SIGNAL (containing control information like data rate
+        and length), and the actual DATA payload. The PPDU is derived from the PSDU (Physical Layer Service Data Unit),
+        which is the data passed down from the MAC layer.
+
+                                         PHY Header
+                |<---------------------------------------------------------->|
+                -------------------------------------------------------------------------------------------------
+                |        |           |         |         |        |          |            |        |            |
+                |  RATE  |  Reserved |  LENGTH |  Parity |  Tail  |  SERVICE |    PSDU    |  Tail  |  Pad bits  |
+                | 4 bits |   1 bit   | 12 bits |  1 bit  | 6 bits |  16 bits |            | 6 bits |            |
+                -------------------------------------------------------------------------------------------------
+                |                                                 |                                             |
+                |                                                 |                                             |
+                ---------------------------------                 |                                             |
+                                                |   Coded/OFDM    |                  Coded/OFDM                 |
+                                                |  (BPSK, r=1/2)  |         (RATE is indicated in SIGNAL)       |
+                                                |<--------------->|<------------------------------------------->|
+                               ----------------------------------------------------------------------------------
+                               |                |                 |                                             |
+                               |  PHY preamble  |      SIGNAL     |                     DATA                    |
+                               |   12 symbols   |  1 OFDM symbol  |       Variable number of OFDM symbols       |
+                               ----------------------------------------------------------------------------------
+
+        :return: Time domain PPDU with overlapping preamble, SIGNAL and DATA (in that order).
         """
 
         return (self._preamble[:-1] +                      # Preamble.
@@ -200,9 +225,14 @@ class PHY:
 
     # PHY preamble - STF, LTF - 12 symbols #
 
-    def generate_preamble(self):
+    def generate_preamble(self) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        Produce the PHY Preamble field, composed of 10 repetitions of a “short training sequence” (used for AGC
+        convergence, diversity selection, timing acquisition, and coarse frequency acquisition in the receiver) and two
+        repetitions of a “long training sequence” (used for channel estimation and fine frequency acquisition in the
+        receiver), preceded by a guard interval (GI2).
+
+        :return: List of complex values representing the preamble in the time domain.
         """
 
         log.debug("Generating short training field - STF")
@@ -216,9 +246,18 @@ class PHY:
 
     # SIGNAL - 1 OFDM symbol #
 
-    def generate_signal_symbol(self):
+    def generate_signal_symbol(self) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        Produce the PHY header (without SIGNAL) field from the RATE, LENGTH, fields of the TXVECTOR by filling the
+        appropriate bit fields. The RATE and LENGTH fields of the PHY header are encoded by a convolutional code at a
+        rate of R = 1/2, and are subsequently mapped onto a single BPSK encoded OFDM symbol, denoted as the SIGNAL
+        symbol. In order to facilitate a reliable and timely detection of the RATE and LENGTH fields, 6 zero tail bits
+        are inserted into the PHY header. The encoding of the SIGNAL field into an OFDM symbol follows the same steps
+        for convolutional encoding, interleaving, BPSK modulation, pilot insertion, Fourier transform, and prepending a
+        GI as for data transmission with BPSK-OFDM modulated at coding rate 1/2. The contents of the SIGNAL field are
+        not scrambled.
+
+        :return: List of bits representing the SIGNAL field.
         """
 
         log.debug("Generating the SIGNAL field")
@@ -235,7 +274,7 @@ class PHY:
         log.debug("Converting SIGNAL to time domain")
         return self.convert_to_time_domain(ofdm_symbol=frequency_domain_signal_field, field_type='SIGNAL')
 
-    def generate_signal_field(self):
+    def generate_signal_field(self) -> list[int]:
         """
         The OFDM training symbols shall be followed by the SIGNAL field, which contains the RATE and the LENGTH fields
         of the TXVECTOR. The RATE field conveys information about the type of modulation and the coding rate as used in
@@ -281,9 +320,34 @@ class PHY:
 
     # DATA (symbol count depends on length) #
 
-    def generate_data_symbols(self):
+    def generate_data_symbols(self) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        Append the PSDU to the SERVICE field of the TXVECTOR. Extend the resulting bit string with zero bits (at least 6
+        bits) so that the resulting length is a multiple of n_dbps. The resulting bit string constitutes the DATA field
+        of the PPDU.
+        initiate the scrambler with a pseudorandom nonzero seed and generate a scrambling sequence. XOR the scrambling
+        sequence with the extended string of data bits.
+        Replace the six scrambled zero bits following the data with six non-scrambled zero bits (those bits return the
+        convolutional encoder to the zero state and are denoted as tail bits).
+        Encode the extended, scrambled data string with a convolutional encoder (R = 1/2). Omit (puncture) some of the
+        encoder output string (chosen according to “puncturing pattern”) to reach the “coding rate” corresponding to the
+        TXVECTOR parameter RATE.
+        Divide the encoded bit string into groups of n_cbps bits. Within each group, perform an “interleaving”
+        (reordering) of the bits according to a rule corresponding to the TXVECTOR parameter RATE.
+        Divide the resulting coded and interleaved data string into groups of n_bpsc bits. For each of the bit groups,
+        convert the bit group into a complex number according to the modulation encoding tables.
+        Divide the complex number string into groups of 48 complex numbers. Each such group is associated with one OFDM
+        symbol. In each group, the complex numbers are numbered 0 to 47 and mapped hereafter into OFDM subcarriers
+        numbered –26 to –22, –20 to –8, –6 to –1, 1 to 6, 8 to 20, and 22 to 26. The subcarriers –21, –7, 7, and 21 are
+        skipped and, subsequently, used for inserting pilot subcarriers. The 0 subcarrier, associated with center
+        frequency, is omitted and filled with the value 0.
+        Four subcarriers are inserted as pilots into positions –21, –7, 7, and 21. The total number of the subcarriers
+        is 52 (48 + 4).
+        For each group of subcarriers –26 to 26, convert the subcarriers to time domain using inverse Fourier transform.
+        Prepend to the Fourier-transformed waveform a circular extension of itself thus forming a GI, and truncate the
+        resulting periodic waveform to a single OFDM symbol length by applying time domain windowing.
+
+        :return: List of complex values representing the DATA in the time domain.
         """
 
         # Delineating, SERVICE field prepending, and zero padding.
@@ -312,7 +376,7 @@ class PHY:
 
         log.debug("Generating the pilot polarity sequence")
         pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
-        pilot_polarity_index = 1  # For DATA only (index zero is for the SIGNAL field).
+        pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
 
         time_domain_symbols = []
         i = 1  # Symbol counter, for debugging purposes.
@@ -410,7 +474,31 @@ class PHY:
 
     def scramble(self, bits: list[int], seed=93) -> list[int]:
         """
-        TODO: Complete the docstring.
+        The DATA field, composed of SERVICE, PSDU, tail, and pad parts, shall be scrambled with a length-127
+        PPDU-synchronous scrambler. The octets of the PSDU are placed in the transmit serial bit stream, bit 0 first
+        and bit 7 last. The PPDU synchronous scrambler is illustrated below,
+
+                                First 7 bits of Scrambling
+                                Sequence as defined in (*)
+                       --------------------------------------------
+                                                                   \ <-----------During bits 0-6 of Scrambling Sequence
+                                                                    \            when CH_BANDWIDTH_IN_NON_HT is present
+                                                                     \
+                                                                     |
+                       --------------------------------------        |          Data in
+                       |                                             |             |
+                       |                                             |             |
+                       |                    --------                 |             ↓
+                       -------------------- | LFSR | <--------------------------> XOR
+                                            --------                               |
+                                                                                   |
+                                                                                   ↓
+                                                                          Scrambled data out
+
+        (*) - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, Table
+        17-7—Contents of the first 7 bits of the scrambling sequence, p.2818.
+
+        :return: List of scrambled data bits.
         """
 
         log.debug("Generating LFSR sequence matching the length of the data bits")
@@ -428,10 +516,10 @@ class PHY:
         and inserting a dummy “zero” metric into the convolutional decoder on the receiver side in place of the omitted
         bits.
 
-        :param bits: ??  TODO: Complete.
-        :param coding_rate: ??  TODO: Complete.
+        :param bits: List of data bits to be encoded.
+        :param coding_rate: Coding rate used for the encoding.
 
-        :return: ??
+        :return: BCC encoded bits.
         """
 
         log.debug(f"Coding rate - {coding_rate}")
@@ -637,7 +725,7 @@ class PHY:
         """
         The following descriptions of the discrete time implementation are informational.
         In a typical implementation, the windowing function is represented in discrete time. As an example, when a
-        windowing function with parameters T = 4.0[us] and a Ttr = 100[ns] is applied, and the signal is sampled at 20
+        windowing function with parameters T = 4.0[μs] and a Ttr = 100[ns] is applied, and the signal is sampled at 20
         Msample/s, it becomes,
                                   wT[n] = wT(nTs) = {1, 1<=n<=79; 0.5, n=0, 80; 0 otherwise}
 
@@ -645,28 +733,65 @@ class PHY:
         IFFT is used, the coefficients 1 to 26 are mapped to the same numbered IFFT inputs, while the coefficients –26
         to –1 are copied into IFFT inputs 38 to 63. The rest of the inputs, 27 to 37 and the 0 (dc) input, are set to 0.
         This mapping is illustrated below,
-                TODO: Add diagram from 'Figure 17-3—Inputs and outputs of inverse Fourier transform', p. 2813.
+
+                                                    --------------------
+                                            Null -- | 0              0 | --
+                                            #1   -- | 1              1 | --
+                                            #2   -- | 2              2 | --
+                                            .    -- |         .        | --
+                                            .    -- |         .        | --
+                                            #26  -- | 26    IFFT    26 | --
+                                            Null -- | 27            27 | --
+                                            Null -- |         .        | --      Time domain outputs
+                                            Null -- | 37            37 | --
+                                            #-26 -- | 38            38 | --
+                                            .    -- |         .        | --
+                                            .    -- |         .        | --
+                                            #-2  -- | 62            62 | --
+                                            #-1  -- | 63            63 | --
+                                                    --------------------
 
         After performing an IFFT, the output is cyclically extended and the resulting waveform is windowed to the
         required OFDM symbol length.
 
         :param ofdm_symbol: OFDM symbol (data + pilot sub-carriers) in the frequency domain.
         :param field_type: Parameter defining the type of the field for IFFT. Possible values are:
-            * 'STF' (Short Training Field) - No GI, 161 samples (~8[us]).
-            * 'LTF' (Long Training Field) - 2xGI, 161 samples (~8[us]).
-            * 'DATA'/'SIGNAL' - 1xGI, 81 samples (~4[us]).
+            * 'STF' (Short Training Field) - No GI, 161 samples (~8[μs]).
+            * 'LTF' (Long Training Field) - 2xGI, 161 samples (~8[μs]).
 
-                            TODO: Add diagram from 'Figure 17-4—OFDM training structure', p. 2813.
+                            10x0.8 = 8.0[μs]                               2x0.8 + 2x3.2 = 8.0[μs]
+            |<------------------------------------------------>|<------------------------------------------>|
+            -------------------------------------------------------------------------------------------------
+            |    |    |    |    |    |    |    |    |    |     |          |                |                |
+            | t1   t2   t3   t4   t5   t6   t7   t8   t9   t10 |   GI2            T1               T2       |
+            |    |    |    |    |    |    |    |    |    |     |          |                |                |
+            -------------------------------------------------------------------------------------------------
+            |<-------------------------------->|<------------->|<------------------------------------------>|
+                    Signal detect, AGC,        Coarse frequency,         Channel and fine frequency
+                    diversity selection        offset estimation,             offset estimation
+                                              timing synchronize
+
+            * 'SIGNAL'/'DATA' - 1xGI, 81 samples (~4[μs]).
+
+                       0.8 + 3.2 = 4.0[μs]     0.8 + 3.2 = 4.0[μs]     0.8 + 3.2 = 4.0[μs]
+                    |<--------------------->|<--------------------->|<--------------------->|
+                    -------------------------------------------------------------------------
+                    |      |                |      |                |      |                |
+                    |  GI        SIGNAL     |  GI        DATA1      |  GI        DATA2      |  ..................
+                    |      |                |      |                |      |                |
+                    -------------------------------------------------------------------------
+                    |<--------------------->|<-----------------------------------------------  ..................
+                          RATE, LENGTH            SERVICE + DATA               DATA
 
         :return: Time domain OFDM symbol.
         """
 
-        log.debug("Re-ordering the OFDM symbol")
+        log.debug("Re-ordering the symbol")
         reordered_ofdm_symbol = 64 * [0]
         reordered_ofdm_symbol[1:27] = ofdm_symbol[26:]
         reordered_ofdm_symbol[38:] = ofdm_symbol[:26]
 
-        log.debug("Computing the inverse FFT")
+        log.debug("Computing the IFFT")
         time_signal = np.fft.ifft(reordered_ofdm_symbol)
         time_signal = [complex(round(value.real, 3), round(value.imag, 3)) for value in time_signal]
 
