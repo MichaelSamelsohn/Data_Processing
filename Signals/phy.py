@@ -7,7 +7,6 @@ import socket
 import threading
 
 from Settings.settings import log
-import matplotlib.pyplot as plt
 
 # Constants #
 MODULATION_CODING_SCHEME_PARAMETERS = {
@@ -68,6 +67,7 @@ class PHY:
 
         self._phy_rate = None
         self._length = None
+        self._band = 2.4e9  # 2.4[GHz].
 
         self._modulation = None
         self._data_coding_rate = None
@@ -81,6 +81,7 @@ class PHY:
         self._signal = None
         self._data = None
         self._ppdu = None
+        self._rf_signal_tx = None
 
     def send(self, primitive, data):
         if not self._is_stub:
@@ -152,6 +153,7 @@ class PHY:
 
                 log.info("Generating PPDU")
                 self._ppdu = self.generate_ppdu()
+                self._rf_signal_tx = self.generate_rf_signal()
 
                 time.sleep(3)  # Buffer time for viewing/debug purposes.
 
@@ -178,14 +180,6 @@ class PHY:
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
         # Number of full symbols (that can hold the SERVICE, data and TAIL).
         self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
-
-    @property
-    def psdu(self):
-        return self._psdu
-
-    @psdu.setter
-    def psdu(self, new_psdu: list):
-        self._psdu = new_psdu
 
     def generate_ppdu(self) -> list[complex]:
         """
@@ -222,6 +216,20 @@ class PHY:
                 self._signal[1:-1] +                       # SIGNAL.
                 [self._signal[-1] + self._data[0]] +       # Overlap between SIGNAL and DATA.
                 self._data[1:])                            # DATA.
+
+    def generate_rf_signal(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Time vector.
+        time_vector = np.arange(len(self._ppdu)) * (1 / 20e6)  # 20[MHz] sampling rate.
+
+        # Calculating the baseband RF signal vector, I * cos(2pi*fc*t) - Q * sin(2pi*fc*t)
+        rf_signal = (np.real(self._ppdu) * np.cos(2 * np.pi * self._band * time_vector) -
+                     np.imag(self._ppdu) * np.sin(2 * np.pi * self._band * time_vector))
+
+        return rf_signal
 
     # PHY preamble - STF, LTF - 12 symbols #
 
@@ -812,64 +820,3 @@ class PHY:
         time_signal[-1] *= 0.5
 
         return time_signal
-
-    # Plots #
-
-    def plot_time_domain(self, is_clean=False):
-        """
-        TODO: Complete the docstring.
-        """
-
-        # Time vector
-        time_vector = np.arange(len(self._ppdu)) * (1 / 20e6)  # 20[MHz] sampling rate.
-
-        # Calculating the baseband RF signal vector, I * cos(2pi*t) - Q * sin(2pi*t)
-        rf_signal = (np.real(self._ppdu) * np.cos(2 * np.pi * time_vector) -
-                     np.imag(self._ppdu) * np.sin(2 * np.pi * time_vector))
-
-        # Plotting the RF waveform.
-        normalized_time_vector = time_vector * 1e6  # Normalizing time vector.
-        plt.figure(figsize=(14, 4))
-        plt.plot(normalized_time_vector, rf_signal)
-
-        plt.title("Time-Domain modulated OFDM frame (cos/sin modulated)")
-        plt.xlabel("Time (μs)")
-        plt.ylabel("Amplitude")
-
-        if not is_clean:
-            y_min, y_max = plt.ylim()
-            text_position = y_max - 0.05 * (y_max - y_min)
-
-            # Preamble.
-            plt.axvspan(0, 8, color='red', alpha=0.1, label='STF')
-            plt.text(4, text_position, 'STF', horizontalalignment='center', fontsize=12, color='black')
-
-            plt.axvspan(8, 16, color='orange', alpha=0.1, label='LTF')
-            plt.axvline(9.6, color='black', linestyle='--', alpha=0.7)  # Mark GI2.
-            plt.text(8.8, text_position, 'GI2', horizontalalignment='center', fontsize=12, color='black')
-            plt.text(12.8, text_position, 'LTF', horizontalalignment='center', fontsize=12, color='black')
-
-            # SIGNAL.
-            plt.axvspan(16, 20, color='yellow', alpha=0.1, label='SIGNAL')
-            plt.axvline(16.8, color='black', linestyle='--', alpha=0.7)  # Mark GI.
-            plt.text(16.4, text_position, 'GI', horizontalalignment='center', fontsize=12, color='black')
-            plt.text(18.4, text_position, 'SIGNAL', horizontalalignment='center', fontsize=12, color='black')
-
-            # DATA.
-            plt.axvspan(20, normalized_time_vector[-1], color='green', alpha=0.1, label='DATA')
-
-            for i in range(self._n_symbols):
-                # GI.
-                plt.axvline(20.8 + i * 4, color='black', linestyle='--', alpha=0.7)
-                plt.text(20.4 + i * 4, text_position, 'GI', horizontalalignment='center', fontsize=12,
-                         color='black')
-
-                plt.axvline(24 + i * 4, color='black', linestyle='--', alpha=0.7)
-                plt.text(22.4 + i * 4, text_position, f'DATA#{i + 1}', horizontalalignment='center', fontsize=12,
-                         color='black')
-
-            plt.legend()
-
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
