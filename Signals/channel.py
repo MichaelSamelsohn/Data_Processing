@@ -40,6 +40,6 @@ class Channel:
 
         log.debug("Appending RF signal to the noise at a random index")
         rf_signal_insertion_index = np.random.randint(int(signal_length/6), int(signal_length/2) + 1)
-        noisy_rf_signal[rf_signal_insertion_index: rf_signal_insertion_index + signal_length] += convolved_signal_power
+        noisy_rf_signal[rf_signal_insertion_index: rf_signal_insertion_index + signal_length] += convolved_signal
 
         return list(noisy_rf_signal)
