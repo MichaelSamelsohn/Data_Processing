@@ -775,7 +775,7 @@ class PHY:
             |    |    |    |    |    |    |    |    |    |     |          |                |                |
             +----+----+----+----+----+----+----+----+----+-----+----------+----------------+----------------+
             |<-------------------------------->|<------------->|<------------------------------------------>|
-                    Signal detect, AGC,        Coarse frequency,         Channel and fine frequency
+                    Signal detect, AGC,        Coarse frequency          Channel and fine frequency
                     diversity selection        offset estimation,             offset estimation
                                               timing synchronize
 
