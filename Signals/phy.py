@@ -820,3 +820,36 @@ class PHY:
         time_signal[-1] *= 0.5
 
         return time_signal
+
+    def stf_correlation(self, signal):
+        """
+        Compute the correlation between a given signal and the known Short Training Field (STF) sequence in the time
+        domain to detect the presence and location of the STF in the signal.
+
+        :param signal: The input complex baseband signal (1D array) in which to search for the STF.
+
+        :return: The index of the highest correlation peak (i.e., estimated start of the STF) if the correlation exceeds
+        the threshold, otherwise None.
+
+        Notes:
+        - The function uses `np.correlate` to compute the linear correlation between the input signal and the known
+          time-domain STF sequence (complex conjugate flipped).
+        - The correlation threshold is currently set to 2. This is an empirical value that may need to be adjusted
+          depending on the signal-to-noise ratio (SNR), signal scaling, or implementation-specific characteristics.
+        """
+
+        # Calculating the correlation.
+        correlation = np.correlate(signal, np.flip(np.array(self.convert_to_time_domain(
+            ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')).conj()), mode='valid')
+        correlation_magnitude = np.abs(correlation)
+
+        highest_correlation_index = np.argmax(correlation_magnitude)
+        log.debug(f"Highest correlation value - {correlation_magnitude[highest_correlation_index]} "
+                  f"(at index {highest_correlation_index})")
+
+        if correlation_magnitude[highest_correlation_index] >= 2:
+            log.debug("Identified STF")
+            return highest_correlation_index
+        else:
+            log.debug("Correlation is too low")
+            return None
