@@ -13,6 +13,7 @@ from wifi import CHIP
 
 # Constants #
 log.stream_handler = False
+RANDOM_TESTS = 1
 HOST = '127.0.0.1'
 PORT = 0
 
