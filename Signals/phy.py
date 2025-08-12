@@ -181,6 +181,8 @@ class PHY:
         # Number of full symbols (that can hold the SERVICE, data and TAIL).
         self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
 
+    # Transmitter side #
+
     def generate_ppdu(self) -> list[complex]:
         """
         The PPDU (PLCP Protocol Data Unit) is the output of the PHY layer, converting data from higher layers (like the
@@ -440,7 +442,7 @@ class PHY:
         log.debug(f"Zero padding bits - {n_pad}")
         return n_pad
 
-    # Coding (scrambling, encoding, interleaving, mapping, modulation) #
+    # Coding (scrambling, encoding, interleaving, mapping, modulation, time domain) #
 
     @staticmethod
     def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
@@ -726,8 +728,6 @@ class PHY:
 
         return ofdm_symbol
 
-    # Time domain #
-
     @staticmethod
     def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[complex]:
         """
@@ -821,6 +821,8 @@ class PHY:
 
         return time_signal
 
+    # Receiver side #
+
     def stf_correlation(self, signal):
         """
         Compute the correlation between a given signal and the known Short Training Field (STF) sequence in the time
@@ -853,3 +855,126 @@ class PHY:
         else:
             log.debug("Correlation is too low")
             return None
+
+    def channel_estimation(self, signal: list[complex], pilot_polarity: int):
+        """
+        Estimate the channel response from a received OFDM signal using pilot tones, and perform channel equalization.
+
+        This function performs the following steps:
+        1. Removes the Guard Interval (GI) from the received time-domain OFDM signal.
+        2. Applies FFT to convert the signal to the frequency domain.
+        3. Reorders the subcarriers to the standard OFDM order.
+        4. Extracts pilot subcarriers from the frequency-domain signal.
+        5. Interpolates the channel response over all subcarriers using magnitude and phase.
+        6. Performs equalization by dividing the received symbol by the estimated channel response.
+
+        :param signal: The received OFDM symbol (including guard interval).
+        :param pilot_polarity: Either 1 or -1 depending on the OFDM symbol count.
+
+        :return: Tuple that includes,
+        - np.ndarray: Estimated channel response across all subcarriers.
+        - np.ndarray: Equalized OFDM symbol in frequency domain.
+        """
+
+        log.debug("Removing GI (assuming a 16-sample guard interval)")
+        signal_without_gi = signal[16:]
+
+        log.debug("FFT to convert to frequency domain")
+        frequency_signal = list(np.fft.fft(signal_without_gi))
+
+        log.debug("Reordering subcarriers - [38:] = negative frequencies, [1:27] = positive frequencies")
+        reordered_ofdm_symbol = frequency_signal[38:] + frequency_signal[1:27]
+
+        log.debug("Extracting pilot data")
+        pilot_indices = [5, 19, 32, 46]  # Pilot subcarrier indices.
+        pilots = [reordered_ofdm_symbol[i] for i in pilot_indices]
+        original_pilots = (np.array([1, 1, 1, -1]) * pilot_polarity).tolist()
+        normalized_pilots = [a / b for a, b in zip(pilots, original_pilots)]
+
+        log.debug("Separating magnitude and phase")
+        pilot_magnitudes = [np.abs(p) for p in normalized_pilots]
+        pilot_phases = [np.angle(p) for p in normalized_pilots]
+
+        log.debug("Interpolating across all subcarriers")
+        all_indices = np.arange(len(reordered_ofdm_symbol))
+        mag_interp = np.interp(all_indices, pilot_indices, pilot_magnitudes)
+        phase_interp = np.interp(all_indices, pilot_indices, pilot_phases)
+
+        log.debug("Reconstructing complex channel estimate")
+        channel_estimate = mag_interp * np.exp(1j * phase_interp)
+
+        log.debug("Performing equalization based on the chanel estimate")
+        # Avoid division by zero (or near-zero)
+        epsilon = 1e-10
+        safe_channel_estimate = np.where(np.abs(channel_estimate) < epsilon, epsilon, channel_estimate)
+        equalized_symbol = np.array(reordered_ofdm_symbol) / safe_channel_estimate
+
+        return equalized_symbol
+
+    def hard_decision_demapping(self, equalized_symbols, modulation: str):
+        """
+        Perform hard decision de-mapping on equalized symbols for various modulation schemes.
+
+        :param equalized_symbols: Equalized complex OFDM symbols.
+        :param modulation: Modulation scheme. Options: 'BPSK', 'QPSK', '16QAM', '64QAM'.
+
+        Returns:
+            np.ndarray: Array of demapped bits (0s and 1s).
+        """
+
+        # Remove pilot sub-carriers.
+        # [5, 19, 32, 46]:
+        equalized_symbols = equalized_symbols.tolist()
+        equalized_symbols = equalized_symbols[:5]+equalized_symbols[6:19]+equalized_symbols[20:32]+equalized_symbols[33:46]+equalized_symbols[47:]
+
+        bits = []
+
+        if modulation == 'BPSK':
+            # Decision based on real part only
+            bits = [0 if np.real(sym) < 0 else 1 for sym in equalized_symbols]
+
+        elif modulation == 'QPSK':
+            # Each symbol maps to 2 bits
+            for sym in equalized_symbols:
+                real = np.real(sym)
+                imag = np.imag(sym)
+                bits.append(0 if real < 0 else 1)
+                bits.append(0 if imag < 0 else 1)
+
+        elif modulation == '16QAM':
+            # Gray-coded 16-QAM constellation (real and imag both in {-3, -1, +1, +3})
+            levels = [-3, -1, 1, 3]
+            for sym in equalized_symbols:
+                real = np.real(sym)
+                imag = np.imag(sym)
+
+                # Find closest real and imag level
+                real_idx = np.argmin([abs(real - lvl) for lvl in levels])
+                imag_idx = np.argmin([abs(imag - lvl) for lvl in levels])
+
+                # Map index to 2-bit Gray code
+                gray = ['00', '01', '11', '10']  # Gray code ordering
+                bits.extend([int(b) for b in gray[real_idx]])
+                bits.extend([int(b) for b in gray[imag_idx]])
+
+        elif modulation == '64QAM':
+            # Gray-coded 64-QAM constellation (levels in {-7, -5, -3, -1, 1, 3, 5, 7})
+            levels = [-7, -5, -3, -1, 1, 3, 5, 7]
+            gray = [
+                '000', '001', '011', '010', '110', '111', '101', '100'
+            ]  # 3-bit Gray code
+
+            for sym in equalized_symbols:
+                real = np.real(sym)
+                imag = np.imag(sym)
+
+                real_idx = np.argmin([abs(real - lvl) for lvl in levels])
+                imag_idx = np.argmin([abs(imag - lvl) for lvl in levels])
+
+                bits.extend([int(b) for b in gray[real_idx]])
+                bits.extend([int(b) for b in gray[imag_idx]])
+
+        else:
+            raise ValueError("Unsupported modulation scheme. Choose from 'BPSK', 'QPSK', '16QAM', '64QAM'.")
+
+        return np.array(bits)
