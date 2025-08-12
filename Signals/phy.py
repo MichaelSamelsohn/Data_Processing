@@ -978,3 +978,135 @@ class PHY:
             raise ValueError("Unsupported modulation scheme. Choose from 'BPSK', 'QPSK', '16QAM', '64QAM'.")
 
         return np.array(bits)
+
+    def deinterleave(self, bits, phy_rate):
+        """
+        TODO: Complete the docstring.
+        """
+
+        mcs = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]
+        N_BPSC = mcs["N_BPSC"]
+        N_CBPS = mcs["N_CBPS"]
+
+        s = max(N_BPSC // 2, 1)
+        deinterleaved = [0] * len(bits)
+
+        for k in range(N_CBPS):
+            # Reverse second permutation
+            i = s * (k // s) + (k + N_CBPS - (16 * k) // N_CBPS) % s
+
+            # Reverse first permutation
+            j = 16 * (i % (N_CBPS // 16)) + (i // (N_CBPS // 16))
+
+            if j < len(bits):
+                deinterleaved[j] = bits[k]
+
+        return deinterleaved
+
+    def convolutional_decode_viterbi(self, received_bits, rate='1/2'):
+        """
+        Perform Viterbi decoding on a bitstream encoded with the 802.11 convolutional encoder.
+
+        Supports convolutional codes with constraint length K=7 and generator polynomials G1=133₈, G2=171₈.
+        Coding rates higher than 1/2 are supported via puncturing patterns as defined in the IEEE 802.11 standard.
+
+        Args:
+            received_bits (list of int): The received hard-decision bits (0 or 1), possibly punctured
+                                         depending on the coding rate.
+            rate (str): Coding rate. Supported values:
+                        - '1/2': No puncturing (default)
+                        - '2/3': Puncturing pattern 1101 (remove 4th bit in every 4)
+                        - '3/4': Puncturing pattern 111001 (remove 4th and 5th bits in every 6)
+
+        Returns:
+            list of int: The most likely decoded bitstream (list of 0s and 1s) using the Viterbi algorithm.
+
+        Notes:
+            - Uses hard-decision decoding (i.e., received bits must be 0 or 1).
+            - Decoding is based on minimum Hamming distance between received and expected outputs.
+            - Trellis is traced from state 0 and uses full traceback for simplicity.
+            - Works best on shorter sequences. For long streams, sliding window or early termination may be needed.
+        """
+
+        # Define puncturing patterns for supported rates
+        puncturing_patterns = {
+            '1/2': [1, 1],  # Transmit both output bits
+            '2/3': [1, 1, 1, 0],  # Transmit 3 of every 4 bits
+            '3/4': [1, 1, 1, 0, 0, 1]  # Transmit 4 of every 6 bits
+        }
+
+        pattern = puncturing_patterns[rate]
+        pattern_len = len(pattern)
+
+        # Get encoder polynomials
+        G1 = [int(b) for b in format(int(str(133), 8), '07b')]  # G1: 133 octal
+        G2 = [int(b) for b in format(int(str(171), 8), '07b')]  # G2: 171 octal
+        K = 7  # Constraint length
+        n_states = 2 ** (K - 1)  # Number of trellis states (64)
+
+        # Initialize Viterbi trellis
+        path_metrics = np.full(n_states, np.inf)  # Cumulative Hamming distance
+        path_metrics[0] = 0  # Start from state 0
+        paths = [[] for _ in range(n_states)]  # Store bit paths
+
+        # Rebuild received stream to match expected length with placeholders for punctured bits
+        received = []
+        idx = 0
+        for i in range(0, len(received_bits), pattern.count(1)):
+            for p in pattern:
+                if p == 1 and idx < len(received_bits):
+                    received.append(received_bits[idx])
+                    idx += 1
+                elif p == 0:
+                    received.append(None)  # Placeholder: punctured bit (not transmitted)
+
+        # Viterbi decoding loop: process 2 output bits at a time (1 input bit)
+        for i in range(0, len(received), 2):
+            new_metrics = np.full(n_states, np.inf)
+            new_paths = [[] for _ in range(n_states)]
+
+            for state in range(n_states):
+                if path_metrics[state] < np.inf:
+                    # Try both input bits: 0 and 1
+                    for bit in [0, 1]:
+                        # Shift in new bit to get 7-bit register
+                        shift_register = [bit] + [int(x) for x in format(state, f'0{K - 1}b')]
+
+                        # Compute encoder outputs for this input bit
+                        out1 = sum([a * b for a, b in zip(shift_register, G1)]) % 2
+                        out2 = sum([a * b for a, b in zip(shift_register, G2)]) % 2
+                        out_bits = [out1, out2]
+
+                        # Extract the expected bits from received sequence, with puncturing in mind
+                        expected = []
+                        r_ptr = i
+                        for p in pattern:
+                            if p == 1:
+                                if r_ptr >= len(received):
+                                    break
+                                expected.append(received[r_ptr])
+                                r_ptr += 1
+                            else:
+                                expected.append(None)  # Skip punctured bit
+
+                        # Calculate Hamming distance (ignoring punctured positions)
+                        metric = 0
+                        for b1, b2 in zip(out_bits, expected[i % len(expected):i % len(expected) + 2]):
+                            if b2 is not None:
+                                metric += int(b1 != b2)
+
+                        # Compute next state after this transition
+                        next_state = ((state >> 1) | (bit << (K - 2))) & (n_states - 1)
+
+                        # Update path if better metric
+                        total_metric = path_metrics[state] + metric
+                        if total_metric < new_metrics[next_state]:
+                            new_metrics[next_state] = total_metric
+                            new_paths[next_state] = paths[state] + [bit]
+
+            path_metrics = new_metrics
+            paths = new_paths
+
+        # Find the best final state (smallest metric)
+        best_state = np.argmin(path_metrics)
+        return paths[best_state]
