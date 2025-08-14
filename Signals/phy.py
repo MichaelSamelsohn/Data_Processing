@@ -53,29 +53,35 @@ class PHY:
             self._socket = None
             self.mpif_connection()
 
-        # General parameters #
-        self._status = None
-
-        self._psdu = None
-
+        # TX vector parameters #
         self._tx_vector = None
-
         self._phy_rate = None
         self._length = None
-        self._band = 2.4e9  # 2.4[GHz].
 
+        # Modulation/Coding parameters #
         self._modulation = None
         self._data_coding_rate = None
-        self._n_bpsc = None
-        self._n_cbps = None
-        self._n_dbps = None
+        self._n_cbps = None                 # Number of coded bits per symbol.
+        self._n_dbps = None                 # Number of DATA bits per symbol (n_cbps * coding rate).
+        self._n_bpsc = None                 # Number of bits per subcarrier.
+        self._n_symbols = None              # Number of OFDM symbols.
         self._signal_field_coding = None
-        self._n_symbols = None
+        self._n_data = None                 # Number of bits in all DATA symbols.
+        self._pad_bits = None               # Number of zero PADDING bits.
 
+        # Field parameters #
         self._preamble = None
         self._signal = None
         self._data = None
         self._ppdu = None
+
+        # Buffers/Counters #
+        self._data_buffer = None
+        self._data_symbols = None
+        self._length_counter = None
+        self._lfsr_sequence = None
+        self._pilot_polarity_sequence = None
+        self._pilot_polarity_index = None
 
         # Transmitter parameters #
         self._rf_frame_tx = None
@@ -130,48 +136,51 @@ class PHY:
 
         match primitive:
             case "PHY-STATUS":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 self.send(primitive=self._status, data=[])
             case "PHY-TXSTART.request":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
-                self._status = "BUSY"  # Status update.
-
-                log.info("Updating TXVECTOR information")
+                log.info("Updating TX vector information")
                 self.tx_vector = data
                 log.info("Generating preamble")
                 self._preamble = self.generate_preamble()
                 log.info("Generating SIGNAL symbol")
                 self._signal = self.generate_signal_symbol()
 
-                time.sleep(3)  # Buffer time for viewing/debug purposes.
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
 
                 # Confirm TXSTART.
-                self._status = "IDLE"  # Status update.
                 self.send(primitive="PHY-TXSTART.confirm", data=[])
             case "PHY-DATA.request":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
-                self._status = "BUSY"  # Status update.
+                self._data_buffer += data  # Add received DATA to buffer.
+                if len(self._data_buffer) == self._n_dbps:
+                    # Enough DATA for an OFDM symbol.
+                    self._data_symbols.append(self.generate_data_symbol(is_last_symbol=False))
+                    self._data_buffer = []  # Flush the buffer for the next DATA symbol.
 
-                log.info("Generating DATA")
-                self._psdu = data
-                self._data = self.generate_data_symbols()
+                self._length_counter -= 1  # Decrement octet counter.
+                if self._length_counter == 0:
+                    # Last DATA octet from MAC.
+                    self._data_buffer += (6 + self._pad_bits) * [0]  # Adding TAIL and PADDING bits.
+                    self._data_symbols.append(self.generate_data_symbol(is_last_symbol=True))  # Last DATA symbol.
 
-                time.sleep(3)  # Buffer time for viewing/debug purposes.
+                    # Overlapping adjacent DATA symbols.
+                    ofdm_data = [0]
+                    for i in range(self._n_symbols):
+                        ofdm_data[-1] += self._data_symbols[i][0]  # Overlap.
+                        ofdm_data += self._data_symbols[i][1:]     # Rest of the symbol.
+                    self._data = ofdm_data
 
                 # Confirm DATA.
-                self._status = "IDLE"  # Status update.
                 self.send(primitive="PHY-DATA.confirm", data=[])
             case "PHY-TXEND.request":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
-                self._status = "BUSY"  # Status update.
 
                 log.info("Generating PPDU")
                 self._ppdu = self.generate_ppdu()
                 self._rf_frame_tx = self.generate_rf_signal()
 
-                time.sleep(3)  # Buffer time for viewing/debug purposes.
+                time.sleep(1)  # Buffer time for viewing/debug purposes.
 
-                self._status = "IDLE"  # Status update.
+                # Confirm TXEND.
                 self.send(primitive="PHY-TXEND.confirm", data=[])
 
     @property
@@ -194,6 +203,15 @@ class PHY:
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
         # Number of full symbols (that can hold the SERVICE, data and TAIL).
         self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
+        self._n_data = self._n_symbols * self._n_dbps
+        self._pad_bits = self._n_data - (16 + 8 * self._length + 6)
+
+        self._data_buffer = 16 * [0]  # Initialized with SERVICE field only.
+        self._data_symbols = []
+        self._lfsr_sequence = self.generate_lfsr_sequence(sequence_length=self._n_data, seed=93)  # TODO: Randomize.
+        self._length_counter = self._tx_vector[1]
+        self._pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
+        self._pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
 
     # Transmitter side #
 
@@ -242,8 +260,8 @@ class PHY:
         time_vector = np.arange(len(self._ppdu)) * (1 / 20e6)  # 20[MHz] sampling rate.
 
         # Calculating the baseband RF signal vector, I * cos(2pi*fc*t) - Q * sin(2pi*fc*t)
-        rf_signal = (np.real(self._ppdu) * np.cos(2 * np.pi * self._band * time_vector) -
-                     np.imag(self._ppdu) * np.sin(2 * np.pi * self._band * time_vector))
+        rf_signal = (np.real(self._ppdu) * np.cos(2 * np.pi * 2.4e9 * time_vector) -
+                     np.imag(self._ppdu) * np.sin(2 * np.pi * 2.4e9 * time_vector))
 
         return rf_signal
 
@@ -344,117 +362,126 @@ class PHY:
 
     # DATA (symbol count depends on length) #
 
-    def generate_data_symbols(self) -> list[complex]:
+    def generate_data_symbol(self, is_last_symbol: bool):
         """
-        Append the PSDU to the SERVICE field of the TXVECTOR. Extend the resulting bit string with zero bits (at least 6
-        bits) so that the resulting length is a multiple of n_dbps. The resulting bit string constitutes the DATA field
-        of the PPDU.
-        initiate the scrambler with a pseudorandom nonzero seed and generate a scrambling sequence. XOR the scrambling
-        sequence with the extended string of data bits.
-        Replace the six scrambled zero bits following the data with six non-scrambled zero bits (those bits return the
-        convolutional encoder to the zero state and are denoted as tail bits).
-        Encode the extended, scrambled data string with a convolutional encoder (R = 1/2). Omit (puncture) some of the
-        encoder output string (chosen according to “puncturing pattern”) to reach the “coding rate” corresponding to the
-        TXVECTOR parameter RATE.
-        Divide the encoded bit string into groups of n_cbps bits. Within each group, perform an “interleaving”
-        (reordering) of the bits according to a rule corresponding to the TXVECTOR parameter RATE.
-        Divide the resulting coded and interleaved data string into groups of n_bpsc bits. For each of the bit groups,
-        convert the bit group into a complex number according to the modulation encoding tables.
-        Divide the complex number string into groups of 48 complex numbers. Each such group is associated with one OFDM
-        symbol. In each group, the complex numbers are numbered 0 to 47 and mapped hereafter into OFDM subcarriers
-        numbered –26 to –22, –20 to –8, –6 to –1, 1 to 6, 8 to 20, and 22 to 26. The subcarriers –21, –7, 7, and 21 are
-        skipped and, subsequently, used for inserting pilot subcarriers. The 0 subcarrier, associated with center
-        frequency, is omitted and filled with the value 0.
-        Four subcarriers are inserted as pilots into positions –21, –7, 7, and 21. The total number of the subcarriers
-        is 52 (48 + 4).
-        For each group of subcarriers –26 to 26, convert the subcarriers to time domain using inverse Fourier transform.
-        Prepend to the Fourier-transformed waveform a circular extension of itself thus forming a GI, and truncate the
-        resulting periodic waveform to a single OFDM symbol length by applying time domain windowing.
-
-        :return: List of complex values representing the DATA in the time domain.
+        TODO: Complete the docstring.
         """
 
-        # Delineating, SERVICE field prepending, and zero padding.
-        log.debug("Generating SERVICE field")
-        service_field = 16 * [0]
-        log.debug("Generating tail")
-        tail = 6 * [0]
-        log.debug("Generating zero padding bits")
-        pad_bits = self.calculate_padding_bits()
-        zero_padding = pad_bits * [0]
-        data = service_field + self._psdu + tail + zero_padding
+        # Scrambling.
+        scrambled_data = [a ^ b for a, b in zip(self._lfsr_sequence, self._data_buffer)]
+        self._lfsr_sequence = self._lfsr_sequence[len(self._data_buffer):]  # Remove used LFSR bits.
+        if is_last_symbol:
+            # Nullifying the TAIL bits.
+            scrambled_data[-self._pad_bits - 6: -self._pad_bits] = 6 * [0]
 
-        log.debug("Scrambling all DATA bits")
-        scrambled_data = self.scramble(bits=data, seed=93)  # TODO: Should be a pseudo-random number generated by MAC.
-
-        log.debug("Nullifying the TAIL bits")
-        # The PPDU TAIL field is produced by replacing six scrambled zero bits following the message end with six
-        # non-scrambled zero bits.
-        scrambled_data[-pad_bits - 6: -pad_bits] = tail
-
-        log.debug(f"Encoding all DATA bits")
+        # Encoding.
         encoded_data = self.bcc_encode(bits=scrambled_data, coding_rate=self._data_coding_rate)
 
-        log.debug("Dividing the DATA into OFDM symbols")
-        symbols = [encoded_data[self._n_cbps * i: self._n_cbps * (i+1)] for i in range(self._n_symbols)]
+        # Interleaving.
+        interleaved_data = self.interleave(bits=encoded_data, phy_rate=self._phy_rate)
 
-        log.debug("Generating the pilot polarity sequence")
-        pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
-        pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
+        # Modulation.
+        modulated_symbol = self.subcarrier_modulation(bits=interleaved_data, phy_rate=self._phy_rate)
 
-        time_domain_symbols = []
-        i = 1  # Symbol counter, for debugging purposes.
-        for symbol in symbols:
-            log.info(f"DATA symbol #{i}")
+        # Pilot subcarrier insertion.
+        frequency_domain_symbol = self.pilot_subcarrier_insertion(
+                        modulated_subcarriers=modulated_symbol,
+                        pilot_polarity=self._pilot_polarity_sequence[self._pilot_polarity_index])
+        self._pilot_polarity_index += 1  # Increment pilot polarity index.
 
-            log.debug(f"Interleaving DATA symbol #{i}")
-            interleaved_symbol = self.interleave(bits=symbol, phy_rate=self._phy_rate)
+        # Time domain.
+        return self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
 
-            log.debug(f"Modulating DATA symbol #{i}")
-            modulated_symbol = self.subcarrier_modulation(bits=interleaved_symbol, phy_rate=self._phy_rate)
 
-            log.debug(f"Pilot subcarrier insertion for DATA symbol #{i}")
-            frequency_domain_symbol = self.pilot_subcarrier_insertion(
-                modulated_subcarriers=modulated_symbol,
-                pilot_polarity=pilot_polarity_sequence[pilot_polarity_index])
-            pilot_polarity_index += 1  # Increment pilot polarity index.
-
-            log.debug(f"Converting DATA symbol #{i} to time domain")
-            time_domain_symbols.append(
-                self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
-            )
-
-            i += 1  # Increment symbol counter.
-
-        log.debug("Overlapping adjacent DATA symbols")
-        ofdm_data = [0]
-        for i in range(self._n_symbols):
-            ofdm_data[-1] += time_domain_symbols[i][0]  # Overlap.
-            ofdm_data += time_domain_symbols[i][1:]     # Rest of the symbol.
-
-        return ofdm_data
-
-    def calculate_padding_bits(self) -> int:
-        """
-        The number of bits in the DATA field shall be a multiple of Ncbps, the number of coded bits in an OFDM symbol
-        (48, 96, 192, or 288 bits). To achieve that, the length of the message is extended so that it becomes a multiple
-        of Ndbps, the number of data bits per OFDM symbol. At least 6 bits are appended to the message, in order to
-        accommodate the TAIL bits. The number of OFDM symbols, Nsym; the number of bits in the DATA field, Ndata; and
-        the number of pad bits, Npad, are computed from the length of the PSDU (LENGTH in octets).
-        The appended bits (“pad bits”) are set to 0 and are subsequently scrambled with the rest of the bits in the DATA
-        field.
-
-        Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.4 Pad bits (PAD), p. 2816-2817.
-
-        :return: Number of padding bits required to complete an OFDM symbol.
-        """
-
-        # Calculating the amount of pad bits necessary so that it becomes a multiple of Ndbps, the number of data bits
-        # per OFDM symbol.
-        n_data = self._n_symbols * self._n_dbps  # Number of bits in the DATA (full symbols).
-        n_pad = n_data - (16 + 8 * self._length + 6)  # Number of PAD bits (for full symbols).
-        log.debug(f"Zero padding bits - {n_pad}")
-        return n_pad
+    # def generate_data_symbols(self) -> list[complex]:
+    #     """
+    #     Append the PSDU to the SERVICE field of the TXVECTOR. Extend the resulting bit string with zero bits (at least 6
+    #     bits) so that the resulting length is a multiple of n_dbps. The resulting bit string constitutes the DATA field
+    #     of the PPDU.
+    #     initiate the scrambler with a pseudorandom nonzero seed and generate a scrambling sequence. XOR the scrambling
+    #     sequence with the extended string of data bits.
+    #     Replace the six scrambled zero bits following the data with six non-scrambled zero bits (those bits return the
+    #     convolutional encoder to the zero state and are denoted as tail bits).
+    #     Encode the extended, scrambled data string with a convolutional encoder (R = 1/2). Omit (puncture) some of the
+    #     encoder output string (chosen according to “puncturing pattern”) to reach the “coding rate” corresponding to the
+    #     TXVECTOR parameter RATE.
+    #     Divide the encoded bit string into groups of n_cbps bits. Within each group, perform an “interleaving”
+    #     (reordering) of the bits according to a rule corresponding to the TXVECTOR parameter RATE.
+    #     Divide the resulting coded and interleaved data string into groups of n_bpsc bits. For each of the bit groups,
+    #     convert the bit group into a complex number according to the modulation encoding tables.
+    #     Divide the complex number string into groups of 48 complex numbers. Each such group is associated with one OFDM
+    #     symbol. In each group, the complex numbers are numbered 0 to 47 and mapped hereafter into OFDM subcarriers
+    #     numbered –26 to –22, –20 to –8, –6 to –1, 1 to 6, 8 to 20, and 22 to 26. The subcarriers –21, –7, 7, and 21 are
+    #     skipped and, subsequently, used for inserting pilot subcarriers. The 0 subcarrier, associated with center
+    #     frequency, is omitted and filled with the value 0.
+    #     Four subcarriers are inserted as pilots into positions –21, –7, 7, and 21. The total number of the subcarriers
+    #     is 52 (48 + 4).
+    #     For each group of subcarriers –26 to 26, convert the subcarriers to time domain using inverse Fourier transform.
+    #     Prepend to the Fourier-transformed waveform a circular extension of itself thus forming a GI, and truncate the
+    #     resulting periodic waveform to a single OFDM symbol length by applying time domain windowing.
+    #
+    #     :return: List of complex values representing the DATA in the time domain.
+    #     """
+    #
+    #     # Delineating, SERVICE field prepending, and zero padding.
+    #     log.debug("Generating SERVICE field")
+    #     service_field = 16 * [0]
+    #     log.debug("Generating tail")
+    #     tail = 6 * [0]
+    #     log.debug("Generating zero padding bits")
+    #     pad_bits = self.calculate_padding_bits()
+    #     zero_padding = pad_bits * [0]
+    #     data = service_field + self._psdu + tail + zero_padding
+    #
+    #     log.debug("Scrambling all DATA bits")
+    #     scrambled_data = self.scramble(bits=data, seed=93)  # TODO: Should be a pseudo-random number generated by MAC.
+    #
+    #     log.debug("Nullifying the TAIL bits")
+    #     # The PPDU TAIL field is produced by replacing six scrambled zero bits following the message end with six
+    #     # non-scrambled zero bits.
+    #     scrambled_data[-pad_bits - 6: -pad_bits] = tail
+    #
+    #     log.debug(f"Encoding all DATA bits")
+    #     encoded_data = self.bcc_encode(bits=scrambled_data, coding_rate=self._data_coding_rate)
+    #
+    #     log.debug("Dividing the DATA into OFDM symbols")
+    #     symbols = [encoded_data[self._n_cbps * i: self._n_cbps * (i+1)] for i in range(self._n_symbols)]
+    #
+    #     log.debug("Generating the pilot polarity sequence")
+    #     pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
+    #     pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
+    #
+    #     time_domain_symbols = []
+    #     i = 1  # Symbol counter, for debugging purposes.
+    #     for symbol in symbols:
+    #         log.info(f"DATA symbol #{i}")
+    #
+    #         log.debug(f"Interleaving DATA symbol #{i}")
+    #         interleaved_symbol = self.interleave(bits=symbol, phy_rate=self._phy_rate)
+    #
+    #         log.debug(f"Modulating DATA symbol #{i}")
+    #         modulated_symbol = self.subcarrier_modulation(bits=interleaved_symbol, phy_rate=self._phy_rate)
+    #
+    #         log.debug(f"Pilot subcarrier insertion for DATA symbol #{i}")
+    #         frequency_domain_symbol = self.pilot_subcarrier_insertion(
+    #             modulated_subcarriers=modulated_symbol,
+    #             pilot_polarity=pilot_polarity_sequence[pilot_polarity_index])
+    #         pilot_polarity_index += 1  # Increment pilot polarity index.
+    #
+    #         log.debug(f"Converting DATA symbol #{i} to time domain")
+    #         time_domain_symbols.append(
+    #             self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
+    #         )
+    #
+    #         i += 1  # Increment symbol counter.
+    #
+    #     log.debug("Overlapping adjacent DATA symbols")
+    #     ofdm_data = [0]
+    #     for i in range(self._n_symbols):
+    #         ofdm_data[-1] += time_domain_symbols[i][0]  # Overlap.
+    #         ofdm_data += time_domain_symbols[i][1:]     # Rest of the symbol.
+    #
+    #     return ofdm_data
 
     # Coding (scrambling, encoding, interleaving, mapping, modulation, time domain) #
 
@@ -1076,7 +1103,7 @@ class PHY:
                 break
 
         log.debug("Removing SERVICE, TAIL and padding bits")
-        return descrambled_data[16:-6-self.calculate_padding_bits()]
+        return descrambled_data[16:-6-self._pad_bits]
 
     # Decoding (frequency domain, demodulation, demapping, deinterleaving, decoding, descrambling) #
 

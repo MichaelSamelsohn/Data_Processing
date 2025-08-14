@@ -269,28 +269,6 @@ def test_generate_signal_field(phy_rate, length):
     assert signal_field[18:] == 6 * [0]                                                          # Assert SIGNAL TAIL.
 
 
-def test_calculate_padding_bits():
-    """
-    Test purpose - Pad bits calculation correctness based on reference [*].
-    Criteria - Calculated value is equal to reference value.
-
-    Test steps:
-    1) Calculate the padding bits necessary.
-    2) Assert that calculated value is equal to reference.
-
-    [*]-IEEE Std 802.11-2020 OFDM PHY specification, I.1.5.1 Delineating, SERVICE field prepending, and zero padding,
-    p. 4160.
-    """
-
-    # Steps (1)+(2) - Calculate number of padding bits and assert that it's equal to reference value.
-    phy = PHY(host=HOST, port=PORT, is_stub=True)
-    phy._length = 100
-    phy._n_dbps = 144
-    phy._n_symbols = 6
-
-    assert phy.calculate_padding_bits() == 42
-
-
 @pytest.mark.parametrize(
     "sequence_length, expected_lfsr_sequence",
     [
