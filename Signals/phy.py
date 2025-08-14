@@ -838,7 +838,7 @@ class PHY:
 
     def receive_frame(self, baseband_signal: list[complex]):
         """
-        Processes an incoming RF signal to detect and decode a data frame.
+        Processes an incoming RF baseband signal to detect and decode a data frame.
 
         This method performs several key steps:
         1. Detects the start of a frame using Short Training Field (STF) correlation.
@@ -873,6 +873,8 @@ class PHY:
             return self.decipher_data(data=baseband_signal[index + 400:])
         else:
             return None
+
+    # PHY preamble - STF, LTF - 12 symbols #
 
     def detect_frame(self, baseband_signal: list[complex]):
         """
@@ -938,6 +940,8 @@ class PHY:
 
         return safe_channel_estimate
 
+    # SIGNAL - 1 OFDM symbol #
+
     def decode_signal(self, signal: list[complex]):
         """
         Decodes a received time-domain signal symbol and extracts the physical (PHY) data rate and the data length
@@ -1000,6 +1004,8 @@ class PHY:
 
         return phy_rate, int("".join(map(str, length)), 2)
 
+    # DATA (symbol count depends on length) #
+
     def decipher_data(self, data: list[complex]):
         """
         Processes a received OFDM signal and extracts the original transmitted data.
@@ -1050,6 +1056,8 @@ class PHY:
 
         # Remove SERVICE, TAIL and padding bits.
         return descrambled_data[16:-6-self.calculate_padding_bits()]
+
+    # Decoding (frequency domain, demodulation, demapping, deinterleaving, decoding, descrambling) #
 
     @staticmethod
     def hard_decision_demapping(equalized_symbol: list[complex], modulation: str) -> list[int]:
