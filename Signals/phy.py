@@ -927,7 +927,28 @@ class PHY:
 
     def decode_signal(self, signal):
         """
-        TODO: Complete the docstring.
+        Decodes a received time-domain signal symbol and extracts the physical (PHY) data rate and the data length
+        field, based on the IEEE 802.11a/g SIGNAL field decoding process.
+
+        The decoding process includes the following steps:
+            1. Converts the time-domain OFDM symbol (with guard interval removed) to the frequency domain using FFT.
+            2. Applies equalization using the known channel estimate.
+            3. Performs BPSK demapping with hard decision to recover interleaved bits.
+            4. Deinterleaves the bits based on the known PHY rate (assumed to be 6 Mbps at this stage).
+            5. Uses Viterbi decoding to recover the convolutionally encoded data at coding rate 1/2.
+            6. Performs a parity check on the first 18 bits to validate integrity.
+            7. Extracts the RATE field (first 4 bits) and maps it to a known PHY rate.
+            8. Extracts the LENGTH field (12 bits), reverses bit order (MSB last), and converts to integer.
+
+        :param signal: Time-domain OFDM symbol with the guard interval removed.
+
+        :return: Tuple with the following values,
+            - phy_rate (int or str): The PHY data rate corresponding to the SIGNAL field coding, or None if invalid.
+            - length (int): The LENGTH field decoded from the SIGNAL data, or None if parity or rate is invalid.
+
+        Notes:
+            - If the parity check fails or the PHY rate is invalid, the function returns (None, None).
+            - Assumes initial PHY rate of 6 Mbps for decoding the SIGNAL field (per IEEE 802.11 standard).
         """
 
         # SIGNAL FFT (with removed GI).
@@ -968,7 +989,20 @@ class PHY:
 
     def decipher_data(self, signal):
         """
-        TODO: Complete the docstring.
+        Processes a received OFDM signal and extracts the original transmitted data.
+
+        This method performs the following operations in sequence:
+            1. Converts the time-domain signal to frequency domain via FFT (after removing Guard Intervals).
+            2. Equalizes the signal using a known channel estimate.
+            3. Demaps the equalized symbols into bits based on the modulation scheme.
+            4. Deinterleaves the bits using the specified PHY data rate.
+            5. Decodes the bits using Viterbi decoding with a given convolutional code rate.
+            6. Descrambles the decoded bits by identifying the correct scrambler seed.
+            7. Removes the SERVICE field, TAIL bits, and any padding bits from the descrambled data.
+
+        :param signal: The received time-domain OFDM signal containing multiple symbols.
+
+        :return: The final list of recovered data bits after complete decoding and cleanup.
         """
 
         deinterleaved_data = []
@@ -1011,8 +1045,7 @@ class PHY:
         :param equalized_symbol: Equalized complex OFDM symbols.
         :param modulation: Modulation scheme. Options: 'BPSK', 'QPSK', '16-QAM', '64-QAM'.
 
-        Returns:
-            np.ndarray: Array of demapped bits (0s and 1s).
+        :return: Array of demapped bits (0s and 1s).
         """
 
         # Remove pilot sub-carriers.
@@ -1073,7 +1106,21 @@ class PHY:
 
     def deinterleave(self, bits, phy_rate):
         """
-        TODO: Complete the docstring.
+        Perform deinterleaving on a sequence of bits according to the specified PHY rate.
+
+        Deinterleaving reverses the interleaving process applied during transmission in IEEE 802.11 standards to
+        mitigate the effects of burst errors. This function uses the modulation and coding scheme (MCS) parameters
+        associated with the given PHY rate to correctly reorder the input bits.
+
+        The deinterleaving process consists of two permutation steps:
+        1. Reverse the second permutation (per IEEE 802.11 interleaving definition).
+        2. Reverse the first permutation to recover the original order before interleaving.
+
+        :param bits: The interleaved bitstream as a list of binary values (0s and 1s).
+        :param phy_rate: The physical layer data rate (e.g., '6Mbps', '54Mbps') used to look up the corresponding
+        modulation and coding scheme parameters.
+
+        :return: The deinterleaved bitstream as a list of binary values.
         """
 
         mcs = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]
@@ -1205,7 +1252,18 @@ class PHY:
 
     def convert_to_frequency_domain(self, time_domain_symbol):
         """
-        TODO: Complete the docstring.
+        Converts a time-domain OFDM symbol to its frequency-domain representation.
+
+        This function performs an FFT on the last 64 samples of the input time-domain symbol, which corresponds to one
+        full OFDM symbol duration (including cyclic prefix removal, if applicable). It then reorders the FFT output to
+        arrange the subcarriers in the correct frequency order (typically used in systems like IEEE 802.11).
+
+        Subcarrier mapping:
+            - frequency_symbol[38:] corresponds to negative frequency subcarriers [-26 to -1]
+            - frequency_symbol[1:27] corresponds to positive frequency subcarriers [+1 to +26]
+            - DC subcarrier (frequency_symbol[0]) is omitted
+
+        :return: A list of complex numbers representing the reordered frequency-domain subcarriers.
         """
 
         # Using only last 64 samples for FFT.
