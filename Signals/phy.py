@@ -530,7 +530,7 @@ class PHY:
         return lfsr_sequence
 
     @staticmethod
-    def bcc_encode(bits: list[int], coding_rate='1/2') -> list[int]:
+    def bcc_encode(bits: list[int], coding_rate: str) -> list[int]:
         """
         The convolutional encoder shall use the industry-standard generator polynomials, G1 = int('133', 8) and
         G2 = int('171', 8), of rate R = 1/2.
@@ -836,37 +836,50 @@ class PHY:
 
     # Receiver side #
 
-    def receive_frame(self, rf_signal):
+    def receive_frame(self, baseband_signal: list[complex]):
         """
-        TODO: Complete the docstring.
+        Processes an incoming RF signal to detect and decode a data frame.
+
+        This method performs several key steps:
+        1. Detects the start of a frame using Short Training Field (STF) correlation.
+        2. Estimates the wireless channel using the Long Training Field (LTF).
+        3. Decodes the SIGNAL field to extract the physical layer rate and frame length.
+        4. Attempts to decode the data payload using the estimated channel and transmission parameters.
+
+        :param baseband_signal: The raw complex baseband samples of the received RF signal.
+
+        :return: The decoded data payload if frame detection and decoding are successful; otherwise, returns None.
+
+        Notes
+            - If the frame is not detected (e.g. due to low correlation), the function returns None.
+            - If SIGNAL field decoding fails (e.g. corrupted header), the function also returns None.
+            - This method assumes the frame structure follows a standard format:
+              [STF | LTF | SIGNAL | DATA].
         """
 
         # Detect frame using STF correlation.
-        index = self.detect_frame(signal=rf_signal)
+        index = self.detect_frame(baseband_signal=baseband_signal)
         if not index:  # Frame detected
             # Channel estimation using LTF.
-            self._channel_estimate = self.channel_estimation(time_domain_ltf=rf_signal[index + 160: index + 320])
+            self._channel_estimate = self.channel_estimation(time_domain_ltf=baseband_signal[index + 160: index + 320])
 
             # Extract RATE and LENGTH from SIGNAL.
-            phy_rate, length = self.decode_signal(rf_signal[index + 320: index + 400])
+            phy_rate, length = self.decode_signal(baseband_signal[index + 320: index + 400])
             if phy_rate is None:
-                return False
+                return None
             self.tx_vector = [phy_rate, length]
 
             # Decipher data symbols.
-            data = self.decipher_data(signal=rf_signal[index + 400:])
-
-            return data
+            return self.decipher_data(data=baseband_signal[index + 400:])
         else:
-            return False
+            return None
 
-
-    def detect_frame(self, signal):
+    def detect_frame(self, baseband_signal: list[complex]):
         """
         Compute the correlation between a given signal and the known Short Training Field (STF) sequence in the time
         domain to detect the presence and location of the STF in the signal.
 
-        :param signal: The input complex baseband signal (1D array) in which to search for the STF.
+        :param baseband_signal: The input complex baseband signal (1D array) in which to search for the STF.
 
         :return: The index of the highest correlation peak (i.e., estimated start of the STF) if the correlation exceeds
         the threshold, otherwise None.
@@ -879,7 +892,7 @@ class PHY:
         """
 
         # Calculating the correlation.
-        correlation = np.correlate(signal, np.flip(np.array(self.convert_to_time_domain(
+        correlation = np.correlate(baseband_signal, np.flip(np.array(self.convert_to_time_domain(
             ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')).conj()), mode='valid')
         correlation_magnitude = np.abs(correlation)
 
@@ -925,7 +938,7 @@ class PHY:
 
         return safe_channel_estimate
 
-    def decode_signal(self, signal):
+    def decode_signal(self, signal: list[complex]):
         """
         Decodes a received time-domain signal symbol and extracts the physical (PHY) data rate and the data length
         field, based on the IEEE 802.11a/g SIGNAL field decoding process.
@@ -966,7 +979,7 @@ class PHY:
         encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=6)
 
         # Decoding.
-        signal_data = self.convolutional_decode_viterbi(received_bits=encoded_signal_symbol, rate='1/2')
+        signal_data = self.convolutional_decode_viterbi(received_bits=encoded_signal_symbol, coding_rate='1/2')
 
         # Checking parity.
         if not np.sum(signal_data[:18]) % 2 == 0:
@@ -987,7 +1000,7 @@ class PHY:
 
         return phy_rate, int("".join(map(str, length)), 2)
 
-    def decipher_data(self, signal):
+    def decipher_data(self, data: list[complex]):
         """
         Processes a received OFDM signal and extracts the original transmitted data.
 
@@ -1000,7 +1013,7 @@ class PHY:
             6. Descrambles the decoded bits by identifying the correct scrambler seed.
             7. Removes the SERVICE field, TAIL bits, and any padding bits from the descrambled data.
 
-        :param signal: The received time-domain OFDM signal containing multiple symbols.
+        :param data: The received time-domain OFDM DATA containing multiple symbols.
 
         :return: The final list of recovered data bits after complete decoding and cleanup.
         """
@@ -1008,7 +1021,7 @@ class PHY:
         deinterleaved_data = []
         for i in range(self._n_symbols):
             # DATA FFT (with removed GI).
-            frequency_domain_data_symbol = self.convert_to_frequency_domain(signal[80*i: 80*(i+1)])
+            frequency_domain_data_symbol = self.convert_to_frequency_domain(data[80 * i: 80 * (i + 1)])
 
             # Performing equalization based on the channel estimate.
             equalized_signal_symbol = np.array(frequency_domain_data_symbol) / self._channel_estimate
@@ -1024,7 +1037,7 @@ class PHY:
             deinterleaved_data += encoded_signal_symbol
 
         # Decoding.
-        decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data, rate=self._data_coding_rate)
+        decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data, coding_rate=self._data_coding_rate)
 
         # Descrambling.
         descrambled_data = []
@@ -1038,7 +1051,8 @@ class PHY:
         # Remove SERVICE, TAIL and padding bits.
         return descrambled_data[16:-6-self.calculate_padding_bits()]
 
-    def hard_decision_demapping(self, equalized_symbol, modulation: str):
+    @staticmethod
+    def hard_decision_demapping(equalized_symbol: list[complex], modulation: str) -> list[int]:
         """
         Perform hard decision de-mapping on equalized symbols for various modulation schemes.
 
@@ -1104,7 +1118,8 @@ class PHY:
 
         return bits
 
-    def deinterleave(self, bits, phy_rate):
+    @staticmethod
+    def deinterleave(bits: list[int], phy_rate: int) -> list[int]:
         """
         Perform deinterleaving on a sequence of bits according to the specified PHY rate.
 
@@ -1142,7 +1157,8 @@ class PHY:
 
         return deinterleaved
 
-    def convolutional_decode_viterbi(self, received_bits, rate='1/2'):
+    @staticmethod
+    def convolutional_decode_viterbi(received_bits: list[int], coding_rate: str):
         """
         Perform Viterbi decoding on a bitstream encoded with the 802.11 convolutional encoder.
 
@@ -1152,7 +1168,7 @@ class PHY:
         Args:
             received_bits (list of int): The received hard-decision bits (0 or 1), possibly punctured
                                          depending on the coding rate.
-            rate (str): Coding rate. Supported values:
+            coding_rate (str): Coding rate. Supported values:
                         - '1/2': No puncturing (default)
                         - '2/3': Puncturing pattern 1101 (remove 4th bit in every 4)
                         - '3/4': Puncturing pattern 111001 (remove 4th and 5th bits in every 6)
@@ -1174,7 +1190,7 @@ class PHY:
             '3/4': [1, 1, 1, 0, 0, 1]  # Transmit 4 of every 6 bits
         }
 
-        pattern = puncturing_patterns[rate]
+        pattern = puncturing_patterns[coding_rate]
         pattern_len = len(pattern)
 
         # Get encoder polynomials
@@ -1250,7 +1266,8 @@ class PHY:
         best_state = np.argmin(path_metrics)
         return paths[best_state]
 
-    def convert_to_frequency_domain(self, time_domain_symbol):
+    @staticmethod
+    def convert_to_frequency_domain(time_domain_symbol: list[complex]) -> list[complex]:
         """
         Converts a time-domain OFDM symbol to its frequency-domain representation.
 
