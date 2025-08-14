@@ -43,23 +43,18 @@ FREQUENCY_DOMAIN_LTF = [
 
 
 class PHY:
-    def __init__(self, host, port, debug_mode=True, is_stub=False):
+    def __init__(self, host, port, is_stub=False):
         log.info("Establishing PHY layer")
 
-        self._debug_mode = debug_mode
         self._is_stub = is_stub
         if not self._is_stub:
-            log.debug("PHY connecting to MPIF socket")
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((host, port))
+            self._host = host
+            self._port = port
+            self._socket = None
+            self.mpif_connection()
 
-            log.debug("PHY sending ID to MPIF")
-            self.send(primitive="PHY", data=[])
-
-            # Start listener thread.
-            threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages.
-            self._status = "IDLE"
+        # General parameters #
+        self._status = None
 
         self._psdu = None
 
@@ -81,18 +76,37 @@ class PHY:
         self._signal = None
         self._data = None
         self._ppdu = None
-        self._rf_signal_tx = None
+
+        # Transmitter parameters #
+        self._rf_frame_tx = None
+
+        # Receiver parameters #
+        self._channel_estimate = None
+
+    def mpif_connection(self):
+        if not self._is_stub:
+            log.debug("PHY connecting to MPIF socket")
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.connect((self._host, self._port))
+
+            log.debug("PHY sending ID to MPIF")
+            self.send(primitive="PHY", data=[])
+
+            # Start listener thread.
+            threading.Thread(target=self.listen, daemon=True).start()
+            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+            self._status = "IDLE"
 
     def send(self, primitive, data):
         if not self._is_stub:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-            self.socket.sendall(message.encode())
+            self._socket.sendall(message.encode())
 
     def listen(self):
         if not self._is_stub:
             try:
                 while True:
-                    message = self.socket.recv(16384)
+                    message = self._socket.recv(16384)
                     if message:
                         # Unpacking the message.
                         message = json.loads(message.decode())
@@ -107,7 +121,7 @@ class PHY:
             except Exception as e:
                 print(f"PHY listen error: {e}")
             finally:
-                self.socket.close()
+                self._socket.close()
 
     def controller(self, primitive, data):
         """
@@ -153,7 +167,7 @@ class PHY:
 
                 log.info("Generating PPDU")
                 self._ppdu = self.generate_ppdu()
-                self._rf_signal_tx = self.generate_rf_signal()
+                self._rf_frame_tx = self.generate_rf_signal()
 
                 time.sleep(3)  # Buffer time for viewing/debug purposes.
 
