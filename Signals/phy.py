@@ -458,44 +458,6 @@ class PHY:
 
     # Coding (scrambling, encoding, interleaving, mapping, modulation, time domain) #
 
-    @staticmethod
-    def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
-        """
-        LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
-        state. The initial value of the LFSR is called the seed, and because the operation of the register is
-        deterministic, the stream of values produced by the register is completely determined by its current (or
-        previous) state. Likewise, because the register has a finite number of possible states, it must eventually enter
-        a repeating cycle. The LFSR used in WiFi communications is as follows (as specified in 'Reference'):
-
-                       -----------------------------> XOR (Feedback bit) -----------------------------------
-                       |                               ^                                                   |
-                       |                               |                                                   |
-                    +----+      +----+      +----+     |    +----+      +----+      +----+      +----+     |
-                    | X7 |<-----| X6 |<-----| X5 |<---------| X4 |<-----| X3 |<-----| X2 |<-----| X1 |<-----
-                    +----+      +----+      +----+          +----+      +----+      +----+      +----+
-
-        Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817.
-
-        :param sequence_length: Sequence length.
-        :param seed: Initial 7-bit seed for LFSR (non-zero).
-
-        :return: LFSR sequence.
-        """
-
-        lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
-        log.debug(f"Selected LFSR seed ({seed}) - {lfsr_state}")
-        lfsr_sequence = []
-
-        for _ in range(sequence_length):
-            # Calculate the feedback bit.
-            feedback = lfsr_state[6] ^ lfsr_state[3]  # x^7 XOR x^4.
-            # append feedback bit.
-            lfsr_sequence.append(feedback)
-            # Shift registers.
-            lfsr_state = [feedback] + lfsr_state[:-1]
-
-        return lfsr_sequence
-
     def scramble(self, bits: list[int], seed=93) -> list[int]:
         """
         The DATA field, composed of SERVICE, PSDU, tail, and pad parts, shall be scrambled with a length-127
@@ -525,10 +487,47 @@ class PHY:
         :return: List of scrambled data bits.
         """
 
-        log.debug("Generating LFSR sequence matching the length of the data bits")
+        # Generating LFSR sequence matching the length of the data bits.
         lfsr_sequence = self.generate_lfsr_sequence(sequence_length=len(bits), seed=seed)
-        log.debug("XORing input bits with LFSR sequence")
+        # XORing input bits with LFSR sequence.
         return [a ^ b for a, b in zip(lfsr_sequence, bits)]
+
+    @staticmethod
+    def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
+        """
+        LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
+        state. The initial value of the LFSR is called the seed, and because the operation of the register is
+        deterministic, the stream of values produced by the register is completely determined by its current (or
+        previous) state. Likewise, because the register has a finite number of possible states, it must eventually enter
+        a repeating cycle. The LFSR used in WiFi communications is as follows (as specified in 'Reference'):
+
+                       -----------------------------> XOR (Feedback bit) -----------------------------------
+                       |                               ^                                                   |
+                       |                               |                                                   |
+                    +----+      +----+      +----+     |    +----+      +----+      +----+      +----+     |
+                    | X7 |<-----| X6 |<-----| X5 |<---------| X4 |<-----| X3 |<-----| X2 |<-----| X1 |<-----
+                    +----+      +----+      +----+          +----+      +----+      +----+      +----+
+
+        Reference - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.5 PHY DATA scrambler and descrambler, p. 2817.
+
+        :param sequence_length: Sequence length.
+        :param seed: Initial 7-bit seed for LFSR (non-zero).
+
+        :return: LFSR sequence.
+        """
+
+        lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
+        lfsr_sequence = []
+
+        for _ in range(sequence_length):
+            # Calculate the feedback bit.
+            feedback = lfsr_state[6] ^ lfsr_state[3]  # x^7 XOR x^4.
+            # append feedback bit.
+            lfsr_sequence.append(feedback)
+            # Shift registers.
+            lfsr_state = [feedback] + lfsr_state[:-1]
+
+        return lfsr_sequence
 
     @staticmethod
     def bcc_encode(bits: list[int], coding_rate='1/2') -> list[int]:
