@@ -836,7 +836,32 @@ class PHY:
 
     # Receiver side #
 
-    def stf_correlation(self, signal):
+    def receive_frame(self, rf_signal):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Detect frame using STF correlation.
+        index = self.detect_frame(signal=rf_signal)
+        if not index:  # Frame detected
+            # Channel estimation using LTF.
+            self._channel_estimate = self.channel_estimation(time_domain_ltf=rf_signal[index + 160: index + 320])
+
+            # Extract RATE and LENGTH from SIGNAL.
+            phy_rate, length = self.decode_signal(rf_signal[index + 320: index + 400])
+            if phy_rate is None:
+                return False
+            self.tx_vector = [phy_rate, length]
+
+            # Decipher data symbols.
+            data = self.decipher_data(signal=rf_signal[index + 400:])
+
+            return data
+        else:
+            return False
+
+
+    def detect_frame(self, signal):
         """
         Compute the correlation between a given signal and the known Short Training Field (STF) sequence in the time
         domain to detect the presence and location of the STF in the signal.
@@ -869,95 +894,149 @@ class PHY:
             log.debug("Correlation is too low")
             return None
 
-    def channel_estimation(self, signal: list[complex], pilot_polarity: int):
+    def channel_estimation(self, time_domain_ltf: list[complex]):
         """
-        Estimate the channel response from a received OFDM signal using pilot tones, and perform channel equalization.
+        Estimate the channel response from a received LTF signal.
 
         This function performs the following steps:
-        1. Removes the Guard Interval (GI) from the received time-domain OFDM signal.
-        2. Applies FFT to convert the signal to the frequency domain.
-        3. Reorders the subcarriers to the standard OFDM order.
-        4. Extracts pilot subcarriers from the frequency-domain signal.
-        5. Interpolates the channel response over all subcarriers using magnitude and phase.
-        6. Performs equalization by dividing the received symbol by the estimated channel response.
+        1. Applies FFT to convert the signal to the frequency domain.
+        2. Reorders the subcarriers to the standard OFDM order.
+        3. Extracts pilot subcarriers from the frequency-domain signal.
+        4. Interpolates the channel response over all subcarriers using magnitude and phase.
 
-        :param signal: The received OFDM symbol (including guard interval).
-        :param pilot_polarity: Either 1 or -1 depending on the OFDM symbol count.
+        :param time_domain_ltf: The received LTF signal.
 
-        :return: Tuple that includes,
-        - np.ndarray: Estimated channel response across all subcarriers.
-        - np.ndarray: Equalized OFDM symbol in frequency domain.
+        :return: Estimated channel response across all non-null subcarriers.
         """
 
-        log.debug("Removing GI (assuming a 16-sample guard interval)")
-        signal_without_gi = signal[16:]
-
-        log.debug("FFT to convert to frequency domain")
-        frequency_signal = list(np.fft.fft(signal_without_gi))
-
-        log.debug("Reordering subcarriers - [38:] = negative frequencies, [1:27] = positive frequencies")
-        reordered_ofdm_symbol = frequency_signal[38:] + frequency_signal[1:27]
-
-        log.debug("Extracting pilot data")
-        pilot_indices = [5, 19, 32, 46]  # Pilot subcarrier indices.
-        pilots = [reordered_ofdm_symbol[i] for i in pilot_indices]
-        original_pilots = (np.array([1, 1, 1, -1]) * pilot_polarity).tolist()
-        normalized_pilots = [a / b for a, b in zip(pilots, original_pilots)]
+        log.debug("Using second LTF for FFT (to convert to frequency domain)")
+        pilots = self.convert_to_frequency_domain(time_domain_symbol=time_domain_ltf)
+        normalized_pilots = [a / b for a, b in zip(pilots, FREQUENCY_DOMAIN_LTF)]
 
         log.debug("Separating magnitude and phase")
-        pilot_magnitudes = [np.abs(p) for p in normalized_pilots]
-        pilot_phases = [np.angle(p) for p in normalized_pilots]
-
-        log.debug("Interpolating across all subcarriers")
-        all_indices = np.arange(len(reordered_ofdm_symbol))
-        mag_interp = np.interp(all_indices, pilot_indices, pilot_magnitudes)
-        phase_interp = np.interp(all_indices, pilot_indices, pilot_phases)
+        pilot_magnitudes = np.abs(normalized_pilots)
+        pilot_phases = np.angle(normalized_pilots)
 
         log.debug("Reconstructing complex channel estimate")
-        channel_estimate = mag_interp * np.exp(1j * phase_interp)
-
-        log.debug("Performing equalization based on the chanel estimate")
-        # Avoid division by zero (or near-zero)
+        channel_estimate = pilot_magnitudes * np.exp(1j * pilot_phases)
+        # Avoid division by zero (or near-zero).
         epsilon = 1e-10
         safe_channel_estimate = np.where(np.abs(channel_estimate) < epsilon, epsilon, channel_estimate)
-        equalized_symbol = np.array(reordered_ofdm_symbol) / safe_channel_estimate
 
-        return equalized_symbol
+        return safe_channel_estimate
 
-    def hard_decision_demapping(self, equalized_symbols, modulation: str):
+    def decode_signal(self, signal):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # SIGNAL FFT (with removed GI).
+        frequency_signal_symbol = self.convert_to_frequency_domain(time_domain_symbol=signal)
+
+        # Performing equalization based on the channel estimate.
+        equalized_signal_symbol = np.array(frequency_signal_symbol) / self._channel_estimate
+        equalized_signal_symbol = equalized_signal_symbol.tolist()
+
+        # Demapping.
+        interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_signal_symbol,
+                                                                 modulation='BPSK')
+
+        # Deinterleaving.
+        encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=6)
+
+        # Decoding.
+        signal_data = self.convolutional_decode_viterbi(received_bits=encoded_signal_symbol, rate='1/2')
+
+        # Checking parity.
+        if not np.sum(signal_data[:18]) % 2 == 0:
+            return None, None  # No point to continue - Parity check failed.
+
+        # Extracting RATE.
+        signal_field_coding = signal_data[:4]
+        phy_rate = None
+        for key, params in MODULATION_CODING_SCHEME_PARAMETERS.items():
+            if params["SIGNAL_FIELD_CODING"] == signal_field_coding:
+                phy_rate = key
+        if phy_rate is None:
+            return None, None  # No point to continue - Illegal PHY rate.
+
+        # Extract LENGTH.
+        length = signal_data[5:17]
+        length = length[::-1]  # MSB is the last bit.
+
+        return phy_rate, int("".join(map(str, length)), 2)
+
+    def decipher_data(self, signal):
+        """
+        TODO: Complete the docstring.
+        """
+
+        deinterleaved_data = []
+        for i in range(self._n_symbols):
+            # DATA FFT (with removed GI).
+            frequency_domain_data_symbol = self.convert_to_frequency_domain(signal[80*i: 80*(i+1)])
+
+            # Performing equalization based on the channel estimate.
+            equalized_signal_symbol = np.array(frequency_domain_data_symbol) / self._channel_estimate
+            equalized_signal_symbol = equalized_signal_symbol.tolist()
+
+            # Demapping.
+            interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_signal_symbol,
+                                                                     modulation=self._modulation)
+
+            # Deinterleaving.
+            encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=self._phy_rate)
+
+            deinterleaved_data += encoded_signal_symbol
+
+        # Decoding.
+        decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data, rate=self._data_coding_rate)
+
+        # Descrambling.
+        descrambled_data = []
+        service_field = decoded_data[:16]
+        for seed in range(1,128):
+            if self.scramble(bits=service_field, seed=seed) == 16 * [0]:
+                # Seed found.
+                descrambled_data = self.scramble(bits=decoded_data, seed=seed)
+                break
+
+        # Remove SERVICE, TAIL and padding bits.
+        return descrambled_data[16:-6-self.calculate_padding_bits()]
+
+    def hard_decision_demapping(self, equalized_symbol, modulation: str):
         """
         Perform hard decision de-mapping on equalized symbols for various modulation schemes.
 
-        :param equalized_symbols: Equalized complex OFDM symbols.
-        :param modulation: Modulation scheme. Options: 'BPSK', 'QPSK', '16QAM', '64QAM'.
+        :param equalized_symbol: Equalized complex OFDM symbols.
+        :param modulation: Modulation scheme. Options: 'BPSK', 'QPSK', '16-QAM', '64-QAM'.
 
         Returns:
             np.ndarray: Array of demapped bits (0s and 1s).
         """
 
         # Remove pilot sub-carriers.
-        # [5, 19, 32, 46]:
-        equalized_symbols = equalized_symbols.tolist()
-        equalized_symbols = equalized_symbols[:5]+equalized_symbols[6:19]+equalized_symbols[20:32]+equalized_symbols[33:46]+equalized_symbols[47:]
+        equalized_symbol = (equalized_symbol[:5] + equalized_symbol[6:19] + equalized_symbol[20:32] +
+                            equalized_symbol[33:46] + equalized_symbol[47:])
 
         bits = []
 
         if modulation == 'BPSK':
             # Decision based on real part only
-            bits = [0 if np.real(sym) < 0 else 1 for sym in equalized_symbols]
+            bits = [0 if np.real(sym) < 0 else 1 for sym in equalized_symbol]
 
         elif modulation == 'QPSK':
             # Each symbol maps to 2 bits
-            for sym in equalized_symbols:
+            for sym in equalized_symbol:
                 real = np.real(sym)
                 imag = np.imag(sym)
                 bits.append(0 if real < 0 else 1)
                 bits.append(0 if imag < 0 else 1)
 
-        elif modulation == '16QAM':
+        elif modulation == '16-QAM':
             # Gray-coded 16-QAM constellation (real and imag both in {-3, -1, +1, +3})
             levels = [-3, -1, 1, 3]
-            for sym in equalized_symbols:
+            for sym in equalized_symbol:
                 real = np.real(sym)
                 imag = np.imag(sym)
 
@@ -970,14 +1049,14 @@ class PHY:
                 bits.extend([int(b) for b in gray[real_idx]])
                 bits.extend([int(b) for b in gray[imag_idx]])
 
-        elif modulation == '64QAM':
+        elif modulation == '64-QAM':
             # Gray-coded 64-QAM constellation (levels in {-7, -5, -3, -1, 1, 3, 5, 7})
             levels = [-7, -5, -3, -1, 1, 3, 5, 7]
             gray = [
                 '000', '001', '011', '010', '110', '111', '101', '100'
             ]  # 3-bit Gray code
 
-            for sym in equalized_symbols:
+            for sym in equalized_symbol:
                 real = np.real(sym)
                 imag = np.imag(sym)
 
@@ -990,7 +1069,7 @@ class PHY:
         else:
             raise ValueError("Unsupported modulation scheme. Choose from 'BPSK', 'QPSK', '16QAM', '64QAM'.")
 
-        return np.array(bits)
+        return bits
 
     def deinterleave(self, bits, phy_rate):
         """
@@ -1123,3 +1202,14 @@ class PHY:
         # Find the best final state (smallest metric)
         best_state = np.argmin(path_metrics)
         return paths[best_state]
+
+    def convert_to_frequency_domain(self, time_domain_symbol):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Using only last 64 samples for FFT.
+        frequency_symbol = list(np.fft.fft(time_domain_symbol[-64:]))
+
+        # Reordering subcarriers - [38:] = negative frequencies, [1:27] = positive frequencies (no DC)
+        return frequency_symbol[38:] + frequency_symbol[1:27]
