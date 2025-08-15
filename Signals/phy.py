@@ -101,7 +101,6 @@ class PHY:
             # Start listener thread.
             threading.Thread(target=self.listen, daemon=True).start()
             time.sleep(0.1)  # Allow server to read ID before sending other messages.
-            self._status = "IDLE"
 
     def send(self, primitive, data):
         if not self._is_stub:
@@ -135,8 +134,6 @@ class PHY:
         """
 
         match primitive:
-            case "PHY-STATUS":
-                self.send(primitive=self._status, data=[])
             case "PHY-TXSTART.request":
                 log.info("Updating TX vector information")
                 self.tx_vector = data

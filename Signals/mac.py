@@ -23,7 +23,6 @@ class MAC:
             # Start listener thread.
             threading.Thread(target=self.listen, daemon=True).start()
             time.sleep(0.1)  # Allow server to read ID before sending other messages.
-            self._status = "IDLE"
 
         self.phy_rate = 6  # Default value.
 
@@ -65,9 +64,6 @@ class MAC:
         """
 
         match primitive:
-            case "MAC-STATUS":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
-                self.send(primitive=self._status, data=[])
             case "PHY-TXSTART.confirm":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
                 # Start sending DATA to PHY.
