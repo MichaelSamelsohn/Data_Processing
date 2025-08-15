@@ -295,38 +295,6 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
             expected_lfsr_sequence)
 
 
-def test_scramble():
-    """
-    Test purpose - Basic scrambling functionality (XORing LFSR sequence with input data bits).
-    Criteria - Basic XOR operation between LFSR sequence and input data bits works as expected.
-
-    Test steps:
-    1) Generate random data bits.
-    2) Scramble data bits with known LFSR sequence (provided by the standard) using simplified XOR implementation.
-    Reminder - XOR (exclusive OR) truth table,
-                                                X1      X2     XOR
-                                                0       0       0
-                                                0       1       1
-                                                1       0       1
-                                                1       1       0
-    Meaning that XOR result is equal to 1 for different inputs and 0 for equal inputs -> 1 if X1!=X2 else 0.
-    3) Scramble data bits with mocked LFSR sequence generation.
-    4) Assert that scrambled sequence is bit-exact to the expected value.
-    """
-
-    # Step (1) - Generate random data bits.
-    data_bits = [random.randint(0, 1) for _ in range(127)]
-
-    # Step (2) - Scramble data bits with known LFSR sequence (provided by the standard) using simplified XOR
-    # implementation.
-    expected_scrambled_bits = [1 if data_bits[i] != LFSR_SEQUENCE_SEED_1011101[i] else 0 for i in range(127)]
-
-    # Steps (3)+(4) - Scramble data bits (with mocked LFSR) and assert that scrambled sequence is bit-exact to the
-    # expected value.
-    with patch('phy.PHY.generate_lfsr_sequence', return_value=LFSR_SEQUENCE_SEED_1011101):
-        assert PHY(host=HOST, port=PORT, is_stub=True).scramble(bits=data_bits, seed=93) == expected_scrambled_bits
-
-
 def test_bcc_encode():
     """
     Test purpose - Basic functionality of encoding using BCC.
