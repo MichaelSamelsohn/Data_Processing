@@ -13,16 +13,10 @@ class MAC:
 
         self._is_stub = is_stub
         if not self._is_stub:
-            log.debug("MAC connecting to MPIF socket")
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((host, port))
-
-            log.debug("MAC sending ID to MPIF")
-            self.send(primitive="MAC", data=[])
-
-            # Start listener thread.
-            threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+            self._host = host
+            self._port = port
+            self._socket = None
+            self.mpif_connection()
 
         self.phy_rate = 6  # Default value.
 
@@ -32,35 +26,98 @@ class MAC:
 
         self._psdu = None
 
-    def send(self, primitive, data):
+    def mpif_connection(self):
+        """
+        Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
+        communication.
+
+        This method performs the following:
+        - Checks if the object is a stub; if it is, the connection process is skipped.
+        - Creates a TCP/IP socket and connects to the specified host and port.
+        - Sends an initial identification message to the MPIF server using the `send` method.
+        - Starts a listener thread to handle incoming messages from the MPIF server.
+        - Waits briefly to ensure the server processes the ID before other messages are sent.
+
+        This method is typically called during initialization of the MAC to establish the link with the MPIF for message
+        exchange.
+        """
+
         if not self._is_stub:
-            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-            self.socket.sendall(message.encode())
+            log.debug("MAC connecting to MPIF socket")
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.connect((self._host, self._port))
+
+            log.debug("MAC sending ID to MPIF")
+            self.send(primitive="MAC", data=[])
+
+            # Start listener thread.
+            threading.Thread(target=self.listen, daemon=True).start()
+            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+
+    def send(self, primitive, data):
+        """
+        Sends a message over a socket connection if the current instance is not a stub.
+
+        The message is a JSON-formatted string that includes a 'PRIMITIVE' key representing the type or identifier of
+        the operation, and a 'DATA' key containing the associated data.
+
+        :param primitive: A string that identifies the type of message or operation.
+        :param data: The data to be sent along with the primitive. Must be JSON-serializable.
+        """
+
+        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+        self._socket.sendall(message.encode())
 
     def listen(self):
-        if not self._is_stub:
-            try:
-                while True:
-                    message = self.socket.recv(16384)
-                    if message:
-                        # Unpacking the message.
-                        message = json.loads(message.decode())
-                        primitive = message['PRIMITIVE']
-                        data = message['DATA']
+        """
+        Listens for incoming messages on the socket and processes them.
 
-                        log.traffic(f"MAC received: {primitive} "
-                                    f"({'no data' if not data else f'data length {len(data)}'})")
-                        self.controller(primitive=primitive, data=data)
-                    else:
-                        break
-            except Exception as e:
-                log.error(f"MAC listen error: {e}")
-            finally:
-                self.socket.close()
+        This method continuously reads data from the socket in chunks of up to 16,384 bytes. Each message is expected to
+        be a JSON-encoded object containing 'PRIMITIVE' and 'DATA' fields. Upon receiving a message, it is decoded and
+        passed to the controller for further handling.
+        """
+
+        try:
+            while True:
+                message = self._socket.recv(16384)
+                if message:
+                    # Unpacking the message.
+                    message = json.loads(message.decode())
+                    primitive = message['PRIMITIVE']
+                    data = message['DATA']
+
+                    log.traffic(f"MAC received: {primitive} "
+                                f"({'no data' if not data else f'data length {len(data)}'})")
+                    self.controller(primitive=primitive, data=data)
+                else:
+                    break
+        except Exception as e:
+            log.error(f"MAC listen error: {e}")
+        finally:
+            self._socket.close()
 
     def controller(self, primitive, data):
         """
-        TODO: Complete the docstring.
+        Handles communication primitives for PHY layer transmission in a stepwise manner.
+
+        This method is a controller for managing the sequence of events during data transmission to the PHY layer. It
+        responds to specific primitives ("PHY-TXSTART.confirm", "PHY-DATA.confirm", and "PHY-TXEND.confirm") by sending
+        data in chunks (octets) and finalizing transmission when complete.
+
+
+        :param primitive: The primitive received from the PHY layer indicating the current state of transmission.
+        Expected values are:
+             - "PHY-TXSTART.confirm"
+             - "PHY-DATA.confirm"
+             - "PHY-TXEND.confirm"
+        :param data: Payload or metadata associated with the primitive. May be unused for some cases.
+
+        Behavior:
+            - On receiving "PHY-TXSTART.confirm": Starts transmission by sending the first 8 bytes (an octet) of `_psdu`
+              to the PHY.
+            - On receiving "PHY-DATA.confirm": Sends the next 8-byte chunk if more data remains, or ends transmission
+              with "PHY-TXEND.request" if all data has been sent.
+            - On receiving "PHY-TXEND.confirm": Logs a success message and waits briefly for observation.
         """
 
         match primitive:
@@ -96,13 +153,21 @@ class MAC:
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         self.send(primitive="PHY-TXSTART.request", data=[self.phy_rate, int(len(self._psdu) / 8)])  # TX VECTOR.
 
-    def generate_psdu(self):
+    def generate_psdu(self) -> list[int]:
         """
-        TODO: Complete the docstring.
+        Prepares a data packet by appending a predefined MAC header and a CRC-32 checksum.
+
+        This function constructs a full data frame by:
+        1. Prepending a fixed MAC header to the payload data (`self._data`). TODO: Generate MAC header.
+        2. Computing the CRC-32 checksum of the combined MAC header and payload.
+        3. Appending the checksum as a suffix to the data.
+        4. Returning the entire packet as a flat list of bits (integers 0 or 1).
+
+        :return: The complete data frame represented as a list of bits, with the MAC header, original payload, and
+        CRC-32 checksum.
         """
 
         log.debug("Appending MAC header as prefix")
-        # TODO: Generate MAC header.
         self._mac_header = [
             0x04, 0x02, 0x00, 0x2E, 0x00,
             0x60, 0x08, 0xCD, 0x37, 0xA6,
@@ -119,11 +184,15 @@ class MAC:
     @staticmethod
     def cyclic_redundancy_check_32(data: bytes) -> bytes:
         """
-        TODO: Complete the docstring.
+        Calculate the CRC-32 checksum of the given data using the polynomial 0xEDB88320.
 
-        :param data: List of byte integers (0 <= x <= 255).
+        This function generates a CRC table dynamically and computes the CRC-32 value for a list of bytes. The
+        calculation follows the standard CRC-32 algorithm used in many applications such as ZIP files, Ethernet, and
+        others.
 
-        :return: CRC-32 value.
+        :param data: List of byte integers (each between 0 and 255) to compute the CRC for.
+
+        :return: The CRC-32 checksum as a 4-byte little-endian byte string.
         """
 
         log.debug("Generating CRC table using the 0xEDB88320 polynomial")
