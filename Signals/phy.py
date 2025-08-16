@@ -1065,7 +1065,8 @@ class PHY:
             deinterleaved_data += encoded_signal_symbol
 
         log.debug("Decoding all DATA bits")
-        decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data, coding_rate=self._data_coding_rate)
+        decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data,
+                                                         coding_rate=self._data_coding_rate)
 
         log.debug("Descrambling all DATA bits")
         descrambled_data = []
@@ -1211,85 +1212,82 @@ class PHY:
             - Works best on shorter sequences. For long streams, sliding window or early termination may be needed.
         """
 
-        # Define puncturing patterns for supported rates
+        # Define puncturing patterns
         puncturing_patterns = {
-            '1/2': [1, 1],  # Transmit both output bits
-            '2/3': [1, 1, 1, 0],  # Transmit 3 of every 4 bits
-            '3/4': [1, 1, 1, 0, 0, 1]  # Transmit 4 of every 6 bits
+            '1/2': [1, 1],
+            '2/3': [1, 1, 1, 0],
+            '3/4': [1, 1, 1, 0, 0, 1]
         }
 
         pattern = puncturing_patterns[coding_rate]
         pattern_len = len(pattern)
-
         K = 7  # Constraint length
-        n_states = 2 ** (K - 1)  # Number of trellis states (64)
+        n_states = 2 ** (K - 1)
 
-        # Initialize Viterbi trellis
-        path_metrics = np.full(n_states, np.inf)  # Cumulative Hamming distance
-        path_metrics[0] = 0  # Start from state 0
-        paths = [[] for _ in range(n_states)]  # Store bit paths
+        # Initialize trellis
+        path_metrics = np.full(n_states, np.inf)
+        path_metrics[0] = 0
+        paths = [[] for _ in range(n_states)]
 
-        # Rebuild received stream to match expected length with placeholders for punctured bits
-        received = []
-        idx = 0
-        for i in range(0, len(received_bits), pattern.count(1)):
-            for p in pattern:
-                if p == 1 and idx < len(received_bits):
-                    received.append(received_bits[idx])
-                    idx += 1
-                elif p == 0:
-                    received.append(None)  # Placeholder: punctured bit (not transmitted)
+        # Viterbi decoding
+        received_idx = 0
+        puncture_idx = 0  # Index in the puncturing pattern
 
-        # Viterbi decoding loop: process 2 output bits at a time (1 input bit)
-        for i in range(0, len(received), 2):
+        # Total number of input bits (1 input bit → 2 output bits before puncturing)
+        # We estimate number of input bits by working backward from received bits and pattern
+        estimated_input_bits = len(received_bits) * pattern_len // pattern.count(1) // 2
+
+        for _ in range(estimated_input_bits):
             new_metrics = np.full(n_states, np.inf)
             new_paths = [[] for _ in range(n_states)]
 
             for state in range(n_states):
                 if path_metrics[state] < np.inf:
-                    # Try both input bits: 0 and 1
-                    for bit in [0, 1]:
-                        # Shift in new bit to get 7-bit register
-                        shift_register = [bit] + [int(x) for x in format(state, f'0{K - 1}b')]
+                    for input_bit in [0, 1]:
+                        # Shift register: input_bit + current state bits
+                        shift_register = [input_bit] + [int(x) for x in format(state, f'0{K - 1}b')]
 
-                        # Compute encoder outputs for this input bit
-                        out1 = sum([a * b for a, b in zip(shift_register, G1)]) % 2
-                        out2 = sum([a * b for a, b in zip(shift_register, G2)]) % 2
+                        # Encoder outputs (rate 1/2)
+                        out1 = sum(a * b for a, b in zip(shift_register, G1)) % 2
+                        out2 = sum(a * b for a, b in zip(shift_register, G2)) % 2
                         out_bits = [out1, out2]
 
-                        # Extract the expected bits from received sequence, with puncturing in mind
-                        expected = []
-                        r_ptr = i
-                        for p in pattern:
-                            if p == 1:
-                                if r_ptr >= len(received):
-                                    break
-                                expected.append(received[r_ptr])
-                                r_ptr += 1
-                            else:
-                                expected.append(None)  # Skip punctured bit
-
-                        # Calculate Hamming distance (ignoring punctured positions)
+                        # Compare output bits with received bits, considering puncturing
                         metric = 0
-                        for b1, b2 in zip(out_bits, expected[i % len(expected):i % len(expected) + 2]):
-                            if b2 is not None:
-                                metric += int(b1 != b2)
+                        temp_idx = received_idx
+                        local_puncture_idx = puncture_idx
 
-                        # Compute next state after this transition
-                        next_state = ((state >> 1) | (bit << (K - 2))) & (n_states - 1)
+                        for bit in out_bits:
+                            if pattern[local_puncture_idx] == 1:
+                                if temp_idx >= len(received_bits):
+                                    break  # Ran out of received bits
+                                received_bit = received_bits[temp_idx]
+                                metric += int(bit != received_bit)
+                                temp_idx += 1
+                            # else: punctured, no metric update
+                            local_puncture_idx = (local_puncture_idx + 1) % pattern_len
+                        else:
+                            # Only update trellis if we didn’t break early
+                            next_state = ((state >> 1) | (input_bit << (K - 2))) & (n_states - 1)
+                            total_metric = path_metrics[state] + metric
 
-                        # Update path if better metric
-                        total_metric = path_metrics[state] + metric
-                        if total_metric < new_metrics[next_state]:
-                            new_metrics[next_state] = total_metric
-                            new_paths[next_state] = paths[state] + [bit]
+                            if total_metric < new_metrics[next_state]:
+                                new_metrics[next_state] = total_metric
+                                new_paths[next_state] = paths[state] + [input_bit]
 
             path_metrics = new_metrics
             paths = new_paths
 
-        # Find the best final state (smallest metric)
+            # Advance global received and puncture pointers
+            for _ in out_bits:
+                if pattern[puncture_idx] == 1:
+                    received_idx += 1
+                puncture_idx = (puncture_idx + 1) % pattern_len
+
+        # Select best path
         best_state = np.argmin(path_metrics)
-        return paths[best_state]
+        decoded_bits = paths[best_state]
+        return decoded_bits
 
     @staticmethod
     def convert_to_frequency_domain(time_domain_symbol: list[complex]) -> list[complex]:
