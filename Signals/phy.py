@@ -5,10 +5,16 @@ import time
 import socket
 import threading
 import numpy as np
+import random
 
 from Settings.settings import log
 
 # Constants #
+# Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder,
+# p. 2820.
+G1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
+G2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
+# TODO: Add reference for MCS - Table 17-4—Modulation-dependent parameters.
 MODULATION_CODING_SCHEME_PARAMETERS = {
     6:  {"MODULATION": 'BPSK',   "DATA_CODING_RATE": '1/2', "N_BPSC": 1,
          "N_CBPS": 48,  "N_DBPS": 24,  "SIGNAL_FIELD_CODING": [1, 1, 0, 1]},
@@ -265,7 +271,9 @@ class PHY:
 
         self._data_buffer = 16 * [0]  # Initialized with SERVICE field only.
         self._data_symbols = []
-        self._lfsr_sequence = self.generate_lfsr_sequence(sequence_length=self._n_data, seed=93)  # TODO: Randomize.
+        # TODO: Add if clause that checks the TX vector for the value of the scrambling seed.
+        self._lfsr_sequence = self.generate_lfsr_sequence(sequence_length=self._n_data,
+                                                          seed=random.randint(1, 127))
         self._bcc_shift_register = 7 * [0]  # Initializing the shift register.
         self._length_counter = self._tx_vector[1]
         self._pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
@@ -548,18 +556,13 @@ class PHY:
 
         encoded = []
 
-        # Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder,
-        # p. 2820.
-        g1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
-        g2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
-
         for bit in bits:
             # Updating register values with data bit as the input bit.
             self._bcc_shift_register = np.roll(self._bcc_shift_register, 1)
             self._bcc_shift_register[0] = bit
 
             # Extracting the outputs of the encoder using the standard generator polynomials.
-            for g in [g1, g2]:
+            for g in [G1, G2]:
                 encoded_bit = np.sum(self._bcc_shift_register * g) % 2  # Calculating the XOR outcome.
                 encoded.append(encoded_bit)
 
@@ -1218,9 +1221,6 @@ class PHY:
         pattern = puncturing_patterns[coding_rate]
         pattern_len = len(pattern)
 
-        # Get encoder polynomials
-        G1 = [int(b) for b in format(int(str(133), 8), '07b')]  # G1: 133 octal
-        G2 = [int(b) for b in format(int(str(171), 8), '07b')]  # G2: 171 octal
         K = 7  # Constraint length
         n_states = 2 ** (K - 1)  # Number of trellis states (64)
 
