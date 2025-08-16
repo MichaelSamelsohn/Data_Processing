@@ -91,6 +91,21 @@ class PHY:
         self._channel_estimate = None
 
     def mpif_connection(self):
+        """
+        Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
+        communication.
+
+        This method performs the following:
+        - Checks if the object is a stub; if it is, the connection process is skipped.
+        - Creates a TCP/IP socket and connects to the specified host and port.
+        - Sends an initial identification message to the MPIF server using the `send` method.
+        - Starts a listener thread to handle incoming messages from the MPIF server.
+        - Waits briefly to ensure the server processes the ID before other messages are sent.
+
+        This method is typically called during initialization of the physical layer (PHY) to establish the link with the
+        MPIF for message exchange.
+        """
+
         if not self._is_stub:
             log.debug("PHY connecting to MPIF socket")
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -104,34 +119,77 @@ class PHY:
             time.sleep(0.1)  # Allow server to read ID before sending other messages.
 
     def send(self, primitive, data):
-        if not self._is_stub:
-            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-            self._socket.sendall(message.encode())
+        """
+        Sends a message over a socket connection if the current instance is not a stub.
+
+        The message is a JSON-formatted string that includes a 'PRIMITIVE' key representing the type or identifier of
+        the operation, and a 'DATA' key containing the associated data.
+
+        :param primitive: A string that identifies the type of message or operation.
+        :param data: The data to be sent along with the primitive. Must be JSON-serializable.
+        """
+
+        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+        self._socket.sendall(message.encode())
 
     def listen(self):
-        if not self._is_stub:
-            try:
-                while True:
-                    message = self._socket.recv(16384)
-                    if message:
-                        # Unpacking the message.
-                        message = json.loads(message.decode())
-                        primitive = message['PRIMITIVE']
-                        data = message['DATA']
+        """
+        Listens for incoming messages on the socket and processes them.
 
-                        log.traffic(f"PHY received: {primitive} "
-                                    f"({'no data' if not data else f'data length {len(data)}'})")
-                        self.controller(primitive=primitive, data=data)
-                    else:
-                        break
-            except Exception as e:
-                print(f"PHY listen error: {e}")
-            finally:
-                self._socket.close()
+        This method continuously reads data from the socket in chunks of up to 16,384 bytes. Each message is expected to
+        be a JSON-encoded object containing 'PRIMITIVE' and 'DATA' fields. Upon receiving a message, it is decoded and
+        passed to the controller for further handling.
+        """
+
+        try:
+            while True:
+                message = self._socket.recv(16384)
+                if message:
+                    # Unpacking the message.
+                    message = json.loads(message.decode())
+                    primitive = message['PRIMITIVE']
+                    data = message['DATA']
+
+                    log.traffic(f"PHY received: {primitive} "
+                                f"({'no data' if not data else f'data length {len(data)}'})")
+                    self.controller(primitive=primitive, data=data)
+                else:
+                    break
+        except Exception as e:
+            log.error(f"PHY listen error: {e}")
+        finally:
+            self._socket.close()
 
     def controller(self, primitive, data):
         """
-        TODO: Complete the docstring.
+        Handles PHY-layer transmission primitives and manages the process of generating and transmitting a PPDU (PLCP
+        Protocol Data Unit) over the physical medium.
+
+        This method reacts to three types of primitives sent from higher layers:
+        1. **PHY-TXSTART.request**:
+            - Stores TX vector configuration data.
+            - Generates preamble and SIGNAL symbols.
+            - Resets the BCC shift register for DATA bit encoding.
+            - Sends a `PHY-TXSTART.confirm` to acknowledge the start of transmission.
+
+        2. **PHY-DATA.request**:
+            - Appends received DATA to an internal buffer.
+            - When enough bits are collected for a full OFDM symbol, it generates the symbol.
+            - After the last DATA octet is received, adds TAIL and PAD bits, and generates the final DATA symbol.
+            - Combines all DATA symbols into one continuous stream with overlapping between symbols.
+            - Sends a `PHY-DATA.confirm` to acknowledge DATA receipt.
+
+        3. **PHY-TXEND.request**:
+            - Triggers the generation of the complete PPDU.
+            - Converts the PPDU into an RF signal representation for transmission.
+            - Sends a `PHY-TXEND.confirm` to acknowledge the end of transmission.
+
+
+        :param primitive: The PHY-layer primitive indicating the type of request. Can be one of:
+            - "PHY-TXSTART.request"
+            - "PHY-DATA.request"
+            - "PHY-TXEND.request"
+        :param data: Data associated with the primitive, such as TX vector config or DATA octets.
         """
 
         match primitive:
@@ -253,7 +311,17 @@ class PHY:
 
     def generate_rf_signal(self):
         """
-        TODO: Complete the docstring.
+        Generate a real-valued RF signal from a complex baseband PPDU signal.
+
+        This method modulates the complex baseband signal (PPDU) onto a carrier frequency of 2.4 GHz using IQ
+        modulation, resulting in a real-valued RF signal suitable for transmission. The RF signal is generated as:
+                                rf_signal(t) = I(t) * cos(2πf_ct) - Q(t) * sin(2πf_ct)
+        where:
+            - I(t) and Q(t) are the real and imaginary parts of the baseband signal, respectively.
+            - f_c is the carrier frequency.
+            - t is the time vector, sampled at 20 MHz.
+
+        :return: A real-valued list representing the RF signal.
         """
 
         # Time vector.
@@ -362,9 +430,17 @@ class PHY:
 
     # DATA (symbol count depends on length) #
 
-    def generate_data_symbol(self, is_last_symbol: bool):
+    def generate_data_symbol(self, is_last_symbol: bool) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        Generates a single OFDM data symbol from the current data buffer.
+
+        This method performs several processing steps to convert raw data bits into a time-domain OFDM symbol, including
+        scrambling, error correction encoding, interleaving, modulation, pilot insertion, and IFFT transformation.
+
+        :param is_last_symbol: Indicates whether this is the last data symbol in the current data field. If True, the
+        method applies special handling to the TAIL bits by zeroing them out before encoding.
+
+        :return: A complex-valued list representing the time-domain OFDM symbol ready for transmission.
         """
 
         # Scrambling.
@@ -393,7 +469,7 @@ class PHY:
         return self.convert_to_time_domain(ofdm_symbol=frequency_domain_symbol, field_type='DATA')
 
     @staticmethod
-    def generate_lfsr_sequence(sequence_length: int, seed=93) -> list[int]:
+    def generate_lfsr_sequence(sequence_length: int, seed: int) -> list[int]:
         """
         LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
         state. The initial value of the LFSR is called the seed, and because the operation of the register is
