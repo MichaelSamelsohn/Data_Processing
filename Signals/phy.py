@@ -59,12 +59,10 @@ class PHY:
             self._socket = None
             self.mpif_connection()
 
-        # TX vector parameters #
-        self._tx_vector = None
+        # Modulation/Coding parameters #
         self._phy_rate = None
         self._length = None
 
-        # Modulation/Coding parameters #
         self._modulation = None
         self._data_coding_rate = None
         self._n_cbps = None                 # Number of coded bits per symbol.
@@ -91,9 +89,11 @@ class PHY:
         self._pilot_polarity_index = None
 
         # Transmitter parameters #
+        self._tx_vector = None
         self._rf_frame_tx = None
 
         # Receiver parameters #
+        self._rx_vector = None
         self._channel_estimate = None
 
     def mpif_connection(self):
@@ -246,14 +246,7 @@ class PHY:
                 # Confirm TXEND.
                 self.send(primitive="PHY-TXEND.confirm", data=[])
 
-    @property
-    def tx_vector(self):
-        return self._tx_vector
-
-    @tx_vector.setter
-    def tx_vector(self, tx_vector: list):
-        self._tx_vector = tx_vector
-
+    def _set_general_parameters(self):
         self._phy_rate = self._tx_vector[0]
         self._length = self._tx_vector[1]
 
@@ -269,6 +262,18 @@ class PHY:
         self._n_data = self._n_symbols * self._n_dbps
         self._pad_bits = self._n_data - (16 + 8 * self._length + 6)
 
+    # Transmitter side #
+
+    @property
+    def tx_vector(self):
+        return self._tx_vector
+
+    @tx_vector.setter
+    def tx_vector(self, tx_vector: list):
+        self._tx_vector = tx_vector
+
+        self._set_general_parameters()
+
         self._data_buffer = 16 * [0]  # Initialized with SERVICE field only.
         self._data_symbols = []
         # TODO: Add if clause that checks the TX vector for the value of the scrambling seed.
@@ -278,8 +283,6 @@ class PHY:
         self._length_counter = self._tx_vector[1]
         self._pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
         self._pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
-
-    # Transmitter side #
 
     def generate_ppdu(self) -> list[complex]:
         """
@@ -837,6 +840,16 @@ class PHY:
 
     # Receiver side #
 
+    @property
+    def rx_vector(self):
+        return self._rx_vector
+
+    @rx_vector.setter
+    def rx_vector(self, rx_vector: list):
+        self._rx_vector = rx_vector
+
+        self._set_general_parameters()
+
     def receive_frame(self, baseband_signal: list[complex]):
         """
         Processes an incoming RF baseband signal to detect and decode a data frame.
@@ -872,7 +885,7 @@ class PHY:
                 return None
 
             log.info("Setting and calculating MCS parameters")
-            self.tx_vector = [phy_rate, length]
+            self.rx_vector = [phy_rate, length]
 
             log.info("Deciphering DATA symbols")
             return self.decipher_data(data=baseband_signal[index + 400:])
