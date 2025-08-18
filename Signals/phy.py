@@ -927,7 +927,7 @@ class PHY:
         log.debug(f"Highest correlation value - {correlation_magnitude[highest_correlation_index]:.3f} "
                   f"(at index {highest_correlation_index})")
 
-        if correlation_magnitude[highest_correlation_index] >= 2:
+        if correlation_magnitude[highest_correlation_index] >= 1.5:
             log.debug("Identified STF")
             return highest_correlation_index
         else:

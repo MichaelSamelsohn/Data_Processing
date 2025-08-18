@@ -33,7 +33,7 @@ class Channel:
         log.channel(f"Noise power: {sigma2}")
 
         log.channel("Generating complex noise with given variance")
-        signal_length = len(rf_signal)
-        noisy_rf_signal = (np.sqrt(sigma2 / 2) * (np.random.randn(signal_length) + 1j * np.random.randn(signal_length)))
+        noisy_rf_signal = (np.sqrt(sigma2 / 2) * (np.random.randn(*convolved_signal.shape) +
+                                             1j * np.random.randn(*convolved_signal.shape)))
 
         return list(noisy_rf_signal + convolved_signal)
