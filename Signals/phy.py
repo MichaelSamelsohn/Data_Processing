@@ -210,16 +210,20 @@ class PHY:
                 self.send(primitive="PHY-TXSTART.confirm", data=[])
             case "PHY-DATA.request":
                 self._data_buffer += data  # Add received DATA to buffer.
-                if len(self._data_buffer) == self._n_dbps:
+
+                if len(self._data_buffer) >= self._n_dbps:
                     # Enough DATA for an OFDM symbol.
-                    self._data_symbols.append(self.generate_data_symbol(is_last_symbol=False))
-                    self._data_buffer = []  # Flush the buffer for the next DATA symbol.
+                    self._data_symbols.append(self.generate_data_symbol(symbol_data=self._data_buffer[:self._n_dbps],
+                                                                        is_last_symbol=False))
+                    # Remove used bits from the buffer.
+                    self._data_buffer = self._data_buffer[self._n_dbps:]
 
                 self._length_counter -= 1  # Decrement octet counter.
                 if self._length_counter == 0:
                     # Last DATA octet from MAC.
                     self._data_buffer += (6 + self._pad_bits) * [0]  # Adding TAIL and PADDING bits.
-                    self._data_symbols.append(self.generate_data_symbol(is_last_symbol=True))  # Last DATA symbol.
+                    self._data_symbols.append(self.generate_data_symbol(symbol_data=self._data_buffer,
+                                                                        is_last_symbol=True))  # Last DATA symbol.
 
                     # Overlapping adjacent DATA symbols.
                     ofdm_data = [0]
@@ -474,13 +478,14 @@ class PHY:
 
     # DATA (symbol count depends on length) #
 
-    def generate_data_symbol(self, is_last_symbol: bool) -> list[complex]:
+    def generate_data_symbol(self, symbol_data, is_last_symbol: bool) -> list[complex]:
         """
         Generates a single OFDM data symbol from the current data buffer.
 
         This method performs several processing steps to convert raw data bits into a time-domain OFDM symbol, including
         scrambling, error correction encoding, interleaving, modulation, pilot insertion, and IFFT transformation.
 
+        :param symbol_data: The data for the symbol to be generated.
         :param is_last_symbol: Indicates whether this is the last data symbol in the current data field. If True, the
         method applies special handling to the TAIL bits by zeroing them out before encoding.
 
@@ -488,8 +493,8 @@ class PHY:
         """
 
         # Scrambling.
-        scrambled_data = [a ^ b for a, b in zip(self._lfsr_sequence, self._data_buffer)]
-        self._lfsr_sequence = self._lfsr_sequence[len(self._data_buffer):]  # Remove used LFSR bits.
+        scrambled_data = [a ^ b for a, b in zip(self._lfsr_sequence, symbol_data)]
+        self._lfsr_sequence = self._lfsr_sequence[len(symbol_data):]  # Remove used LFSR bits.
         if is_last_symbol:
             # Nullifying the TAIL bits.
             scrambled_data[-self._pad_bits - 6: -self._pad_bits] = 6 * [0]
