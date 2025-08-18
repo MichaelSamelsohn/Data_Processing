@@ -23,16 +23,16 @@ class Channel:
         :return: The output signal after being passed through the channel and corrupted by complex Gaussian noise.
         """
 
-        log.debug("Convolve the signal with the channel response")
+        log.channel("Convolve the signal with the channel response")
         convolved_signal = np.convolve(rf_signal, self._channel_response)
 
-        log.debug("Calculating noise power based on signal power and SNR")
+        log.channel("Calculating noise power based on signal power and SNR")
         convolved_signal_power = np.mean(abs(convolved_signal ** 2))
         sigma2 = convolved_signal_power * 10 ** (-self._snr_db / 10)
-        log.debug(f"RF signal power - {convolved_signal_power} ")
-        log.debug(f"Noise power: {sigma2}")
+        log.channel(f"RF signal power - {convolved_signal_power} ")
+        log.channel(f"Noise power: {sigma2}")
 
-        log.debug("Generating complex noise with given variance")
+        log.channel("Generating complex noise with given variance")
         signal_length = len(rf_signal)
         noisy_rf_signal = (np.sqrt(sigma2 / 2) * (np.random.randn(signal_length) + 1j * np.random.randn(signal_length)))
 

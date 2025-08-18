@@ -148,6 +148,8 @@ class Logger(logging.Logger):
         logging.addLevelName(25, "SUCCESS")
         logging.TRAFFIC = 35
         logging.addLevelName(35, "TRAFFIC")
+        logging.CHANNEL = 36
+        logging.addLevelName(36, "CHANNEL")
 
         # Set class parameters.
         self._log_level = log_level
@@ -326,11 +328,15 @@ class Logger(logging.Logger):
 
     def success(self, msg, *args, **kwargs):
         """TODO: Complete the docstring."""
-        self._log(logging.SUCCESS, msg, args, **kwargs)
+        self._log(logging.SUCCESS, msg, args, stacklevel=2, **kwargs)
 
     def traffic(self, msg, *args, **kwargs):
         """TODO: Complete the docstring."""
-        self._log(logging.TRAFFIC, msg, args, **kwargs)
+        self._log(logging.TRAFFIC, msg, args, stacklevel=2, **kwargs)
+
+    def channel(self, msg, *args, **kwargs):
+        """TODO: Complete the docstring."""
+        self._log(logging.CHANNEL, msg, args, stacklevel=2, **kwargs)
 
     def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
@@ -386,6 +392,7 @@ class ColorFormatter(logging.Formatter):
             logging.CRITICAL: "\x1b[31;1m",                                               # Bold red.
             logging.SUCCESS: "\x1b[32;1m",                                                # Bright Green.
             logging.TRAFFIC: "\x1b[38;5;208m",                                            # Deep Violet / Grape.
+            logging.CHANNEL: "\x1b[38;5;5m",                                              # Magenta.
         }
         self._RESET_COLOR = "\x1b[0m"
 
