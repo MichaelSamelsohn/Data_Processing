@@ -29,8 +29,12 @@ class CHIP:
             time.sleep(1)
             self.phy = PHY(self.mpif.host, self.mpif.port)
 
+        # Transmitter.
         self._text = None
         self._ascii_text = None
+
+        # Receiver.
+        self._rf_signal = None
 
     @property
     def text(self):
@@ -38,17 +42,29 @@ class CHIP:
 
     @text.setter
     def text(self, new_text: str):
-        log.info("New text set:")
-        log.print_data(data=new_text, log_level='info')
-
         log.info("Starting transmission chain")
 
+        log.info("Transmission message:")
         self._text = new_text
+        log.print_data(data=self._text, log_level='info')
         log.debug("Converting data to bytes")
         self._ascii_text = self.convert_string_to_bits(text=self._text, style='bytes')
 
         log.debug("Transferring the data to the MAC layer")
         self.mac.data = self._ascii_text
+
+    @property
+    def rf_signal(self):
+        return self._rf_signal
+
+    @rf_signal.setter
+    def rf_signal(self, new_signal: list[complex]):
+        log.info("Starting reception chain")
+
+        self._rf_signal = new_signal
+
+        log.debug("Transferring the data to the PHY layer")
+        self.phy.rf_frame_rx = self._rf_signal
 
     @staticmethod
     def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:

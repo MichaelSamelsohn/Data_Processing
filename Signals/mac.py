@@ -121,6 +121,7 @@ class MAC:
         """
 
         match primitive:
+            # Transmitter.
             case "PHY-TXSTART.confirm":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
                 # Start sending DATA to PHY.
@@ -138,6 +139,31 @@ class MAC:
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
                 log.success("Transmission successful")
             # TODO: Add a flush request for PHY.
+
+            # Receiver.
+            case "PHY-CCA.indication(BUSY)":
+                self._data = []
+                self._psdu = []
+            case "PHY-DATA.indication":
+                self._psdu += data
+            case "PHY-RXEND.indication(No_Error)":
+                # Group bits into bytes and convert to integers.
+                byte_list = []
+                for i in range(0, len(self._psdu), 8):
+                    byte = self._psdu[i:i + 8]
+                    value = int(''.join(map(str, byte)), 2)
+                    byte_list.append(value)
+                byte_list = bytes(byte_list)
+
+                # CRC check.
+                if not self.cyclic_redundancy_check_32(data=bytes(byte_list[:-4])) == byte_list[-4:]:
+                    log.error("CRC check failed")
+                else:
+                    # Remove MAC header and CRC.
+                    self._data = byte_list[24:-4]
+                    # TODO: Pass to Chip (parent class).
+                    log.info("Received message:")
+                    log.print_data(self._data.decode('utf-8'), log_level="info")
 
     @property
     def data(self):

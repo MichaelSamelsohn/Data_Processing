@@ -93,8 +93,10 @@ class PHY:
         self._rf_frame_tx = None
 
         # Receiver parameters #
+        self._rf_frame_rx = None
         self._rx_vector = None
         self._channel_estimate = None
+        self._psdu = None
 
     def mpif_connection(self):
         """
@@ -199,6 +201,7 @@ class PHY:
         """
 
         match primitive:
+            # Transmitter.
             case "PHY-TXSTART.request":
                 log.info("Updating TX vector information")
                 self.tx_vector = data
@@ -245,6 +248,43 @@ class PHY:
 
                 # Confirm TXEND.
                 self.send(primitive="PHY-TXEND.confirm", data=[])
+
+            # Receiver.
+            case "PHY-CCA.indication(BUSY)":
+                # TODO: Handle error cases.
+
+                log.info("Detecting frame using STF correlation")
+                index = self.detect_frame(baseband_signal=self._rf_frame_rx)
+                if index is None:
+                    self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
+                else:
+                    log.info("Frame detected")
+                    self.send(primitive="PHY-CCA.indication(BUSY)", data=[])
+
+                    log.info("Performing channel estimation using LTF")
+                    self._channel_estimate = self.channel_estimation(
+                        time_domain_ltf=self._rf_frame_rx[index + 160: index + 320])
+
+                    log.info("Extracting RATE and LENGTH from SIGNAL")
+                    phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
+                    if phy_rate is None and length is None:
+                        return "PHY-CCA.indication(IDLE)"
+
+                    log.info("Setting and calculating MCS parameters")
+                    self.rx_vector = [phy_rate, length]
+
+                    log.info("Deciphering DATA symbols")
+                    self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
+
+                    log.info("Sending PSDU to MAC")
+                    for _ in range(self._length):
+                        self.send(primitive="PHY-DATA.indication", data=self._psdu[:8])
+                        time.sleep(0.01)  # Allow server to read ID before sending other messages.
+                        self._psdu = self._psdu[8:]  # Remove sent octet.
+
+                    # Ending the reception.
+                    self.send(primitive="PHY-RXEND.indication(No_Error)", data=[])
+                    self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
 
     def _set_general_parameters(self):
         self._phy_rate = self._tx_vector[0]
@@ -841,6 +881,15 @@ class PHY:
     # Receiver side #
 
     @property
+    def rf_frame_rx(self):
+        return self._rf_frame_rx
+
+    @rf_frame_rx.setter
+    def rf_frame_rx(self, rf_signal: list):
+        self._rf_frame_rx = rf_signal
+        self.controller(primitive="PHY-CCA.indication(BUSY)", data=[])
+
+    @property
     def rx_vector(self):
         return self._rx_vector
 
@@ -849,48 +898,6 @@ class PHY:
         self._rx_vector = rx_vector
 
         self._set_general_parameters()
-
-    def receive_frame(self, baseband_signal: list[complex]):
-        """
-        Processes an incoming RF baseband signal to detect and decode a data frame.
-
-        This method performs several key steps:
-        1. Detects the start of a frame using Short Training Field (STF) correlation.
-        2. Estimates the wireless channel using the Long Training Field (LTF).
-        3. Decodes the SIGNAL field to extract the physical layer rate and frame length.
-        4. Attempts to decode the data payload using the estimated channel and transmission parameters.
-
-        :param baseband_signal: The raw complex baseband samples of the received RF signal.
-
-        :return: The decoded data payload if frame detection and decoding are successful; otherwise, returns None.
-
-        Notes
-            - If the frame is not detected (e.g. due to low correlation), the function returns None.
-            - If SIGNAL field decoding fails (e.g. corrupted header), the function also returns None.
-            - This method assumes the frame structure follows a standard format:
-              [STF | LTF | SIGNAL | DATA].
-        """
-
-        log.info("Detecting frame using STF correlation")
-        index = self.detect_frame(baseband_signal=baseband_signal)
-        if index is not None:
-            log.info("Frame detected")
-
-            log.info("Performing channel estimation using LTF")
-            self._channel_estimate = self.channel_estimation(time_domain_ltf=baseband_signal[index + 160: index + 320])
-
-            log.info("Extracting RATE and LENGTH from SIGNAL")
-            phy_rate, length = self.decode_signal(baseband_signal[index + 320: index + 400])
-            if phy_rate is None and length is None:
-                return None
-
-            log.info("Setting and calculating MCS parameters")
-            self.rx_vector = [phy_rate, length]
-
-            log.info("Deciphering DATA symbols")
-            return self.decipher_data(data=baseband_signal[index + 400:])
-        else:
-            return None
 
     # PHY preamble - STF, LTF - 12 symbols #
 
