@@ -248,8 +248,6 @@ class PHY:
 
             # Receiver.
             case "PHY-CCA.indication(BUSY)":
-                # TODO: Handle error cases.
-
                 log.info("Detecting frame using STF correlation")
                 index = self.detect_frame(baseband_signal=self._rf_frame_rx)
                 if index is None:
@@ -265,23 +263,27 @@ class PHY:
                     log.info("Extracting RATE and LENGTH from SIGNAL")
                     phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
                     if phy_rate is None and length is None:
-                        return "PHY-CCA.indication(IDLE)"
+                        # Either invalid rate or parity check failed.
+                        self.send(primitive="PHY-RXEND.indication(FormatViolation)", data=[])
+                    else:
+                        log.info("Setting and calculating MCS parameters")
+                        self.rx_vector = [phy_rate, length]
 
-                    log.info("Setting and calculating MCS parameters")
-                    self.rx_vector = [phy_rate, length]
+                        log.info("Deciphering DATA symbols")
+                        self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
+                        if not self._psdu:
+                            # Unable to find scramble seed.
+                            self.send(primitive="PHY-RXEND.indication(ScrambleSeedNotFound)", data=[])
+                        else:
+                            log.info("Sending PSDU to MAC")
+                            for _ in range(self._length):
+                                self.send(primitive="PHY-DATA.indication", data=self._psdu[:8])
+                                time.sleep(0.01)  # Buffer time to allow the MAC to append the sent data octet.
+                                self._psdu = self._psdu[8:]  # Remove sent octet.
 
-                    log.info("Deciphering DATA symbols")
-                    self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
-
-                    log.info("Sending PSDU to MAC")
-                    for _ in range(self._length):
-                        self.send(primitive="PHY-DATA.indication", data=self._psdu[:8])
-                        time.sleep(0.01)  # Allow server to read ID before sending other messages.
-                        self._psdu = self._psdu[8:]  # Remove sent octet.
-
-                    # Ending the reception.
-                    self.send(primitive="PHY-RXEND.indication(No_Error)", data=[])
-                    self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
+                            # Ending the reception.
+                            self.send(primitive="PHY-RXEND.indication(No_Error)", data=[])
+                            self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
 
     def _set_general_parameters(self):
         self._phy_rate = self._tx_vector[0]
@@ -1087,7 +1089,6 @@ class PHY:
                                                          coding_rate=self._data_coding_rate)
 
         log.debug("Descrambling all DATA bits")
-        descrambled_data = []
         service_field = decoded_data[:16]
         for seed in range(1,128):
             if ([a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=16, seed=seed), service_field)]
@@ -1095,10 +1096,11 @@ class PHY:
                 log.debug(f"Seed found - {seed}")
                 descrambled_data = [a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=len(decoded_data),
                                                                                       seed=seed), decoded_data)]
-                break
+                log.debug("Removing SERVICE, TAIL and padding bits")
+                return descrambled_data[16:-6 - self._pad_bits]
 
-        log.debug("Removing SERVICE, TAIL and padding bits")
-        return descrambled_data[16:-6-self._pad_bits]
+        # If we got to this point, no seed was found for the scrambler, unable to descramble.
+        return None
 
     # Decoding (frequency domain, demodulation, demapping, deinterleaving, decoding, descrambling) #
 
