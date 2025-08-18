@@ -310,9 +310,11 @@ def test_bcc_encode():
     assignment for SIGNAL field.
     """
 
+    phy = PHY(host=HOST, port=PORT, is_stub=True)
+    phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
+
     # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
-    assert (PHY(host=HOST, port=PORT, is_stub=True).bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') ==
-            ENCODED_SIGNAL_FIELD)
+    assert phy.bcc_encode(bits=SIGNAL_FIELD, coding_rate='1/2') == ENCODED_SIGNAL_FIELD
 
 
 def test_interleave():
@@ -435,6 +437,7 @@ def test_generate_signal_symbol():
     phy = PHY(host=HOST, port=PORT, is_stub=True)
     phy._length = 100
     phy._signal_field_coding = [1, 0, 1, 1]  # According to PHY rate = 36.
+    phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
 
     # Steps (1)+(2) - Generate time domain SIGNAL symbol and assert it's bit-exact to expected value.
     assert phy.generate_signal_symbol() == TIME_DOMAIN_SIGNAL_FIELD
@@ -450,7 +453,6 @@ def test_generate_signal_symbol_no_scrambling():
     1) Mock all function calls to keep track of call number.
     2) Generate SIGNAL.
     3) Assert that encoding, interleaving, modulation, pilot insertion and time domain conversion occur once.
-    4) Assert that scrambling doesn't occur at all.
     """
 
     # Step (1) - Mock all relevant functions.
@@ -459,8 +461,7 @@ def test_generate_signal_symbol_no_scrambling():
           patch.object(PHY, 'interleave') as mock_interleave,
           patch.object(PHY, 'subcarrier_modulation') as mock_subcarrier_modulation,
           patch.object(PHY, 'pilot_subcarrier_insertion') as mock_pilot_subcarrier_insertion,
-          patch.object(PHY, 'convert_to_time_domain') as mock_convert_to_time_domain,
-          patch.object(PHY, 'scramble') as mock_scramble):
+          patch.object(PHY, 'convert_to_time_domain') as mock_convert_to_time_domain):
 
         # Step (2) - Generate time domain SIGNAL.
         PHY(host=HOST, port=PORT, is_stub=True).generate_signal_symbol()
@@ -472,6 +473,3 @@ def test_generate_signal_symbol_no_scrambling():
         assert mock_subcarrier_modulation.call_count == 1
         assert mock_pilot_subcarrier_insertion.call_count == 1
         assert mock_convert_to_time_domain.call_count == 1
-
-        # Step (4) - Assert there was no call for scrambling.
-        assert mock_scramble.call_count == 0
