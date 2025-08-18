@@ -548,3 +548,34 @@ def test_decode_signal_invalid_rate():
 
         # Step (3) - Assert that no rate/length returns as invalid rate detected.
         assert PHY(host=HOST, port=PORT, is_stub=True).decode_signal(signal=[]) == (None, None)
+
+
+def test_hard_decision_demapping():
+    """
+    Test purpose - Basic functionality of hard decision demapping.
+    Criteria - Hard decision demapping of frequency domain (without pilots) SIGNAL symbol results in interleaved
+    SIGNAL field.
+
+    Test steps:
+    1) Demapping of frequency domain SIGNAL symbol.
+    2) Assert that result is bit-exact as interleaved SIGNAL field.
+    """
+
+    # Steps (1)+(2) - Hard decision demapping and assertion of SIGNAL symbol.
+    assert PHY(host=HOST, port=PORT, is_stub=True).hard_decision_demapping(
+        equalized_symbol=MODULATED_SIGNAL_FIELD, modulation='BPSK') == INTERLEAVED_SIGNAL_FIELD
+
+
+def test_deinterleave():
+    """
+    Test purpose - Basic functionality of deinterleaving.
+    Criteria - Deinterleave of interleaved SIGNAL symbol results in coded SIGNAL field.
+
+    Test steps:
+    1) Deinterleaving of interleaved SIGNAL symbol.
+    2) Assert that result is bit-exact as coded SIGNAL field.
+    """
+
+    # Steps (1)+(2) - Deinterleaving and assertion of SIGNAL symbol.
+    assert (PHY(host=HOST, port=PORT, is_stub=True).deinterleave(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+            ENCODED_SIGNAL_FIELD)
