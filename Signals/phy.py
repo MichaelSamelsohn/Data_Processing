@@ -997,14 +997,8 @@ class PHY:
         # SIGNAL FFT (with removed GI).
         frequency_signal_symbol = self.convert_to_frequency_domain(time_domain_symbol=signal)
 
-        log.debug("Performing equalization based on the channel estimate")
-        equalized_signal_symbol = np.array(frequency_signal_symbol) / self._channel_estimate
-        equalized_signal_symbol = equalized_signal_symbol.tolist()
-
-        log.debug("Remove pilot sub-carriers")
-        equalized_symbol = (equalized_signal_symbol[:5] + equalized_signal_symbol[6:19] +
-                            equalized_signal_symbol[20:32] + equalized_signal_symbol[33:46] +
-                            equalized_signal_symbol[47:])
+        log.debug("Equalizing and removing pilot sub-carriers")
+        equalized_symbol = self.equalize_and_remove_pilots(frequency_symbol=frequency_signal_symbol)
 
         log.debug("Demapping the SIGNAL symbol")
         interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol, modulation='BPSK')
@@ -1066,14 +1060,8 @@ class PHY:
             log.debug("Computing the FFT (with removed GI)")
             frequency_domain_data_symbol = self.convert_to_frequency_domain(data[80 * i: 80 * (i + 1)])
 
-            log.debug("Performing equalization based on the channel estimate")
-            equalized_signal_symbol = np.array(frequency_domain_data_symbol) / self._channel_estimate
-            equalized_signal_symbol = equalized_signal_symbol.tolist()
-
-            log.debug("Remove pilot sub-carriers")
-            equalized_symbol = (equalized_signal_symbol[:5] + equalized_signal_symbol[6:19] +
-                                equalized_signal_symbol[20:32] + equalized_signal_symbol[33:46] +
-                                equalized_signal_symbol[47:])
+            log.debug("Equalizing and removing pilot sub-carriers")
+            equalized_symbol = self.equalize_and_remove_pilots(frequency_symbol=frequency_domain_data_symbol)
 
             log.debug(f"Demapping DATA symbol #{i+1}")
             interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol,
@@ -1308,6 +1296,22 @@ class PHY:
         best_state = np.argmin(path_metrics)
         decoded_bits = paths[best_state]
         return decoded_bits
+
+    def equalize_and_remove_pilots(self, frequency_symbol: list[complex]) -> list[complex]:
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Performing equalization based on the channel estimate.
+        equalized_symbol = np.array(frequency_symbol) / self._channel_estimate
+        equalized_symbol = equalized_symbol.tolist()
+
+        # Remove pilot sub-carriers.
+        equalized_symbol_no_pilots = (equalized_symbol[:5] + equalized_symbol[6:19] +
+                                      equalized_symbol[20:32] + equalized_symbol[33:46] +
+                                      equalized_symbol[47:])
+
+        return equalized_symbol_no_pilots
 
     @staticmethod
     def convert_to_frequency_domain(time_domain_symbol: list[complex]) -> list[complex]:
