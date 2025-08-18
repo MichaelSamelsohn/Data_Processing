@@ -1,4 +1,5 @@
 # Imports #
+import copy
 import zlib
 import os
 import random
@@ -437,17 +438,16 @@ def test_generate_signal_symbol():
     phy = PHY(host=HOST, port=PORT, is_stub=True)
     phy._length = 100
     phy._signal_field_coding = [1, 0, 1, 1]  # According to PHY rate = 36.
-    phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
+    phy._bcc_shift_register = 7 * [0]        # Initializing the shift register.
 
     # Steps (1)+(2) - Generate time domain SIGNAL symbol and assert it's bit-exact to expected value.
     assert phy.generate_signal_symbol() == TIME_DOMAIN_SIGNAL_FIELD
 
 
-def test_generate_signal_symbol_no_scrambling():
+def test_generate_signal_symbol_call_count():
     """
-    Test purpose - SIGNAL field generation doesn't use scrambling.
-    Criteria - SIGNAL generation does encoding, interleaving, modulation, pilot insertion and time domain conversion but
-    not scrambling.
+    Test purpose - Correct call count for SIGNAL symbol generation.
+    Criteria - SIGNAL generation does encoding, interleaving, modulation, pilot insertion and time domain conversion.
 
     Test steps:
     1) Mock all function calls to keep track of call number.
@@ -473,3 +473,78 @@ def test_generate_signal_symbol_no_scrambling():
         assert mock_subcarrier_modulation.call_count == 1
         assert mock_pilot_subcarrier_insertion.call_count == 1
         assert mock_convert_to_time_domain.call_count == 1
+
+
+def test_decode_signal():
+    """
+    Test purpose - PHY rate / Length decoding correctness (for the SIGNAL symbol).
+    Criteria - SIGNAL decoding produces correct PHY rate and length.
+
+    Test steps:
+    1) Mock all relevant functions (to avoid block testing).
+    2) Decode SIGNAL symbol and assert correct values of PHY rate and length.
+    """
+
+    # Step (1) - Mock all relevant functions.
+    with (patch.object(PHY, 'convert_to_frequency_domain'),
+          patch.object(PHY, 'equalize_and_remove_pilots'),
+          patch.object(PHY, 'hard_decision_demapping'),
+          patch.object(PHY, 'deinterleave'),
+          patch.object(PHY, 'convolutional_decode_viterbi', return_value=SIGNAL_FIELD)):
+
+        # Step (2) - Assert that parity check and PHY rate are decoded correctly.
+        assert PHY(host=HOST, port=PORT, is_stub=True).decode_signal(signal=[]) == (36, 100)
+
+
+def test_decode_signal_parity_check():
+    """
+    Test purpose - Parity check error case when decoding SIGNAL symbol.
+    Criteria - Parity check fails when parity bit is flipped.
+
+    Test steps:
+    1) Prepare SIGNAL field with incorrect parity bit.
+    2) Mock all relevant functions (to avoid block testing).
+    3) Decode SIGNAL symbol and assert parity check fails.
+    """
+
+    # Step (1) - Prepare SIGNAL symbol with incorrect parity bit.
+    flipped_parity_signal_field = copy.deepcopy(SIGNAL_FIELD)  # To avoid changing the SIGNAL filed for other tests.
+    flipped_parity_signal_field[17] = 1 - SIGNAL_FIELD[17]     # Toggle parity bit.
+    # Note - The last line logic is to avoid hard-coded flip of the bit to avoid test failure if SIGNAL filed is changed
+    # in the future.
+
+    # Step (2) - Mock all relevant functions.
+    with (patch.object(PHY, 'convert_to_frequency_domain'),
+          patch.object(PHY, 'equalize_and_remove_pilots'),
+          patch.object(PHY, 'hard_decision_demapping'),
+          patch.object(PHY, 'deinterleave'),
+          patch.object(PHY, 'convolutional_decode_viterbi', return_value=flipped_parity_signal_field)):
+
+        # Step (3) - Assert that parity check fails.
+        assert PHY(host=HOST, port=PORT, is_stub=True).decode_signal(signal=[]) == (None, None)
+
+
+def test_decode_signal_invalid_rate():
+    """
+    Test purpose - Invalid rate error case when decoding SIGNAL symbol.
+    Criteria - Invalid rate error rises when SIGNAL symbol rate field is incorrect.
+
+    Test steps:
+    1) Prepare SIGNAL field with invalid rate field.
+    2) Mock all relevant functions (to avoid block testing).
+    3) Decode SIGNAL symbol and assert that relevant error rises.
+    """
+
+    # Step (1) - Prepare a SIGNAL symbol with invalid rate field.
+    invalid_rate_signal_field = copy.deepcopy(SIGNAL_FIELD)  # To avoid changing the SIGNAL symbol for other tests.
+    invalid_rate_signal_field[:4] = [1, 1, 1, 0]             # Toggle parity bit.
+
+    # Step (2) - Mock all relevant functions.
+    with (patch.object(PHY, 'convert_to_frequency_domain'),
+          patch.object(PHY, 'equalize_and_remove_pilots'),
+          patch.object(PHY, 'hard_decision_demapping'),
+          patch.object(PHY, 'deinterleave'),
+          patch.object(PHY, 'convolutional_decode_viterbi', return_value=invalid_rate_signal_field)):
+
+        # Step (3) - Assert that no rate/length returns as invalid rate detected.
+        assert PHY(host=HOST, port=PORT, is_stub=True).decode_signal(signal=[]) == (None, None)
