@@ -173,30 +173,23 @@ class PHY:
         Handles PHY-layer transmission primitives and manages the process of generating and transmitting a PPDU (PLCP
         Protocol Data Unit) over the physical medium.
 
-        This method reacts to three types of primitives sent from higher layers:
-        1. **PHY-TXSTART.request**:
-            - Stores TX vector configuration data.
-            - Generates preamble and SIGNAL symbols.
-            - Resets the BCC shift register for DATA bit encoding.
-            - Sends a `PHY-TXSTART.confirm` to acknowledge the start of transmission.
+        Behavior:
+            - On receiving "PHY-TXSTART.request": Stores TX vector configuration data, generates preamble and SIGNAL
+              symbols, resets the BCC shift register for DATA bit encoding, sends a `PHY-TXSTART.confirm` to acknowledge
+              the start of transmission.
+            - On receiving "PHY-TXSTART.request": Appends received DATA to an internal buffer. When enough bits are
+              collected for a full OFDM symbol, it generates the symbol. After the last DATA octet is received, adds
+              TAIL and PAD bits, and generates the final DATA symbol. Combines all DATA symbols into one continuous
+              stream with overlapping between symbols and sends a `PHY-DATA.confirm` to acknowledge DATA receipt.
+            - On receiving "PHY-TXEND.request": Triggers the generation of the complete PPDU. Converts the PPDU into an
+              RF signal representation for transmission and sends a `PHY-TXEND.confirm` to acknowledge the end of
+              transmission.
 
-        2. **PHY-DATA.request**:
-            - Appends received DATA to an internal buffer.
-            - When enough bits are collected for a full OFDM symbol, it generates the symbol.
-            - After the last DATA octet is received, adds TAIL and PAD bits, and generates the final DATA symbol.
-            - Combines all DATA symbols into one continuous stream with overlapping between symbols.
-            - Sends a `PHY-DATA.confirm` to acknowledge DATA receipt.
+            - On receiving "PHY-CCA.indication(BUSY)": Detecting frame using STF correlation. If frame is detected,
+              Performing channel estimation using LTF, extracting RATE and LENGTH from SIGNAL, setting and calculating
+              RX vector parameters, deciphering DATA symbols and sending PSDU to MAC.
 
-        3. **PHY-TXEND.request**:
-            - Triggers the generation of the complete PPDU.
-            - Converts the PPDU into an RF signal representation for transmission.
-            - Sends a `PHY-TXEND.confirm` to acknowledge the end of transmission.
-
-
-        :param primitive: The PHY-layer primitive indicating the type of request. Can be one of:
-            - "PHY-TXSTART.request"
-            - "PHY-DATA.request"
-            - "PHY-TXEND.request"
+        :param primitive: The PHY-layer primitive indicating the type of request.
         :param data: Data associated with the primitive, such as TX vector config or DATA octets.
         """
 

@@ -98,19 +98,8 @@ class MAC:
 
     def controller(self, primitive, data):
         """
-        Handles communication primitives for PHY layer transmission in a stepwise manner.
-
-        This method is a controller for managing the sequence of events during data transmission to the PHY layer. It
-        responds to specific primitives ("PHY-TXSTART.confirm", "PHY-DATA.confirm", and "PHY-TXEND.confirm") by sending
-        data in chunks (octets) and finalizing transmission when complete.
-
-
-        :param primitive: The primitive received from the PHY layer indicating the current state of transmission.
-        Expected values are:
-             - "PHY-TXSTART.confirm"
-             - "PHY-DATA.confirm"
-             - "PHY-TXEND.confirm"
-        :param data: Payload or metadata associated with the primitive. May be unused for some cases.
+        Handles communication primitives for PHY layer transmission in a stepwise manner. This method is a controller
+        for managing the sequence of events during data transmission to the PHY layer.
 
         Behavior:
             - On receiving "PHY-TXSTART.confirm": Starts transmission by sending the first 8 bytes (an octet) of `_psdu`
@@ -118,6 +107,14 @@ class MAC:
             - On receiving "PHY-DATA.confirm": Sends the next 8-byte chunk if more data remains, or ends transmission
               with "PHY-TXEND.request" if all data has been sent.
             - On receiving "PHY-TXEND.confirm": Logs a success message and waits briefly for observation.
+
+            - On receiving "PHY-CCA.indication(BUSY)": Prepare to receive PSDU from PHY, reset relevant buffers.
+            - On receiving "PHY-DATA.indication": Receiving an octet from PHY and storing it in the relevant buffer.
+            - On receiving "PHY-RXEND.indication(No_Error)": Reception process ended and no errors occurred. Converting
+              PSDU to bytes, performing a CRC check and if passed, removes MAC header and CRC.
+
+        :param primitive: The primitive received from the PHY layer indicating the current state of transmission.
+        :param data: Payload or metadata associated with the primitive. May be unused for some cases.
         """
 
         match primitive:
@@ -155,11 +152,11 @@ class MAC:
                     byte_list.append(value)
                 byte_list = bytes(byte_list)
 
-                # CRC check.
+                log.info("Performing CRC check")
                 if not self.cyclic_redundancy_check_32(data=bytes(byte_list[:-4])) == byte_list[-4:]:
                     log.error("CRC check failed")
                 else:
-                    # Remove MAC header and CRC.
+                    log.info("Remove MAC header and CRC")
                     self._data = byte_list[24:-4]
                     # TODO: Pass to Chip (parent class).
                     log.info("Received message:")
