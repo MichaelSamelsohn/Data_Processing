@@ -1164,10 +1164,6 @@ class PHY:
         mitigate the effects of burst errors. This function uses the modulation and coding scheme (MCS) parameters
         associated with the given PHY rate to correctly reorder the input bits.
 
-        The deinterleaving process consists of two permutation steps:
-        1. Reverse the second permutation (per IEEE 802.11 interleaving definition).
-        2. Reverse the first permutation to recover the original order before interleaving.
-
         :param bits: The interleaved bitstream as a list of binary values (0s and 1s).
         :param phy_rate: The physical layer data rate (e.g., '6Mbps', '54Mbps') used to look up the corresponding
         modulation and coding scheme parameters.
@@ -1176,21 +1172,30 @@ class PHY:
         """
 
         mcs = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]
-        n_bpsc = mcs["N_BPSC"]
-        n_cbps = mcs["N_CBPS"]
+        n_bpsc = mcs["N_BPSC"]  # Number of coded bits per subcarrier.
+        n_cbps = mcs["N_CBPS"]  # Number of coded bits per OFDM symbol.
 
         s = max(n_bpsc // 2, 1)
-        deinterleaved = [0] * len(bits)
+        deinterleaved = [0] * len(bits)  # Output array for the deinterleaved bitstream.
 
+        # Step 1 - Build the interleaving mapping (forward permutation).
+        interleave_map = [0] * n_cbps
         for k in range(n_cbps):
-            # Reversing second permutation.
-            i = s * (k // s) + (k + n_cbps - (16 * k) // n_cbps) % s
+            # First permutation (column permutation).
+            i = (n_cbps // 16) * (k % 16) + (k // 16)
+            # Second permutation (within each column).
+            j = s * (i // s) + (i + n_cbps - (16 * i) // n_cbps) % s
+            interleave_map[k] = j  # Mapping from input index k → interleaved index j.
 
-            # Reversing first permutation.
-            j = 16 * (i % (n_cbps // 16)) + (i // (n_cbps // 16))
+        # Step 2 - Invert the mapping for deinterleaving.
+        deinterleave_map = [0] * n_cbps
+        for k, v in enumerate(interleave_map):
+            deinterleave_map[v] = k  # Mapping from interleaved index → original index.
 
-            if j < len(bits):
-                deinterleaved[j] = bits[k]
+        # Step 3 - Apply the deinterleaving map to reorder the bits.
+        for k in range(len(bits)):
+            if k < n_cbps:
+                deinterleaved[deinterleave_map[k]] = bits[k]
 
         return deinterleaved
 
