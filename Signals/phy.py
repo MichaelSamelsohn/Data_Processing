@@ -53,6 +53,7 @@ class PHY:
         log.info("Establishing PHY layer")
 
         self._mpif_socket = None  # Socket connection to MPIF.
+        self._channel_socket = None
 
         # Modulation/Coding parameters #
         self._phy_rate = None
@@ -93,13 +94,32 @@ class PHY:
         self._channel_estimate = None
         self._psdu = None
 
+    def channel_connection(self, host, port):
+        """
+        Establishes a TCP/IP socket connection to the channel server and initializes communication.
+
+        This method performs the following:
+        - Creates a TCP/IP socket and connects to the specified host and port.
+        - Starts a listener thread to handle incoming messages from the channel server.
+
+        This method is typically called during initialization of the physical layer (PHY) to establish the link with the
+        MPIF for message exchange.
+        """
+
+        log.debug("PHY connecting to Channel socket")
+        self._channel_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._channel_socket.connect((host, port))
+
+        # Start listener thread.
+        threading.Thread(target=self.listen, daemon=True).start()
+        time.sleep(0.1)  # Buffer time.
+
     def mpif_connection(self, host, port):
         """
         Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
         communication.
 
         This method performs the following:
-        - Checks if the object is a stub; if it is, the connection process is skipped.
         - Creates a TCP/IP socket and connects to the specified host and port.
         - Sends an initial identification message to the MPIF server using the `send` method.
         - Starts a listener thread to handle incoming messages from the MPIF server.
