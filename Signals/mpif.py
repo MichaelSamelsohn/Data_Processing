@@ -5,22 +5,20 @@ import threading
 
 from Settings.settings import log
 
-HOST = '127.0.0.1'
 
 class MPIF:
-    def __init__(self, is_stub=False):
+    def __init__(self, host: str, is_stub=False):
         log.info("Establishing MPIF block")
 
         self._is_stub = is_stub
         if not is_stub:
-            log.debug("Configuring listening socket")
-            self.host = HOST
+            log.debug("Configuring listening socket for MPIF block")
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server.bind((HOST, 0))  # The OS to choose a free port.
+            self.server.bind((host, 0))  # The OS to choose a free port.
             self.server.listen(2)
             self.port = self.server.getsockname()[1]
 
-            log.debug(f"Server listening on {self.host}:{self.port}")
+            log.debug(f"Server listening on {host}:{self.port}")
 
             # Start server handler in a thread.
             threading.Thread(target=self.establish_connections, daemon=True).start()

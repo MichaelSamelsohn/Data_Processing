@@ -13,6 +13,7 @@ from Settings.settings import log
 from mac import MAC
 from mpif import MPIF
 from phy import PHY
+from Settings.signal_settings import CHANNEL_HOST, CHANNEL_PORT, HOST
 
 
 class CHIP:
@@ -21,15 +22,16 @@ class CHIP:
 
         self._is_stub = is_stub
         if not self._is_stub:
-            self.mpif = MPIF()
+            self.mpif = MPIF(host=HOST)
 
-            # Start clients after a slight delay to ensure server is ready
+            # Start clients after a slight delay to ensure server is ready.
             time.sleep(1)
             self.mac = MAC()
-            self.mac.mpif_connection(host=self.mpif.host, port=self.mpif.port)
+            self.mac.mpif_connection(host=HOST, port=self.mpif.port)
             time.sleep(1)
             self.phy = PHY()
-            self.phy.mpif_connection(host=self.mpif.host, port=self.mpif.port)
+            self.phy.mpif_connection(host=HOST, port=self.mpif.port)
+            self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
 
         # Transmitter.
         self._text = None
