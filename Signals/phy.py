@@ -52,7 +52,7 @@ class PHY:
     def __init__(self):
         log.info("Establishing PHY layer")
 
-        self._socket = None  # Socket connection to MPIF.
+        self._mpif_socket = None  # Socket connection to MPIF.
 
         # Modulation/Coding parameters #
         self._phy_rate = None
@@ -110,8 +110,8 @@ class PHY:
         """
 
         log.debug("PHY connecting to MPIF socket")
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect((host, port))
+        self._mpif_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._mpif_socket.connect((host, port))
 
         log.debug("PHY sending ID to MPIF")
         self.send(primitive="PHY", data=[])
@@ -132,7 +132,7 @@ class PHY:
         """
 
         message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-        self._socket.sendall(message.encode())
+        self._mpif_socket.sendall(message.encode())
 
     def listen(self):
         """
@@ -145,7 +145,7 @@ class PHY:
 
         try:
             while True:
-                message = self._socket.recv(16384)
+                message = self._mpif_socket.recv(16384)
                 if message:
                     # Unpacking the message.
                     message = json.loads(message.decode())
@@ -160,7 +160,7 @@ class PHY:
         except Exception as e:
             log.error(f"PHY listen error: {e}")
         finally:
-            self._socket.close()
+            self._mpif_socket.close()
 
     def controller(self, primitive, data):
         """

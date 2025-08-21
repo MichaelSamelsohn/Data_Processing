@@ -11,7 +11,7 @@ class MAC:
     def __init__(self):
         log.info("Establishing MAC layer")
 
-        self._socket = None  # Socket connection to MPIF.
+        self._mpif_socket = None  # Socket connection to MPIF.
 
         self.phy_rate = 6  # Default value.
 
@@ -38,8 +38,8 @@ class MAC:
         """
 
         log.debug("MAC connecting to MPIF socket")
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect((host, port))
+        self._mpif_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._mpif_socket.connect((host, port))
 
         log.debug("MAC sending ID to MPIF")
         self.send(primitive="MAC", data=[])
@@ -60,7 +60,7 @@ class MAC:
         """
 
         message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-        self._socket.sendall(message.encode())
+        self._mpif_socket.sendall(message.encode())
 
     def listen(self):
         """
@@ -73,7 +73,7 @@ class MAC:
 
         try:
             while True:
-                message = self._socket.recv(16384)
+                message = self._mpif_socket.recv(16384)
                 if message:
                     # Unpacking the message.
                     message = json.loads(message.decode())
@@ -88,7 +88,7 @@ class MAC:
         except Exception as e:
             log.error(f"MAC listen error: {e}")
         finally:
-            self._socket.close()
+            self._mpif_socket.close()
 
     def controller(self, primitive, data):
         """
