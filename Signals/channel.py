@@ -59,8 +59,9 @@ class Channel:
                 # Decode message.
                 message = json.loads(message.decode())
                 primitive = message['PRIMITIVE']
-                data = message['DATA']
 
+                data = [complex(r, i) for r, i in message['DATA']]
+                time.sleep(1)
                 log.channel(f"Received from {addr}: {primitive} "
                             f"({'no data' if not data else f'data length {len(data)}'})")
 
@@ -75,7 +76,7 @@ class Channel:
             log.channel(f"Connection with {addr} closed")
 
     def broadcast(self, primitive, data):
-        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data}).encode()
+        message = json.dumps({'PRIMITIVE': primitive, 'DATA': [[c.real, c.imag] for c in data]}).encode()
 
         with self.clients_lock:
             for conn in list(self.clients):
@@ -109,4 +110,4 @@ class Channel:
         noisy_rf_signal = convolved_signal + noise
 
         log.channel("Sending noisy signal")
-        return list(noisy_rf_signal)
+        return [complex(round(c.real, 3), round(c.imag, 3)) for c in noisy_rf_signal]
