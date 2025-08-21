@@ -8,15 +8,10 @@ from Settings.settings import log
 
 
 class MAC:
-    def __init__(self, host, port, is_stub=False):
+    def __init__(self):
         log.info("Establishing MAC layer")
 
-        self._is_stub = is_stub
-        if not self._is_stub:
-            self._host = host
-            self._port = port
-            self._socket = None
-            self.mpif_connection()
+        self._socket = None  # Socket connection to MPIF.
 
         self.phy_rate = 6  # Default value.
 
@@ -26,7 +21,7 @@ class MAC:
 
         self._psdu = None
 
-    def mpif_connection(self):
+    def mpif_connection(self, host, port):
         """
         Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
         communication.
@@ -42,17 +37,16 @@ class MAC:
         exchange.
         """
 
-        if not self._is_stub:
-            log.debug("MAC connecting to MPIF socket")
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.connect((self._host, self._port))
+        log.debug("MAC connecting to MPIF socket")
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.connect((host, port))
 
-            log.debug("MAC sending ID to MPIF")
-            self.send(primitive="MAC", data=[])
+        log.debug("MAC sending ID to MPIF")
+        self.send(primitive="MAC", data=[])
 
-            # Start listener thread.
-            threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+        # Start listener thread.
+        threading.Thread(target=self.listen, daemon=True).start()
+        time.sleep(0.1)  # Allow server to read ID before sending other messages.
 
     def send(self, primitive, data):
         """

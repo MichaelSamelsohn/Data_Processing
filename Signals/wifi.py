@@ -16,18 +16,20 @@ from phy import PHY
 
 
 class CHIP:
-    def __init__(self, host='127.0.0.1', port=0, is_stub=False):
+    def __init__(self, is_stub=False):
         log.info("Establishing WiFi")
 
         self._is_stub = is_stub
         if not self._is_stub:
-            self.mpif = MPIF(host=host, port=port)
+            self.mpif = MPIF()
 
             # Start clients after a slight delay to ensure server is ready
             time.sleep(1)
-            self.mac = MAC(self.mpif.host, self.mpif.port)
+            self.mac = MAC()
+            self.mac.mpif_connection(host=self.mpif.host, port=self.mpif.port)
             time.sleep(1)
-            self.phy = PHY(self.mpif.host, self.mpif.port)
+            self.phy = PHY()
+            self.phy.mpif_connection(host=self.mpif.host, port=self.mpif.port)
 
         # Transmitter.
         self._text = None

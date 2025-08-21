@@ -49,15 +49,10 @@ FREQUENCY_DOMAIN_LTF = [
 
 
 class PHY:
-    def __init__(self, host, port, is_stub=False):
+    def __init__(self):
         log.info("Establishing PHY layer")
 
-        self._is_stub = is_stub
-        if not self._is_stub:
-            self._host = host
-            self._port = port
-            self._socket = None
-            self.mpif_connection()
+        self._socket = None  # Socket connection to MPIF.
 
         # Modulation/Coding parameters #
         self._phy_rate = None
@@ -98,7 +93,7 @@ class PHY:
         self._channel_estimate = None
         self._psdu = None
 
-    def mpif_connection(self):
+    def mpif_connection(self, host, port):
         """
         Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
         communication.
@@ -114,21 +109,20 @@ class PHY:
         MPIF for message exchange.
         """
 
-        if not self._is_stub:
-            log.debug("PHY connecting to MPIF socket")
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.connect((self._host, self._port))
+        log.debug("PHY connecting to MPIF socket")
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.connect((host, port))
 
-            log.debug("PHY sending ID to MPIF")
-            self.send(primitive="PHY", data=[])
+        log.debug("PHY sending ID to MPIF")
+        self.send(primitive="PHY", data=[])
 
-            # Start listener thread.
-            threading.Thread(target=self.listen, daemon=True).start()
-            time.sleep(0.1)  # Allow server to read ID before sending other messages.
+        # Start listener thread.
+        threading.Thread(target=self.listen, daemon=True).start()
+        time.sleep(0.1)  # Allow server to read ID before sending other messages.
 
     def send(self, primitive, data):
         """
-        Sends a message over a socket connection if the current instance is not a stub.
+        Sends a message over a socket connection.
 
         The message is a JSON-formatted string that includes a 'PRIMITIVE' key representing the type or identifier of
         the operation, and a 'DATA' key containing the associated data.
@@ -470,7 +464,7 @@ class PHY:
 
         # Setting the length bits, 5-16.
         signal_field[5:17] = [int(bit) for bit in format(self._length, '012b')][::-1]
-        log.debug(f"Length bits 5-17, {signal_field[5:17]}")
+        log.debug(f"Length bits 5-16, {signal_field[5:17]}")
 
         # Setting the parity bit 17.
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
