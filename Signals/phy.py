@@ -285,9 +285,9 @@ class PHY:
                             self.send(primitive="PHY-RXEND.indication(No_Error)", data=[])
                             self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
 
-    def _set_general_parameters(self):
-        self._phy_rate = self._tx_vector[0]
-        self._length = self._tx_vector[1]
+    def _set_general_parameters(self, vector: str):
+        self._phy_rate = self._tx_vector[0] if vector == 'TX' else self._rx_vector[0]
+        self._length = self._tx_vector[1] if vector == 'TX' else self._rx_vector[1]
 
         mcs_parameters = MODULATION_CODING_SCHEME_PARAMETERS[self._phy_rate]
         self._modulation = mcs_parameters["MODULATION"]
@@ -311,7 +311,7 @@ class PHY:
     def tx_vector(self, tx_vector: list):
         self._tx_vector = tx_vector
 
-        self._set_general_parameters()
+        self._set_general_parameters(vector='TX')
 
         self._data_buffer = 16 * [0]  # Initialized with SERVICE field only.
         self._data_symbols = []
@@ -897,7 +897,7 @@ class PHY:
     def rx_vector(self, rx_vector: list):
         self._rx_vector = rx_vector
 
-        self._set_general_parameters()
+        self._set_general_parameters(vector='RX')
 
     # PHY preamble - STF, LTF - 12 symbols #
 
@@ -1304,7 +1304,15 @@ class PHY:
 
     def equalize_and_remove_pilots(self, frequency_symbol: list[complex]) -> list[complex]:
         """
-        TODO: Complete the docstring.
+        Equalizes the input frequency-domain symbol using the channel estimate and removes pilot sub-carriers.
+
+        This method performs frequency-domain equalization by dividing each sub-carrier in the input symbol by the
+        corresponding channel estimate value. After equalization, it removes specific pilot sub-carriers from the
+        equalized symbol based on predefined indices.
+
+        :param frequency_symbol: The input frequency-domain symbol containing data and pilot sub-carriers.
+
+        :return: The equalized frequency-domain symbol with pilot sub-carriers removed.
         """
 
         # Performing equalization based on the channel estimate.
