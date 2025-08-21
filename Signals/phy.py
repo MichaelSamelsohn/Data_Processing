@@ -94,26 +94,6 @@ class PHY:
         self._channel_estimate = None
         self._psdu = None
 
-    def channel_connection(self, host, port):
-        """
-        Establishes a TCP/IP socket connection to the channel server and initializes communication.
-
-        This method performs the following:
-        - Creates a TCP/IP socket and connects to the specified host and port.
-        - Starts a listener thread to handle incoming messages from the channel server.
-
-        This method is typically called during initialization of the physical layer (PHY) to establish the link with the
-        MPIF for message exchange.
-        """
-
-        log.debug("PHY connecting to Channel socket")
-        self._channel_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._channel_socket.connect((host, port))
-
-        # Start listener thread.
-        threading.Thread(target=self.listen, daemon=True).start()
-        time.sleep(0.1)  # Buffer time.
-
     def mpif_connection(self, host, port):
         """
         Establishes a TCP/IP socket connection to the MPIF (Modem Protocol Interface Function) server and initializes
@@ -134,27 +114,13 @@ class PHY:
         self._mpif_socket.connect((host, port))
 
         log.debug("PHY sending ID to MPIF")
-        self.send(primitive="PHY", data=[])
+        self.send(socket_connection=self._mpif_socket, primitive="PHY", data=[])
 
         # Start listener thread.
-        threading.Thread(target=self.listen, daemon=True).start()
+        threading.Thread(target=self.mpif_listen, daemon=True).start()
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
 
-    def send(self, primitive, data):
-        """
-        Sends a message over a socket connection.
-
-        The message is a JSON-formatted string that includes a 'PRIMITIVE' key representing the type or identifier of
-        the operation, and a 'DATA' key containing the associated data.
-
-        :param primitive: A string that identifies the type of message or operation.
-        :param data: The data to be sent along with the primitive. Must be JSON-serializable.
-        """
-
-        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-        self._mpif_socket.sendall(message.encode())
-
-    def listen(self):
+    def mpif_listen(self):
         """
         Listens for incoming messages on the socket and processes them.
 
@@ -181,6 +147,70 @@ class PHY:
             log.error(f"PHY listen error: {e}")
         finally:
             self._mpif_socket.close()
+
+    def channel_connection(self, host, port):
+        """
+        Establishes a TCP/IP socket connection to the channel server and initializes communication.
+
+        This method performs the following:
+        - Creates a TCP/IP socket and connects to the specified host and port.
+        - Starts a listener thread to handle incoming messages from the channel server.
+
+        This method is typically called during initialization of the physical layer (PHY) to establish the link with the
+        MPIF for message exchange.
+        """
+
+        log.debug("PHY connecting to Channel socket")
+        self._channel_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._channel_socket.connect((host, port))
+
+        # Start listener thread.
+        threading.Thread(target=self.channel_listen, daemon=True).start()
+        time.sleep(0.1)  # Buffer time.
+
+    def channel_listen(self):
+        """
+        Listens for incoming messages on the socket and processes them.
+
+        This method continuously reads data from the socket in chunks of up to 16,384 bytes. Each message is expected to
+        be a JSON-encoded object containing 'PRIMITIVE' and 'DATA' fields. Upon receiving a message, it is decoded and
+        passed to the controller for further handling.
+        """
+
+        try:
+            while True:
+                message = self._channel_socket.recv(16384)
+                if message:
+                    # Unpacking the message.
+                    message = json.loads(message.decode())
+                    primitive = message['PRIMITIVE']
+                    data = message['DATA']
+
+                    log.traffic(f"PHY received: {primitive} "
+                                f"({'no data' if not data else f'data length {len(data)}'})")
+                    self.controller(primitive=primitive, data=data)
+                else:
+                    break
+        except Exception as e:
+            log.error(f"PHY listen error: {e}")
+        finally:
+            self._channel_socket.close()
+
+    @staticmethod
+    def send(socket_connection, primitive, data):
+        """
+        Sends a message over a socket connection.
+
+        The message is a JSON-formatted string that includes a 'PRIMITIVE' key representing the type or identifier of
+        the operation, and a 'DATA' key containing the associated data.
+
+        :param socket_connection: Connection socket through which to send the message.
+        :param primitive: A string that identifies the type of message or operation.
+        :param data: The data to be sent along with the primitive. Must be JSON-serializable.
+        """
+
+        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+        socket_connection.sendall(message.encode())
 
     def controller(self, primitive, data):
         """
@@ -221,7 +251,7 @@ class PHY:
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
 
                 # Confirm TXSTART.
-                self.send(primitive="PHY-TXSTART.confirm", data=[])
+                self.send(socket_connection=self._mpif_socket, primitive="PHY-TXSTART.confirm", data=[])
             case "PHY-DATA.request":
                 self._data_buffer += data  # Add received DATA to buffer.
 
@@ -247,57 +277,76 @@ class PHY:
                     self._data = ofdm_data
 
                 # Confirm DATA.
-                self.send(primitive="PHY-DATA.confirm", data=[])
+                self.send(socket_connection=self._mpif_socket, primitive="PHY-DATA.confirm", data=[])
             case "PHY-TXEND.request":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
 
                 log.info("Generating PPDU")
                 self._ppdu = self.generate_ppdu()
-                self._rf_frame_tx = self.generate_rf_signal()
+                # self._rf_frame_tx = self.generate_rf_signal() TODO: Is it relevant?
 
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
 
                 # Confirm TXEND.
-                self.send(primitive="PHY-TXEND.confirm", data=[])
+                self.send(socket_connection=self._mpif_socket, primitive="PHY-TXEND.confirm", data=[])
+
+                # Send PPDU to channel.
+                self.send(socket_connection=self._channel_socket, primitive="RF-SIGNAL",
+                          data=[[c.real, c.imag] for c in self._ppdu])
 
             # Receiver.
-            case "PHY-CCA.indication(BUSY)":
-                log.info("Detecting frame using STF correlation")
-                index = self.detect_frame(baseband_signal=self._rf_frame_rx)
-                if index is None:
-                    self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
-                else:
-                    log.info("Frame detected")
-                    self.send(primitive="PHY-CCA.indication(BUSY)", data=[])
+            case "RF-SIGNAL":
+                data = [complex(r, i) for r, i in data]
+                if self._ppdu is not None:
+                    # This is the message we just sent.
+                    self._ppdu = []  # Clearing the PPDU.
+                else:  # New message.
+                    log.info("Starting reception chain")
+                    self._rf_frame_rx = data
 
-                    log.info("Performing channel estimation using LTF")
-                    self._channel_estimate = self.channel_estimation(
-                        time_domain_ltf=self._rf_frame_rx[index + 160: index + 320])
-
-                    log.info("Extracting RATE and LENGTH from SIGNAL")
-                    phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
-                    if phy_rate is None and length is None:
-                        # Either invalid rate or parity check failed.
-                        self.send(primitive="PHY-RXEND.indication(FormatViolation)", data=[])
+                    log.info("Detecting frame using STF correlation")
+                    index = self.detect_frame(baseband_signal=self._rf_frame_rx)
+                    if index is None:
+                        self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(IDLE)", data=[])
                     else:
-                        log.info("Setting and calculating MCS parameters")
-                        self.rx_vector = [phy_rate, length]
+                        log.info("Frame detected")
+                        self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(BUSY)", data=[])
 
-                        log.info("Deciphering DATA symbols")
-                        self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
-                        if not self._psdu:
-                            # Unable to find scramble seed.
-                            self.send(primitive="PHY-RXEND.indication(ScrambleSeedNotFound)", data=[])
+                        log.info("Performing channel estimation using LTF")
+                        self._channel_estimate = self.channel_estimation(
+                            time_domain_ltf=self._rf_frame_rx[index + 160: index + 320])
+
+                        log.info("Extracting RATE and LENGTH from SIGNAL")
+                        phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
+                        if phy_rate is None and length is None:
+                            # Either invalid rate or parity check failed.
+                            self.send(socket_connection=self._mpif_socket,
+                                      primitive="PHY-RXEND.indication(FormatViolation)", data=[])
                         else:
-                            log.info("Sending PSDU to MAC")
-                            for _ in range(self._length):
-                                self.send(primitive="PHY-DATA.indication", data=self._psdu[:8])
-                                time.sleep(0.01)  # Buffer time to allow the MAC to append the sent data octet.
-                                self._psdu = self._psdu[8:]  # Remove sent octet.
+                            log.info("Setting and calculating MCS parameters")
+                            self.rx_vector = [phy_rate, length]
 
-                            # Ending the reception.
-                            self.send(primitive="PHY-RXEND.indication(No_Error)", data=[])
-                            self.send(primitive="PHY-CCA.indication(IDLE)", data=[])
+                            log.info("Deciphering DATA symbols")
+                            self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
+                            if not self._psdu:
+                                # Unable to find scramble seed.
+                                self.send(socket_connection=self._mpif_socket,
+                                          primitive="PHY-RXEND.indication(ScrambleSeedNotFound)", data=[])
+                            else:
+                                log.info("Sending PSDU to MAC")
+                                for _ in range(self._length):
+                                    self.send(socket_connection=self._mpif_socket, primitive="PHY-DATA.indication",
+                                              data=self._psdu[:8])
+                                    time.sleep(0.01)  # Buffer time to allow the MAC to append the sent data octet.
+                                    self._psdu = self._psdu[8:]  # Remove sent octet.
+
+                                # Ending the reception.
+                                self.send(socket_connection=self._mpif_socket,
+                                          primitive="PHY-RXEND.indication(No_Error)",
+                                          data=[])
+                                self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(IDLE)",
+                                          data=[])
+
 
     def _set_general_parameters(self, vector: str):
         self._phy_rate = self._tx_vector[0] if vector == 'TX' else self._rx_vector[0]
@@ -893,15 +942,6 @@ class PHY:
         return time_signal
 
     # Receiver side #
-
-    @property
-    def rf_frame_rx(self):
-        return self._rf_frame_rx
-
-    @rf_frame_rx.setter
-    def rf_frame_rx(self, rf_signal: list):
-        self._rf_frame_rx = rf_signal
-        self.controller(primitive="PHY-CCA.indication(BUSY)", data=[])
 
     @property
     def rx_vector(self):

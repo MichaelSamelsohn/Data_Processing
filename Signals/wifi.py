@@ -57,19 +57,6 @@ class CHIP:
         log.debug("Transferring the data to the MAC layer")
         self.mac.data = self._ascii_text
 
-    @property
-    def rf_signal(self):
-        return self._rf_signal
-
-    @rf_signal.setter
-    def rf_signal(self, new_signal: list[complex]):
-        log.info("Starting reception chain")
-
-        self._rf_signal = new_signal
-
-        log.debug("Transferring the data to the PHY layer")
-        self.phy.rf_frame_rx = self._rf_signal
-
     @staticmethod
     def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:
         """
