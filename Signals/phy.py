@@ -175,6 +175,8 @@ class PHY:
         This method continuously reads data from the socket in chunks of up to 16,384 bytes. Each message is expected to
         be a JSON-encoded object containing 'PRIMITIVE' and 'DATA' fields. Upon receiving a message, it is decoded and
         passed to the controller for further handling.
+        Note - Unlike MPIF listen which expects simple, serializble data, channel listen receives list of complex data
+        (time domain PPDU complex values).
         """
 
         try:
@@ -184,7 +186,8 @@ class PHY:
                     # Unpacking the message.
                     message = json.loads(message.decode())
                     primitive = message['PRIMITIVE']
-                    data = message['DATA']
+                    # Message data is a list of complex values which require special handling.
+                    data = [complex(r, i) for r, i in message['DATA']]
 
                     log.traffic(f"PHY received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
@@ -296,7 +299,6 @@ class PHY:
 
             # Receiver.
             case "RF-SIGNAL":
-                data = [complex(r, i) for r, i in data]
                 if self._ppdu is not None:
                     # This is the message we just sent.
                     self._ppdu = []  # Clearing the PPDU.
