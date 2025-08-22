@@ -1,5 +1,6 @@
 # Imports #
 import json
+import random
 import socket
 import threading
 import time
@@ -13,6 +14,8 @@ class MAC:
 
         self._mpif_socket = None  # Socket connection to MPIF.
 
+        self._mac_address = self.generate_mac_address()
+
         self.phy_rate = 6  # Default value.
 
         self._data = None
@@ -20,6 +23,34 @@ class MAC:
         self._crc = None
 
         self._psdu = None
+
+    @staticmethod
+    def generate_mac_address() -> list[int]:
+        """
+        Generate a random, valid MAC address.
+
+        The MAC address generated will:
+        - Be 48 bits long (6 bytes).
+        - Be unicast (least significant bit of the first byte = 0).
+        - Be locally administered (second least significant bit of the first byte = 1).
+
+        Example - [2, 26, 179, 79, 125, 230]  # Corresponds to 02:1A:B3:4F:7D:E6.
+
+        :return: A list of 6 integers, each representing a byte of the MAC address.
+        """
+
+        # First byte - Locally administered (bit 1 = 1), Unicast (bit 0 = 0)
+        first_byte = random.randint(0x00, 0xFF)
+        first_byte = (first_byte & 0b11111100) | 0b00000010  # Ensure unicast + locally administered.
+
+        # Remaining 5 bytes are fully random.
+        remaining_bytes = [random.randint(0x00, 0xFF) for _ in range(5)]
+
+        # Combine all bytes and format as MAC address string.
+        mac_address = [first_byte] + remaining_bytes
+        log.debug(f"MAC address - {':'.join(f'{b:02X}' for b in mac_address)}")
+
+        return mac_address
 
     def mpif_connection(self, host, port):
         """
