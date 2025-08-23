@@ -73,7 +73,7 @@ class PHY:
         self._preamble = None
         self._signal = None
         self._data = None
-        self._ppdu = None
+        self._ppdu = []
 
         # Buffers/Counters #
         self._data_buffer = None
@@ -299,7 +299,7 @@ class PHY:
 
             # Receiver.
             case "RF-SIGNAL":
-                if self._ppdu is not None:
+                if self._ppdu:
                     # This is the message we just sent.
                     self._ppdu = []  # Clearing the PPDU.
                 else:  # New message.
