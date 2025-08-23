@@ -181,7 +181,7 @@ class PHY:
 
         try:
             while True:
-                message = self._channel_socket.recv(16384)
+                message = self._channel_socket.recv(65536)
                 if message:
                     # Unpacking the message.
                     message = json.loads(message.decode())

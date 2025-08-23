@@ -69,7 +69,6 @@ FRAME_TYPES = {
     # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
     #    ...                                                    ...
     # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 1, 1]},
-
 }
 
 
@@ -165,7 +164,7 @@ class MAC:
 
         try:
             while True:
-                message = self._mpif_socket.recv(16384)
+                message = self._mpif_socket.recv(65536)
                 if message:
                     # Unpacking the message.
                     message = json.loads(message.decode())

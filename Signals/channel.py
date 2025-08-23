@@ -52,7 +52,7 @@ class Channel:
     def handle_client(self, conn, addr):
         try:
             while True:
-                message = conn.recv(16384)
+                message = conn.recv(65536)
                 if not message:
                     break
 

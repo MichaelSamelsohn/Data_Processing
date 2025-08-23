@@ -53,7 +53,7 @@ class MPIF:
         if not self._is_stub:
             try:
                 while True:
-                    data = src.recv(16384)
+                    data = src.recv(65536)
                     if not data:
                         break
                     dst.sendall(data)
