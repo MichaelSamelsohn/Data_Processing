@@ -8,19 +8,80 @@ import time
 from Settings.settings import log
 
 
+FRAME_TYPES = {
+    # Management #
+    "Association Request":             {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},
+    "Association Response":            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 1]},
+    "Reassociation Request":           {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
+    "Reassociation Response":          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 1, 1]},
+    "Probe Request":                   {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 0]},
+    "Probe Response":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 1]},
+    "Timing Advertisement":            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 1, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 1, 1]},
+    "Beacon":                          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 0, 0]},
+    "ATIM":                            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 0, 1]},
+    "Disassociation":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 1, 0]},
+    "Authentication":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 1, 1]},
+    "Deauthentication":                {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 0, 0]},
+    "Action":                          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 0, 1]},
+    "Action No Ack":                   {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 1, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 1, 1]},
+
+    # Control #
+    # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 0, 0, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 0, 0, 1]},
+    # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 0, 1, 0]},
+    "TACK":                            {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 0, 1, 1]},
+    "Beamforming Report Poll":         {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 1, 0, 0]},
+    "VHT NDP Announcement":            {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 1, 0, 1]},
+    "Control Frame Extension":         {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 1, 1, 0]},
+    "Control Wrapper":                 {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [0, 1, 1, 1]},
+    "Block Ack Request (BlockAckReq)": {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 0, 0]},
+    "Block Ack (BlockAck)":            {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 0, 1]},
+    "PS-Poll":                         {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 1, 0]},
+    "RTS":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 1, 1]},
+    "CTS":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 0, 0]},
+    "ACK":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 0, 1]},
+    "CF-End":                          {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 1, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 1, 1]},
+
+    # Data #
+    "Data":                            {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 0, 1]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 1]},
+    "Null":                            {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 1, 0, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 1, 0, 1]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 1, 1, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 1, 1, 1]},
+    "QoS Data":                        {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 0, 0, 0]},
+    "QoS Data +CF-Ack":                {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 0, 0, 1]},
+    "QoS Data +CF-Poll":               {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 0, 1, 0]},
+    "QoS Data +CF-Ack +CF-Poll":       {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 0, 1, 0]},
+    "QoS Null":                        {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 0, 0]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 0, 1]},
+    "QoS CF-Poll":                     {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 1, 0]},
+    "QoS CF-Ack +CF-Poll":             {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 1, 1]},
+
+    # Extension #
+    "DMG Beacon":                      {"TYPE_VALUE": [1, 1], "SUBTYPE_VALUE": [0, 0, 0, 0]},
+    "S1G Beacon":                      {"TYPE_VALUE": [1, 1], "SUBTYPE_VALUE": [0, 0, 0, 1]},
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
+    #    ...                                                    ...
+    # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [1, 1, 1, 1]},
+
+}
+
+
 class MAC:
     def __init__(self):
         log.info("Establishing MAC layer")
 
-        self._mpif_socket = None  # Socket connection to MPIF.
-
         self._mac_address = self.generate_mac_address()
 
-        self.phy_rate = 6  # Default value.
+        self._mpif_socket = None  # Socket connection to MPIF.
 
-        self._data = None
-        self._mac_header = None
-        self._crc = None
+        self.phy_rate = 6  # Default value.
 
         self._psdu = None
 
@@ -164,49 +225,65 @@ class MAC:
 
             # Receiver.
             case "PHY-CCA.indication(BUSY)":
-                self._data = []
-                self._psdu = []
+                self._psdu = []  # Clear previously stored data (if any exists).
             case "PHY-DATA.indication":
                 self._psdu += data
             case "PHY-RXEND.indication(No_Error)":
-                # Group bits into bytes and convert to integers.
-                byte_list = []
-                for i in range(0, len(self._psdu), 8):
-                    byte = self._psdu[i:i + 8]
-                    value = int(''.join(map(str, byte)), 2)
-                    byte_list.append(value)
-                byte_list = bytes(byte_list)
+                byte_list = self.convert_bits_to_bytes(bits=self._psdu)
 
                 log.info("Performing CRC check")
                 if not self.cyclic_redundancy_check_32(data=bytes(byte_list[:-4])) == byte_list[-4:]:
                     log.error("CRC check failed")
-                else:
-                    log.info("Remove MAC header and CRC")
-                    self._data = byte_list[24:-4]
-                    # TODO: Pass to Chip (parent class).
-                    log.info("Received message:")
-                    log.print_data(self._data.decode('utf-8'), log_level="info")
+                else:  # CRC check passed.
+                    # Check the frame type.
+                    match self._psdu[2:4][::-1]:
+                        case [0, 0]:  # Management.
+                            log.debug("Management frame type")
+                            pass  # TODO: To be implemented.
+                        case [0, 1]:  # Control.
+                            log.debug("Control frame type")
+                            pass  # TODO: To be implemented.
+                        case [1, 0]:  # Data.
+                            log.debug("Data frame type")
+                            self.data_controller()
+                        case [1, 1]:  # Extension.
+                            log.debug("Extension frame type")
+                            pass  # TODO: To be implemented.
 
-    @property
-    def data(self):
-        return self._data
+    def data_controller(self):
+        """
+        TODO: Complete the docstring.
+        """
 
-    @data.setter
-    def data(self, new_data: list):
-        self._data = new_data
+        match self._psdu[4:8][::-1]:
+            case [0, 0, 0, 0]:  # Data.
+                log.debug("Data frame subtype")
 
-        log.info("Generating PSDU")
-        self._psdu = self.generate_psdu()
+                log.info("Remove MAC header and CRC")
+                data = self.convert_bits_to_bytes(bits=self._psdu)[24:-4]
+                log.info("Received message:")
+                log.print_data(data.decode('utf-8'), log_level="info")
+
+    def send_data(self, data, destination_address: list[int]):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Generate MAC header.
+        mac_header = self.generate_mac_header(frame_type="Data", destination_address=destination_address)
+
+        # Generate PSDU.
+        self._psdu = self.generate_psdu(mac_header=mac_header, data=data)
 
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         self.send(primitive="PHY-TXSTART.request", data=[self.phy_rate, int(len(self._psdu) / 8)])  # TX VECTOR.
 
-    def generate_psdu(self) -> list[int]:
+    def generate_psdu(self, mac_header, data) -> list[int]:
         """
         Prepares a data packet by appending a predefined MAC header and a CRC-32 checksum.
 
         This function constructs a full data frame by:
-        1. Prepending a fixed MAC header to the payload data (`self._data`). TODO: Generate MAC header.
+        1. Prepending a fixed MAC header to the payload data (`self._data`).
         2. Computing the CRC-32 checksum of the combined MAC header and payload.
         3. Appending the checksum as a suffix to the data.
         4. Returning the entire packet as a flat list of bits (integers 0 or 1).
@@ -215,19 +292,49 @@ class MAC:
         CRC-32 checksum.
         """
 
-        log.debug("Appending MAC header as prefix")
-        self._mac_header = [
-            0x04, 0x02, 0x00, 0x2E, 0x00,
-            0x60, 0x08, 0xCD, 0x37, 0xA6,
-            0x00, 0x20, 0xD6, 0x01, 0x3C,
-            0xF1, 0x00, 0x60, 0x08, 0xAD,
-            0x3B, 0xAF, 0x00, 0x00
-        ]
-
         log.debug("Appending CRC-32 as suffix")
-        self._crc = list(self.cyclic_redundancy_check_32(data=self._mac_header + self._data))
+        crc = list(self.cyclic_redundancy_check_32(data=mac_header + data))
 
-        return [int(bit) for byte in self._mac_header + self._data + self._crc for bit in f'{byte:08b}']
+        return [int(bit) for byte in mac_header + data + crc for bit in f'{byte:08b}']
+
+    def generate_mac_header(self, frame_type: str, destination_address: list[int]):
+        """
+        TODO: Complete the docstring.
+        """
+
+        mac_header = 24 * [0]
+
+        # Frame control.
+        mac_header[:2] = self.generate_frame_control_field(frame_type=frame_type)
+
+        # Address 1 (DA).
+        mac_header[4:10] = destination_address
+
+        # Address 2 (SA).
+        mac_header[10:16] = self._mac_address
+
+        return mac_header
+
+    def generate_frame_control_field(self, frame_type) -> bytes:
+        """
+        TODO: Complete the docstring.
+
+         B0      B1 B2  B3 B4     B7   B8      B9        B10        B11        B12        B13        B14        B15
+        +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
+        | Protocol | Type | Subtype |  To  |  From  |    More    | Retry |    Power    |  More  |  Protected |  +HTC  |
+        | Version  |      |         |  DS  |   DS   |  Fragments |       |  Management |  Data  |    Frame   |        |
+        +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
+        """
+
+        frame_control_field = 16 * [0]  # Initialization of the frame control field.
+
+        # Type and Subtype subfields.
+        """The Type and Subtype subfields together identify the function of the frame."""
+        frame_function = FRAME_TYPES[frame_type]
+        frame_control_field[2:4] = frame_function["TYPE_VALUE"][::-1]  # Type subfield.
+        frame_control_field[4:8] = frame_function["SUBTYPE_VALUE"][::-1]  # Subtype subfield.
+
+        return self.convert_bits_to_bytes(bits=frame_control_field)
 
     @staticmethod
     def cyclic_redundancy_check_32(data: bytes) -> bytes:
@@ -263,3 +370,29 @@ class MAC:
 
         log.debug("Converting the integer into a byte representation of length 4, using little-endian byte order")
         return crc32.to_bytes(4, 'little')
+
+    @staticmethod
+    def convert_bits_to_bytes(bits: list[int]) -> bytes:
+        """
+        Convert a list of bits (0s and 1s) into a bytes object.
+
+        This method takes a list of integers representing bits (each value should be 0 or 1), groups them into chunks of
+        8 bits (1 byte), and converts each chunk into the corresponding byte value. The resulting sequence of bytes is
+        returned as a bytes object.
+
+        If the total number of bits is not a multiple of 8, the last incomplete byte is still processed as-is, assuming
+        it represents the most significant bits (MSBs) of the final byte, and padded with zeros on the right to make up
+        8 bits.
+
+        :param bits: A list of integers containing only 0s and 1s.
+
+        :return: A bytes object representing the input bits.
+        """
+
+        # Group bits into bytes and convert to integers.
+        byte_list = []
+        for i in range(0, len(bits), 8):
+            byte = bits[i:i + 8]
+            value = int(''.join(map(str, byte)), 2)
+            byte_list.append(value)
+        return bytes(byte_list)
