@@ -8,7 +8,7 @@ Created by Michael Samelsohn, 19/07/25.
 
 # Imports #
 import time
-
+import threading
 from Settings.settings import log
 from mac import MAC
 from mpif import MPIF
@@ -18,18 +18,27 @@ from Settings.signal_settings import CHANNEL_HOST, CHANNEL_PORT, HOST
 
 class CHIP:
     def __init__(self, role: str):
-        log.info("Establishing WiFi")
+        log.info("Establishing WiFi chip")
+
+        self._role = role
 
         self.mpif = MPIF(host=HOST)
 
         # Start clients after a slight delay to ensure server is ready.
         time.sleep(1)
-        self.mac = MAC()
-        self.mac.mpif_connection(host=HOST, port=self.mpif.port)
-        time.sleep(1)
         self.phy = PHY()
         self.phy.mpif_connection(host=HOST, port=self.mpif.port)
         self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
+        time.sleep(1)
+        self.mac = MAC(role=self._role)
+        self.mac.mpif_connection(host=HOST, port=self.mpif.port)
+
+        if self._role == "STA":
+            log.info("Scanning for APs to associate with")
+            threading.Thread(target=self.mac.scanning, daemon=True).start()
+            time.sleep(0.1)  # Buffer time.
+        else:  # AP.
+            pass  # TODO: Implement beacon sending.
 
     def send_text(self, text: str):
         log.info("Starting transmission chain")
@@ -41,7 +50,8 @@ class CHIP:
 
         log.debug("Transferring the data to the MAC layer")
         # TODO: The address should have more meaning.
-        self.mac.send_data(data=ascii_text, destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+        self.mac.start_transmission_chain(frame_type="Data", data=ascii_text,
+                                          destination_address=self.mac._associated_sta[0])
 
     @staticmethod
     def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:

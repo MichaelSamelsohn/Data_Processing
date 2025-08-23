@@ -73,8 +73,9 @@ FRAME_TYPES = {
 
 
 class MAC:
-    def __init__(self):
+    def __init__(self, role: str):
         log.info("Establishing MAC layer")
+        self._role = role
 
         self._mac_address = self.generate_mac_address()
 
@@ -82,7 +83,17 @@ class MAC:
 
         self.phy_rate = 6  # Default value.
 
-        self._psdu = None
+        # Relevant for AP.
+        self._authenticated_sta = []
+        self._associated_sta = []
+
+        # Relevant for STA.
+        self._probed_ap = None
+        self._authenticated_ap = None
+        self._associated_ap = None
+
+        self._tx_psdu_buffer = None
+        self._rx_psdu_buffer = None
 
     @staticmethod
     def generate_mac_address() -> list[int]:
@@ -207,16 +218,16 @@ class MAC:
             case "PHY-TXSTART.confirm":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
                 # Start sending DATA to PHY.
-                self.send(primitive="PHY-DATA.request", data=self._psdu[:8])  # Send an octet.
-                self._psdu = self._psdu[8:]  # Remove sent octet.
+                self.send(primitive="PHY-DATA.request", data=self._tx_psdu_buffer[:8])  # Send an octet.
+                self._tx_psdu_buffer = self._tx_psdu_buffer[8:]  # Remove sent octet.
             case "PHY-DATA.confirm":
-                if not self._psdu:
+                if not self._tx_psdu_buffer:
                     # No more DATA.
                     self.send(primitive="PHY-TXEND.request", data=[])
                 else:
                     # More DATA to be sent.
-                    self.send(primitive="PHY-DATA.request", data=self._psdu[:8])  # Send an octet.
-                    self._psdu = self._psdu[8:]  # Remove sent octet.
+                    self.send(primitive="PHY-DATA.request", data=self._tx_psdu_buffer[:8])  # Send an octet.
+                    self._tx_psdu_buffer = self._tx_psdu_buffer[8:]  # Remove sent octet.
             case "PHY-TXEND.confirm":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
                 log.success("Transmission successful")
@@ -224,21 +235,21 @@ class MAC:
 
             # Receiver.
             case "PHY-CCA.indication(BUSY)":
-                self._psdu = []  # Clear previously stored data (if any exists).
+                self._rx_psdu_buffer = []  # Clear previously stored data (if any exists).
             case "PHY-DATA.indication":
-                self._psdu += data
+                self._rx_psdu_buffer += data
             case "PHY-RXEND.indication(No_Error)":
-                byte_list = self.convert_bits_to_bytes(bits=self._psdu)
+                byte_list = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)
 
                 log.info("Performing CRC check")
-                if not self.cyclic_redundancy_check_32(data=bytes(byte_list[:-4])) == byte_list[-4:]:
+                if not list(self.cyclic_redundancy_check_32(data=byte_list[:-4])) == byte_list[-4:]:
                     log.error("CRC check failed")
                 else:  # CRC check passed.
-                    # Check the frame type.
-                    match self._psdu[2:4][::-1]:
+                    # Delegate frame handling to relevant controller based on the frame type.
+                    match self._rx_psdu_buffer[2:4][::-1]:
                         case [0, 0]:  # Management.
                             log.debug("Management frame type")
-                            pass  # TODO: To be implemented.
+                            self.management_controller()
                         case [0, 1]:  # Control.
                             log.debug("Control frame type")
                             pass  # TODO: To be implemented.
@@ -249,33 +260,179 @@ class MAC:
                             log.debug("Extension frame type")
                             pass  # TODO: To be implemented.
 
+    def management_controller(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        match self._rx_psdu_buffer[4:8][::-1]:
+            case [0, 1, 0, 0]:  # Probe request.
+                # Checking that we are AP (probe requests are relevant for AP only).
+                if self._role == "AP":
+                    log.debug("Probe request frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address.
+                    destination_address = mac_header[4:10]
+                    if (destination_address == [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] or
+                        destination_address == self._mac_address):
+                        log.info("Sending probe response")
+                        self.start_transmission_chain(frame_type="Probe Response", data=[],
+                                                      destination_address=mac_header[10:16])
+            case [0, 1, 0, 1]:  # Probe response.
+                # Checking that we are STA (probe responses are relevant for STA only).
+                if self._role == "STA":
+                    log.debug("Probe response frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address.
+                    if mac_header[4:10] == self._mac_address:
+                        # Updating the successfully probed AP MAC address.
+                        self._probed_ap = mac_header[10:16]
+
+                        log.info("Sending authenticating request")
+                        """
+                        Authentication algorithm (2 bytes) - Indicates which authentication algorithm is being used. 
+                        0 (0x0000) – Open System. 
+                        1 (0x0001) – Shared Key.
+                        
+                        Authentication transaction sequence number (2 bytes) - Identifies the step in the authentication 
+                        handshake.
+                        1 (0x0001) - Authentication request.
+                        2 (0x0002) - Response to request. 
+                        3/4 (0x0003/0x0004)- Used in Shared Key (challenge/response).
+                        
+                        Status Code (2 bytes) - (Only in responses) Indicates success or failure of the authentication.
+                        0 (0x0000) = Successful.
+                        Non-zero = Failure (reasons may vary).
+                        
+                        Challenge Text (optional) (variable number of bytes) - Used in Shared Key authentication (not 
+                        present in Open System).
+                        """
+                        # TODO: The authentication algorithm Should be a variable depending on the system.
+                        self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
+                                                      destination_address=self._probed_ap)
+            case [1, 0, 1, 1]:  # Authentication.
+                log.debug("Authentication frame subtype")
+
+                # Extract MCA header.
+                mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                # Assert that destination address matches current MAC address.
+                if mac_header[4:10] == self._mac_address:
+                    # Extract authentication data.
+                    authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
+
+                    match authentication_data[2:4]:
+                        case [0x00, 0x01]:
+                            # Authentication request.
+                            authenticated_sta_address = mac_header[10:16]
+                            self._authenticated_sta.append(authenticated_sta_address)  # Updating the list.
+                            log.info("Sending authentication response")
+                            self.start_transmission_chain(frame_type="Authentication",
+                                                          data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
+                                                          destination_address=authenticated_sta_address)
+                        case [0x00, 0x02]:
+                            # Response to request.
+                            authenticated_ap_address = list(mac_header[10:16])
+                            self._authenticated_ap = authenticated_ap_address  # Updating the list.
+                            log.success("Authentication successful")
+
+                            log.info("Sending association request")
+                            self.start_transmission_chain(frame_type="Association Request",
+                                                          data=[],
+                                                          destination_address=self._authenticated_ap)
+                        case [0x00, 0x03]:
+                            # Used in Shared Key.
+                            pass  # TODO: To be implemented.
+                        case [0x00, 0x04]:
+                            # Used in Shared Key.
+                            pass  # TODO: To be implemented.
+
+            case [0, 0, 0, 0]:  # Association request.
+                # Checking that we are AP (association requests are relevant for AP only).
+                if self._role == "AP":
+                    log.debug("Association request frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address and STA is authenticated.
+                    requesting_sta = mac_header[10:16]
+                    if mac_header[4:10] == self._mac_address and requesting_sta in self._authenticated_sta:
+                        self._associated_sta.append(requesting_sta)  # Updating the list.
+
+                        log.info("Sending association response")
+                        self.start_transmission_chain(frame_type="Association Response",
+                                                      data=[0x00, 0x00], destination_address=requesting_sta)
+            case [0, 0, 0, 1]:  # Association response.
+                # Checking that we are STA (association response are relevant for STA only).
+                if self._role == "STA":
+                    log.debug("Association response frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address and AP is authenticated.
+                    responding_ap = mac_header[10:16]
+                    if mac_header[4:10] == self._mac_address and responding_ap == self._authenticated_ap:
+                        self._associated_ap = responding_ap
+                        log.success("Association successful")
+
     def data_controller(self):
         """
         TODO: Complete the docstring.
         """
 
-        match self._psdu[4:8][::-1]:
-            case [0, 0, 0, 0]:  # Data.
-                log.debug("Data frame subtype")
+        # Extract MCA header.
+        mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
 
-                log.info("Remove MAC header and CRC")
-                data = self.convert_bits_to_bytes(bits=self._psdu)[24:-4]
-                log.info("Received message:")
-                log.print_data(data.decode('utf-8'), log_level="info")
+        # Check that frame is from the associated AP.
+        if mac_header[10:16] == self._associated_ap:
+            match self._rx_psdu_buffer[4:8][::-1]:
+                case [0, 0, 0, 0]:  # Data.
+                    log.debug("Data frame subtype")
 
-    def send_data(self, data, destination_address: list[int]):
+                    log.info("Remove MAC header and CRC")
+                    data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
+                    log.info("Received message:")
+                    log.print_data(data.decode('utf-8'), log_level="info")
+
+    def scanning(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        log.info("Passive scanning - Listening for beacons")
+        time.sleep(5)  # TODO: Should be 20?
+
+        log.info("Active scanning - Probing")
+        while not self._probed_ap:
+            # No AP probe responded yet.
+            log.info("Sending probe request")
+            self.start_transmission_chain(frame_type="Probe Request", data=[],
+                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+
+            time.sleep(60)  # Buffer time between consecutive probing requests.
+
+    def start_transmission_chain(self, frame_type, data, destination_address: list[int]):
         """
         TODO: Complete the docstring.
         """
 
         # Generate MAC header.
-        mac_header = self.generate_mac_header(frame_type="Data", destination_address=destination_address)
+        mac_header = self.generate_mac_header(frame_type=frame_type, destination_address=destination_address)
 
         # Generate PSDU.
-        self._psdu = self.generate_psdu(mac_header=mac_header, data=data)
+        self._tx_psdu_buffer = self.generate_psdu(mac_header=mac_header, data=data)
 
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
-        self.send(primitive="PHY-TXSTART.request", data=[self.phy_rate, int(len(self._psdu) / 8)])  # TX VECTOR.
+        self.send(primitive="PHY-TXSTART.request",
+                  data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
     def generate_psdu(self, mac_header, data) -> list[int]:
         """
@@ -314,7 +471,7 @@ class MAC:
 
         return mac_header
 
-    def generate_frame_control_field(self, frame_type) -> bytes:
+    def generate_frame_control_field(self, frame_type) -> list[int]:
         """
         TODO: Complete the docstring.
 
@@ -336,7 +493,7 @@ class MAC:
         return self.convert_bits_to_bytes(bits=frame_control_field)
 
     @staticmethod
-    def cyclic_redundancy_check_32(data: bytes) -> bytes:
+    def cyclic_redundancy_check_32(data: list[int]) -> bytes:
         """
         Calculate the CRC-32 checksum of the given data using the polynomial 0xEDB88320.
 
@@ -371,7 +528,7 @@ class MAC:
         return crc32.to_bytes(4, 'little')
 
     @staticmethod
-    def convert_bits_to_bytes(bits: list[int]) -> bytes:
+    def convert_bits_to_bytes(bits: list[int]) -> list[int]:
         """
         Convert a list of bits (0s and 1s) into a bytes object.
 
@@ -394,4 +551,4 @@ class MAC:
             byte = bits[i:i + 8]
             value = int(''.join(map(str, byte)), 2)
             byte_list.append(value)
-        return bytes(byte_list)
+        return byte_list
