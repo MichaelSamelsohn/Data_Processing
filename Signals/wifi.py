@@ -18,7 +18,7 @@ from Settings.signal_settings import CHANNEL_HOST, CHANNEL_PORT, HOST
 
 class CHIP:
     def __init__(self, role: str):
-        log.info("Establishing WiFi chip")
+        log.info(f"Establishing WiFi chip as {role}")
 
         self._role = role
 

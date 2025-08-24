@@ -381,7 +381,6 @@ class MAC:
                     self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
                                                   destination_address=self._probed_ap)
 
-
             case [1, 0, 1, 1]:  # Authentication.
                 """
                 Handles both authentication requests and responses.
