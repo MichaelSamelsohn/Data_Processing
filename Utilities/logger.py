@@ -146,10 +146,10 @@ class Logger(logging.Logger):
 
         logging.SUCCESS = 25
         logging.addLevelName(25, "SUCCESS")
-        logging.TRAFFIC = 35
-        logging.addLevelName(35, "TRAFFIC")
-        logging.CHANNEL = 36
-        logging.addLevelName(36, "CHANNEL")
+        logging.TRAFFIC = 11
+        logging.addLevelName(11, "TRAFFIC")
+        logging.CHANNEL = 12
+        logging.addLevelName(12, "CHANNEL")
 
         # Set class parameters.
         self._log_level = log_level
