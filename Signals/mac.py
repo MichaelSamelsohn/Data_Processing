@@ -75,7 +75,7 @@ FRAME_TYPES = {
 class MAC:
     def __init__(self, role: str):
         log.info("Establishing MAC layer")
-        self._role = role
+        self._role = role  # Role of the current chip, either AP or STA.
 
         self._mac_address = self.generate_mac_address()
 
@@ -92,6 +92,7 @@ class MAC:
         self._authenticated_ap = None
         self._associated_ap = None
 
+        # Buffers.
         self._tx_psdu_buffer = None
         self._rx_psdu_buffer = None
 
@@ -207,7 +208,7 @@ class MAC:
             - On receiving "PHY-CCA.indication(BUSY)": Prepare to receive PSDU from PHY, reset relevant buffers.
             - On receiving "PHY-DATA.indication": Receiving an octet from PHY and storing it in the relevant buffer.
             - On receiving "PHY-RXEND.indication(No_Error)": Reception process ended and no errors occurred. Converting
-              PSDU to bytes, performing a CRC check and if passed, removes MAC header and CRC.
+              PSDU to bytes, performing a CRC check and if passed, delegates to relevant controller helper method.
 
         :param primitive: The primitive received from the PHY layer indicating the current state of transmission.
         :param data: Payload or metadata associated with the primitive. May be unused for some cases.
@@ -262,11 +263,21 @@ class MAC:
 
     def management_controller(self):
         """
-        TODO: Complete the docstring.
+        Handles incoming management frames and coordinates the wireless connection process.
+
+        This method interprets the subtype of the received management frame and performs appropriate actions based on
+        the device's role (`AP` or `STA`). It manages the handshake and association process between Stations (STA) and
+        Access Points (AP).
         """
 
         match self._rx_psdu_buffer[4:8][::-1]:
             case [0, 1, 0, 0]:  # Probe request.
+                """
+                Relevant only for devices in AP role.
+                Responds with a Probe Response if the destination address matches the AP's MAC or is a broadcast 
+                address.
+                """
+
                 # Checking that we are AP (probe requests are relevant for AP only).
                 if self._role == "AP":
                     log.debug("Probe request frame subtype")
@@ -282,6 +293,12 @@ class MAC:
                         self.start_transmission_chain(frame_type="Probe Response", data=[],
                                                       destination_address=mac_header[10:16])
             case [0, 1, 0, 1]:  # Probe response.
+                """
+                Relevant only for STA devices.
+                If the response is directed to this STA, it sets the responding AP as the probed one and initiates the
+                authentication request.
+                """
+
                 # Checking that we are STA (probe responses are relevant for STA only).
                 if self._role == "STA":
                     log.debug("Probe response frame subtype")
@@ -295,28 +312,33 @@ class MAC:
                         self._probed_ap = mac_header[10:16]
 
                         log.info("Sending authenticating request")
-                        """
-                        Authentication algorithm (2 bytes) - Indicates which authentication algorithm is being used. 
-                        0 (0x0000) – Open System. 
-                        1 (0x0001) – Shared Key.
-                        
-                        Authentication transaction sequence number (2 bytes) - Identifies the step in the authentication 
-                        handshake.
-                        1 (0x0001) - Authentication request.
-                        2 (0x0002) - Response to request. 
-                        3/4 (0x0003/0x0004)- Used in Shared Key (challenge/response).
-                        
-                        Status Code (2 bytes) - (Only in responses) Indicates success or failure of the authentication.
-                        0 (0x0000) = Successful.
-                        Non-zero = Failure (reasons may vary).
-                        
-                        Challenge Text (optional) (variable number of bytes) - Used in Shared Key authentication (not 
-                        present in Open System).
-                        """
                         # TODO: The authentication algorithm Should be a variable depending on the system.
                         self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
                                                       destination_address=self._probed_ap)
             case [1, 0, 1, 1]:  # Authentication.
+                """
+                Handles both authentication requests and responses.
+                AP authenticates the STA and responds.
+                STA marks AP as authenticated and proceeds to send an Association Request.
+            
+                Authentication algorithm (2 bytes) - Indicates which authentication algorithm is being used. 
+                0 (0x0000) – Open System. 
+                1 (0x0001) – Shared Key.
+
+                Authentication transaction sequence number (2 bytes) - Identifies the step in the authentication 
+                handshake.
+                1 (0x0001) - Authentication request.
+                2 (0x0002) - Response to request. 
+                3/4 (0x0003/0x0004)- Used in Shared Key (challenge/response).
+
+                Status Code (2 bytes) - (Only in responses) Indicates success or failure of the authentication.
+                0 (0x0000) = Successful.
+                Non-zero = Failure (reasons may vary).
+
+                Challenge Text (optional) (variable number of bytes) - Used in Shared Key authentication (not 
+                present in Open System).
+                """
+
                 log.debug("Authentication frame subtype")
 
                 # Extract MCA header.
@@ -328,24 +350,26 @@ class MAC:
                     authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
 
                     match authentication_data[2:4]:
-                        case [0x00, 0x01]:
-                            # Authentication request.
-                            authenticated_sta_address = mac_header[10:16]
-                            self._authenticated_sta.append(authenticated_sta_address)  # Updating the list.
-                            log.info("Sending authentication response")
-                            self.start_transmission_chain(frame_type="Authentication",
-                                                          data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
-                                                          destination_address=authenticated_sta_address)
-                        case [0x00, 0x02]:
-                            # Response to request.
-                            authenticated_ap_address = list(mac_header[10:16])
-                            self._authenticated_ap = authenticated_ap_address  # Updating the list.
-                            log.success("Authentication successful")
+                        case [0x00, 0x01]:  # Authentication request.
+                            # Checking that we are AP (authentication requests are relevant for AP only).
+                            if self._role == "AP":
+                                authenticated_sta_address = mac_header[10:16]
+                                self._authenticated_sta.append(authenticated_sta_address)  # Updating the list.
+                                log.info("Sending authentication response")
+                                self.start_transmission_chain(frame_type="Authentication",
+                                                              data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
+                                                              destination_address=authenticated_sta_address)
+                        case [0x00, 0x02]:  # Authentication response.
+                            # Checking that we are STA (authentication responses are relevant for STA only).
+                            if self._role == "STA":
+                                authenticated_ap_address = list(mac_header[10:16])
+                                self._authenticated_ap = authenticated_ap_address  # Updating the list.
+                                log.success("Authentication successful")
 
-                            log.info("Sending association request")
-                            self.start_transmission_chain(frame_type="Association Request",
-                                                          data=[],
-                                                          destination_address=self._authenticated_ap)
+                                log.info("Sending association request")
+                                self.start_transmission_chain(frame_type="Association Request",
+                                                              data=[],
+                                                              destination_address=self._authenticated_ap)
                         case [0x00, 0x03]:
                             # Used in Shared Key.
                             pass  # TODO: To be implemented.
@@ -354,6 +378,11 @@ class MAC:
                             pass  # TODO: To be implemented.
 
             case [0, 0, 0, 0]:  # Association request.
+                """
+                Relevant for APs.
+                AP checks whether the STA is authenticated, and if so, associates it and sends an Association response.
+                """
+
                 # Checking that we are AP (association requests are relevant for AP only).
                 if self._role == "AP":
                     log.debug("Association request frame subtype")
@@ -370,6 +399,12 @@ class MAC:
                         self.start_transmission_chain(frame_type="Association Response",
                                                       data=[0x00, 0x00], destination_address=requesting_sta)
             case [0, 0, 0, 1]:  # Association response.
+                """
+                Relevant for STAs.
+                If the response is from the authenticated AP and addressed to this STA, it marks the STA as successfully
+                associated.
+                """
+
                 # Checking that we are STA (association response are relevant for STA only).
                 if self._role == "STA":
                     log.debug("Association response frame subtype")
@@ -385,7 +420,16 @@ class MAC:
 
     def data_controller(self):
         """
-        TODO: Complete the docstring.
+        Processes incoming data frames from the PHY layer and extracts application data.
+
+        This method performs the following steps:
+        1. Extracts and parses the MAC header from the received PSDU buffer.
+        2. Verifies whether the received frame is from the associated Access Point.
+        3. If the frame subtype indicates a data frame (subtype [0, 0, 0, 0]):
+           - Removes the MAC header and CRC from the PSDU.
+           - Extracts and decodes the application payload.
+
+        Only frames from the associated AP are processed. All others are ignored.
         """
 
         # Extract MCA header.
@@ -404,11 +448,17 @@ class MAC:
 
     def scanning(self):
         """
-        TODO: Complete the docstring.
+        Initiates a two-phase scanning process to discover available Access Points (APs).
+
+        The scanning consists of:
+        1. Passive Scanning - The device listens for beacon frames from nearby APs for a fixed duration (20 seconds)
+           without transmitting any requests.
+        2. Active Scanning - If no APs respond during the passive phase, the device repeatedly sends probe request
+           frames to solicit responses from APs. It continues probing until at least one AP responds.
         """
 
         log.info("Passive scanning - Listening for beacons")
-        time.sleep(5)  # TODO: Should be 20?
+        time.sleep(20)
 
         log.info("Active scanning - Probing")
         while not self._probed_ap:
@@ -419,9 +469,19 @@ class MAC:
 
             time.sleep(60)  # Buffer time between consecutive probing requests.
 
-    def start_transmission_chain(self, frame_type, data, destination_address: list[int]):
+    def start_transmission_chain(self, frame_type: str, data: list[int], destination_address: list[int]):
         """
-        TODO: Complete the docstring.
+        Initiates the data transmission process from the MAC layer to the PHY layer.
+
+        This method performs the following steps:
+        1. Generates the MAC header using the provided frame type and destination address.
+        2. Constructs the PSDU (PHY Service Data Unit) by combining the MAC header and the payload data.
+        3. Sends a PHY-TXSTART.request primitive to the PHY layer to begin transmission, including a TXVECTOR with the
+           physical layer rate and the length of the PSDU in bytes.
+
+        :param frame_type: The type of the frame to be transmitted (e.g., data, control, management).
+        :param data: The payload data to be included in the PSDU.
+        :param destination_address: A list of integers representing the destination MAC address.
         """
 
         # Generate MAC header.
