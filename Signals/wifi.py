@@ -38,7 +38,9 @@ class CHIP:
             threading.Thread(target=self.mac.scanning, daemon=True).start()
             time.sleep(0.1)  # Buffer time.
         else:  # AP.
-            pass  # TODO: Implement beacon sending.
+            log.info("Sending beacons to notify STAs")
+            threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
+            time.sleep(0.1)  # Buffer time.
 
     def send_text(self, text: str):
         log.info("Starting transmission chain")

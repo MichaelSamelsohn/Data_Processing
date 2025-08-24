@@ -271,6 +271,48 @@ class MAC:
         """
 
         match self._rx_psdu_buffer[4:8][::-1]:
+            case[0, 0, 0, 0]:  # Association request.
+                """
+                Relevant for APs.
+                AP checks whether the STA is authenticated, and if so, associates it and sends an Association response.
+                """
+
+                # Checking that we are AP (association requests are relevant for AP only).
+                if self._role == "AP":
+                    log.debug("Association request frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address and STA is authenticated.
+                    requesting_sta = mac_header[10:16]
+                    if mac_header[4:10] == self._mac_address and requesting_sta in self._authenticated_sta:
+                        self._associated_sta.append(requesting_sta)  # Updating the list.
+
+                        log.info("Sending association response")
+                        self.start_transmission_chain(frame_type="Association Response",
+                                                      data=[0x00, 0x00], destination_address=requesting_sta)
+
+            case [0, 0, 0, 1]:  # Association response.
+                """
+                Relevant for STAs.
+                If the response is from the authenticated AP and addressed to this STA, it marks the STA as successfully
+                associated.
+                """
+
+                # Checking that we are STA (association response are relevant for STA only).
+                if self._role == "STA":
+                    log.debug("Association response frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Assert that destination address matches current MAC address and AP is authenticated.
+                    responding_ap = mac_header[10:16]
+                    if mac_header[4:10] == self._mac_address and responding_ap == self._authenticated_ap:
+                        self._associated_ap = responding_ap
+                        log.success("Association successful")
+
             case [0, 1, 0, 0]:  # Probe request.
                 """
                 Relevant only for devices in AP role.
@@ -292,6 +334,7 @@ class MAC:
                         log.info("Sending probe response")
                         self.start_transmission_chain(frame_type="Probe Response", data=[],
                                                       destination_address=mac_header[10:16])
+
             case [0, 1, 0, 1]:  # Probe response.
                 """
                 Relevant only for STA devices.
@@ -315,6 +358,30 @@ class MAC:
                         # TODO: The authentication algorithm Should be a variable depending on the system.
                         self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
                                                       destination_address=self._probed_ap)
+
+            case [1, 0, 0, 0]:  # Beacon.
+                """
+                Relevant only for STA devices.
+                If the current STA doesn't have a probed AP, it starts an authentication and association process with 
+                the AP from the beacon. 
+                """
+
+                # Checking that we are STA (beacons are relevant for STA only).
+                if self._role == "STA" and self._probed_ap is None:
+                    log.debug("Beacon frame subtype")
+
+                    # Extract MCA header.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+
+                    # Updating the successfully probed AP MAC address.
+                    self._probed_ap = mac_header[10:16]
+
+                    log.info("Sending authenticating request")
+                    # TODO: The authentication algorithm Should be a variable depending on the system.
+                    self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
+                                                  destination_address=self._probed_ap)
+
+
             case [1, 0, 1, 1]:  # Authentication.
                 """
                 Handles both authentication requests and responses.
@@ -377,47 +444,6 @@ class MAC:
                             # Used in Shared Key.
                             pass  # TODO: To be implemented.
 
-            case [0, 0, 0, 0]:  # Association request.
-                """
-                Relevant for APs.
-                AP checks whether the STA is authenticated, and if so, associates it and sends an Association response.
-                """
-
-                # Checking that we are AP (association requests are relevant for AP only).
-                if self._role == "AP":
-                    log.debug("Association request frame subtype")
-
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
-                    # Assert that destination address matches current MAC address and STA is authenticated.
-                    requesting_sta = mac_header[10:16]
-                    if mac_header[4:10] == self._mac_address and requesting_sta in self._authenticated_sta:
-                        self._associated_sta.append(requesting_sta)  # Updating the list.
-
-                        log.info("Sending association response")
-                        self.start_transmission_chain(frame_type="Association Response",
-                                                      data=[0x00, 0x00], destination_address=requesting_sta)
-            case [0, 0, 0, 1]:  # Association response.
-                """
-                Relevant for STAs.
-                If the response is from the authenticated AP and addressed to this STA, it marks the STA as successfully
-                associated.
-                """
-
-                # Checking that we are STA (association response are relevant for STA only).
-                if self._role == "STA":
-                    log.debug("Association response frame subtype")
-
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
-                    # Assert that destination address matches current MAC address and AP is authenticated.
-                    responding_ap = mac_header[10:16]
-                    if mac_header[4:10] == self._mac_address and responding_ap == self._authenticated_ap:
-                        self._associated_ap = responding_ap
-                        log.success("Association successful")
-
     def data_controller(self):
         """
         Processes incoming data frames from the PHY layer and extracts application data.
@@ -445,6 +471,24 @@ class MAC:
                     data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
                     log.info("Received message:")
                     log.print_data(data.decode('utf-8'), log_level="info")
+
+    def beacon_broadcast(self):
+        """
+        Periodically broadcasts a beacon frame to indicate the presence of the device to other nodes in the network.
+
+        This method initiates a continuous loop that sends a beacon frame at regular intervals (currently every 100
+        seconds). The beacon is sent to the broadcast address (FF:FF:FF:FF:FF:FF), making it visible to all nearby
+        receivers.
+        """
+
+        time.sleep(10)  # TODO: Needs to be deleted once thread handling is done.
+
+        while True:
+            log.info("Sending beacon")
+            self.start_transmission_chain(frame_type="Beacon", data=[],
+                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+
+            time.sleep(100)  # Buffer time between consecutive beacon broadcasts.
 
     def scanning(self):
         """
@@ -513,9 +557,19 @@ class MAC:
 
         return [int(bit) for byte in mac_header + data + crc for bit in f'{byte:08b}']
 
-    def generate_mac_header(self, frame_type: str, destination_address: list[int]):
+    def generate_mac_header(self, frame_type: str, destination_address: list[int]) -> list[int]:
         """
-        TODO: Complete the docstring.
+        Generates a basic MAC header for a given frame type and destination address.
+
+        This method constructs a 24-byte MAC header used in wireless communication frames. It includes fields such as
+        Frame Control, Destination Address (DA), and Source Address (SA).
+
+        :param frame_type: Type of the frame to be transmitted (e.g., "Beacon", "Data"). Determines how the Frame
+        Control field is set.
+        :param destination_address: A 6-byte (list of 6 integers) destination MAC address. Typically, this will be a
+        broadcast or unicast address.
+
+        :return: A list of 24 integers representing the MAC header in byte format.
         """
 
         mac_header = 24 * [0]
@@ -533,13 +587,21 @@ class MAC:
 
     def generate_frame_control_field(self, frame_type) -> list[int]:
         """
-        TODO: Complete the docstring.
+        Generate the 16-bit Frame Control field for a given 802.11 frame type.
 
-         B0      B1 B2  B3 B4     B7   B8      B9        B10        B11        B12        B13        B14        B15
+        The Frame Control field is the first field in an 802.11 MAC header and consists of the following subfields:
+
+        B0      B1 B2  B3 B4     B7   B8      B9        B10        B11        B12        B13        B14        B15
         +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
         | Protocol | Type | Subtype |  To  |  From  |    More    | Retry |    Power    |  More  |  Protected |  +HTC  |
         | Version  |      |         |  DS  |   DS   |  Fragments |       |  Management |  Data  |    Frame   |        |
         +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
+
+
+        :param frame_type: A key identifying the frame type, used to look up corresponding TYPE_VALUE and SUBTYPE_VALUE
+        from FRAME_TYPES.
+
+        :return: A list of integers (0s and 1s) representing the 16-bit Frame Control field.
         """
 
         frame_control_field = 16 * [0]  # Initialization of the frame control field.
