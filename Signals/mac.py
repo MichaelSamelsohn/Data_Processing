@@ -10,18 +10,18 @@ from Settings.settings import log
 
 FRAME_TYPES = {
     # Management #
-    "Association Request":             {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},
-    "Association Response":            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 1]},
+    "Association Request":             {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},  # Implemented.
+    "Association Response":            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 1]},  # Implemented.
     "Reassociation Request":           {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
     "Reassociation Response":          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 1, 1]},
-    "Probe Request":                   {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 0]},
-    "Probe Response":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 1]},
+    "Probe Request":                   {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 0]},  # Implemented.
+    "Probe Response":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 0, 1]},  # Implemented.
     "Timing Advertisement":            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 1, 0]},
     # "Reserved":                      {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 1, 1, 1]},
-    "Beacon":                          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 0, 0]},
+    "Beacon":                          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 0, 0]},  # Implemented.
     "ATIM":                            {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 0, 1]},
     "Disassociation":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 1, 0]},
-    "Authentication":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 1, 1]},
+    "Authentication":                  {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 0, 1, 1]},  # Implemented.
     "Deauthentication":                {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 0, 0]},
     "Action":                          {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 0, 1]},
     "Action No Ack":                   {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [1, 1, 1, 0]},
@@ -46,7 +46,7 @@ FRAME_TYPES = {
     # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 1, 1]},
 
     # Data #
-    "Data":                            {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},
+    "Data":                            {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},  # Implemented.
     # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 0, 1]},
     # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 0]},
     # "Reserved":                      {"TYPE_VALUE": [1, 0], "SUBTYPE_VALUE": [0, 0, 1, 1]},
@@ -193,6 +193,47 @@ class MAC:
         finally:
             self._mpif_socket.close()
 
+    def beacon_broadcast(self):
+        """
+        Periodically broadcasts a beacon frame to indicate the presence of the device to other nodes in the network.
+
+        This method initiates a continuous loop that sends a beacon frame at regular intervals (currently every 100
+        seconds). The beacon is sent to the broadcast address (FF:FF:FF:FF:FF:FF), making it visible to all nearby
+        receivers.
+        """
+
+        time.sleep(10)  # TODO: Needs to be deleted once thread handling is done.
+
+        while True:
+            log.info("Sending beacon")
+            self.start_transmission_chain(frame_type="Beacon", data=[],
+                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+
+            time.sleep(100)  # Buffer time between consecutive beacon broadcasts.
+
+    def scanning(self):
+        """
+        Initiates a two-phase scanning process to discover available Access Points (APs).
+
+        The scanning consists of:
+        1. Passive Scanning - The device listens for beacon frames from nearby APs for a fixed duration (20 seconds)
+           without transmitting any requests.
+        2. Active Scanning - If no APs respond during the passive phase, the device repeatedly sends probe request
+           frames to solicit responses from APs. It continues probing until at least one AP responds.
+        """
+
+        log.info("Passive scanning - Listening for beacons")
+        time.sleep(20)
+
+        log.info("Active scanning - Probing")
+        while not self._probed_ap:
+            # No AP probe responded yet.
+            log.info("Sending probe request")
+            self.start_transmission_chain(frame_type="Probe Request", data=[],
+                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+
+            time.sleep(60)  # Buffer time between consecutive probing requests.
+
     def controller(self, primitive, data):
         """
         Handles communication primitives for PHY layer transmission in a stepwise manner. This method is a controller
@@ -246,22 +287,38 @@ class MAC:
                 if not list(self.cyclic_redundancy_check_32(data=byte_list[:-4])) == byte_list[-4:]:
                     log.error("CRC check failed")
                 else:  # CRC check passed.
-                    # Delegate frame handling to relevant controller based on the frame type.
-                    match self._rx_psdu_buffer[2:4][::-1]:
-                        case [0, 0]:  # Management.
-                            log.debug("Management frame type")
-                            self.management_controller()
-                        case [0, 1]:  # Control.
-                            log.debug("Control frame type")
-                            pass  # TODO: To be implemented.
-                        case [1, 0]:  # Data.
-                            log.debug("Data frame type")
-                            self.data_controller()
-                        case [1, 1]:  # Extension.
-                            log.debug("Extension frame type")
-                            pass  # TODO: To be implemented.
+                    log.success("CRC check passed")
 
-    def management_controller(self):
+                    # Extract MCA header and destination address.
+                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+                    destination_address = mac_header[4:10]
+
+                    # Understand which type of casting this is.
+                    if destination_address == [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]:
+                        cast = "Broadcast"
+                    elif destination_address == self._mac_address:
+                        cast = "Unicast"
+                    else:  # Some unknown destination address (not related to us).
+                        cast = False
+
+                    # Check that frame is either broadcasted or unicast intended for us.
+                    if cast:
+                        # Delegate frame handling to relevant controller based on the frame type.
+                        match self._rx_psdu_buffer[2:4][::-1]:
+                            case [0, 0]:  # Management.
+                                log.debug("Management frame type")
+                                self.management_controller(mac_header=mac_header, cast=cast)
+                            case [0, 1]:  # Control.
+                                log.debug("Control frame type")
+                                pass  # TODO: To be implemented.
+                            case [1, 0]:  # Data.
+                                log.debug("Data frame type")
+                                self.data_controller()
+                            case [1, 1]:  # Extension.
+                                log.debug("Extension frame type")
+                                pass  # TODO: To be implemented.
+
+    def management_controller(self, mac_header: list[int], cast: str):
         """
         Handles incoming management frames and coordinates the wireless connection process.
 
@@ -270,28 +327,27 @@ class MAC:
         Access Points (AP).
         """
 
+        # Extract important values from MAC header.
+        source_address = mac_header[10:16]
+
         match self._rx_psdu_buffer[4:8][::-1]:
-            case[0, 0, 0, 0]:  # Association request.
+            case [0, 0, 0, 0]:  # Association request.
                 """
                 Relevant for APs.
                 AP checks whether the STA is authenticated, and if so, associates it and sends an Association response.
                 """
 
-                # Checking that we are AP (association requests are relevant for AP only).
-                if self._role == "AP":
+                # Checking that we are AP (association requests are relevant for AP only) and this is an unicast.
+                if self._role == "AP" and cast == "Unicast":
                     log.debug("Association request frame subtype")
 
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
-                    # Assert that destination address matches current MAC address and STA is authenticated.
-                    requesting_sta = mac_header[10:16]
-                    if mac_header[4:10] == self._mac_address and requesting_sta in self._authenticated_sta:
-                        self._associated_sta.append(requesting_sta)  # Updating the list.
+                    # Assert that STA is authenticated.
+                    if source_address in self._authenticated_sta:
+                        self._associated_sta.append(source_address)  # Updating the list.
 
                         log.info("Sending association response")
                         self.start_transmission_chain(frame_type="Association Response",
-                                                      data=[0x00, 0x00], destination_address=requesting_sta)
+                                                      data=[0x00, 0x00], destination_address=source_address)
 
             case [0, 0, 0, 1]:  # Association response.
                 """
@@ -300,17 +356,13 @@ class MAC:
                 associated.
                 """
 
-                # Checking that we are STA (association response are relevant for STA only).
-                if self._role == "STA":
+                # Checking that we are STA (association response are relevant for STA only) and this is an unicast.
+                if self._role == "STA" and cast == "Unicast":
                     log.debug("Association response frame subtype")
 
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
-                    # Assert that destination address matches current MAC address and AP is authenticated.
-                    responding_ap = mac_header[10:16]
-                    if mac_header[4:10] == self._mac_address and responding_ap == self._authenticated_ap:
-                        self._associated_ap = responding_ap
+                    # Assert that AP is authenticated.
+                    if source_address == self._authenticated_ap:
+                        self._associated_ap = source_address
                         log.success("Association successful")
 
             case [0, 1, 0, 0]:  # Probe request.
@@ -320,20 +372,13 @@ class MAC:
                 address.
                 """
 
-                # Checking that we are AP (probe requests are relevant for AP only).
-                if self._role == "AP":
+                # Checking that we are AP (probe requests are relevant for AP only) and this is a broadcast.
+                if self._role == "AP" and cast == "Broadcast":
                     log.debug("Probe request frame subtype")
 
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
-                    # Assert that destination address matches current MAC address.
-                    destination_address = mac_header[4:10]
-                    if (destination_address == [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF] or
-                        destination_address == self._mac_address):
-                        log.info("Sending probe response")
-                        self.start_transmission_chain(frame_type="Probe Response", data=[],
-                                                      destination_address=mac_header[10:16])
+                    log.info("Sending probe response")
+                    self.start_transmission_chain(frame_type="Probe Response", data=[],
+                                                  destination_address=source_address)
 
             case [0, 1, 0, 1]:  # Probe response.
                 """
@@ -343,21 +388,16 @@ class MAC:
                 """
 
                 # Checking that we are STA (probe responses are relevant for STA only).
-                if self._role == "STA":
+                if self._role == "STA" and cast == "Unicast":
                     log.debug("Probe response frame subtype")
 
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+                    # Updating the successfully probed AP MAC address.
+                    self._probed_ap = source_address
 
-                    # Assert that destination address matches current MAC address.
-                    if mac_header[4:10] == self._mac_address:
-                        # Updating the successfully probed AP MAC address.
-                        self._probed_ap = mac_header[10:16]
-
-                        log.info("Sending authenticating request")
-                        # TODO: The authentication algorithm Should be a variable depending on the system.
-                        self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
-                                                      destination_address=self._probed_ap)
+                    log.info("Sending authenticating request")
+                    # TODO: The authentication algorithm Should be a variable depending on the system.
+                    self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
+                                                  destination_address=self._probed_ap)
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
@@ -366,15 +406,13 @@ class MAC:
                 the AP from the beacon. 
                 """
 
-                # Checking that we are STA (beacons are relevant for STA only).
-                if self._role == "STA" and self._probed_ap is None:
+                # Checking that we are STA (beacons are relevant for STA only) and we are not in the process of
+                # association. Also, we are making sure this a broadcast.
+                if self._role == "STA" and self._probed_ap is None and cast == "Broadcast":
                     log.debug("Beacon frame subtype")
 
-                    # Extract MCA header.
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
                     # Updating the successfully probed AP MAC address.
-                    self._probed_ap = mac_header[10:16]
+                    self._probed_ap = source_address
 
                     log.info("Sending authenticating request")
                     # TODO: The authentication algorithm Should be a variable depending on the system.
@@ -407,41 +445,35 @@ class MAC:
 
                 log.debug("Authentication frame subtype")
 
-                # Extract MCA header.
-                mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
 
-                # Assert that destination address matches current MAC address.
-                if mac_header[4:10] == self._mac_address:
-                    # Extract authentication data.
-                    authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
+                # Extract authentication data.
+                authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
 
-                    match authentication_data[2:4]:
-                        case [0x00, 0x01]:  # Authentication request.
-                            # Checking that we are AP (authentication requests are relevant for AP only).
-                            if self._role == "AP":
-                                authenticated_sta_address = mac_header[10:16]
-                                self._authenticated_sta.append(authenticated_sta_address)  # Updating the list.
-                                log.info("Sending authentication response")
-                                self.start_transmission_chain(frame_type="Authentication",
-                                                              data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
-                                                              destination_address=authenticated_sta_address)
-                        case [0x00, 0x02]:  # Authentication response.
-                            # Checking that we are STA (authentication responses are relevant for STA only).
-                            if self._role == "STA":
-                                authenticated_ap_address = list(mac_header[10:16])
-                                self._authenticated_ap = authenticated_ap_address  # Updating the list.
-                                log.success("Authentication successful")
+                match authentication_data[2:4]:
+                    case [0x00, 0x01]:  # Authentication request.
+                        # Checking that we are AP (authentication requests are relevant for AP only).
+                        if self._role == "AP" and cast == "Unicast":
+                            self._authenticated_sta.append(source_address)  # Updating the list.
+                            log.info("Sending authentication response")
+                            self.start_transmission_chain(frame_type="Authentication",
+                                                          data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
+                                                          destination_address=source_address)
+                    case [0x00, 0x02]:  # Authentication response.
+                        # Checking that we are STA (authentication responses are relevant for STA only).
+                        if self._role == "STA" and cast == "Unicast":
+                            self._authenticated_ap = source_address  # Updating the list.
+                            log.success("Authentication successful")
 
-                                log.info("Sending association request")
-                                self.start_transmission_chain(frame_type="Association Request",
-                                                              data=[],
-                                                              destination_address=self._authenticated_ap)
-                        case [0x00, 0x03]:
-                            # Used in Shared Key.
-                            pass  # TODO: To be implemented.
-                        case [0x00, 0x04]:
-                            # Used in Shared Key.
-                            pass  # TODO: To be implemented.
+                            log.info("Sending association request")
+                            self.start_transmission_chain(frame_type="Association Request",
+                                                          data=[],
+                                                          destination_address=self._authenticated_ap)
+                    case [0x00, 0x03]:
+                        # Used in Shared Key.
+                        pass  # TODO: To be implemented.
+                    case [0x00, 0x04]:
+                        # Used in Shared Key.
+                        pass  # TODO: To be implemented.
 
     def data_controller(self):
         """
@@ -460,57 +492,16 @@ class MAC:
         # Extract MCA header.
         mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
 
-        # Check that frame is from the associated AP.
-        if mac_header[10:16] == self._associated_ap:
+        # Check that frame is from the associated AP and intended for us.
+        if mac_header[10:16] == self._associated_ap and mac_header[4:10] == self._mac_address:
             match self._rx_psdu_buffer[4:8][::-1]:
                 case [0, 0, 0, 0]:  # Data.
                     log.debug("Data frame subtype")
 
-                    log.info("Remove MAC header and CRC")
+                    # Removing MAC header and CRC.
                     data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
                     log.info("Received message:")
                     log.print_data(data.decode('utf-8'), log_level="info")
-
-    def beacon_broadcast(self):
-        """
-        Periodically broadcasts a beacon frame to indicate the presence of the device to other nodes in the network.
-
-        This method initiates a continuous loop that sends a beacon frame at regular intervals (currently every 100
-        seconds). The beacon is sent to the broadcast address (FF:FF:FF:FF:FF:FF), making it visible to all nearby
-        receivers.
-        """
-
-        time.sleep(10)  # TODO: Needs to be deleted once thread handling is done.
-
-        while True:
-            log.info("Sending beacon")
-            self.start_transmission_chain(frame_type="Beacon", data=[],
-                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
-
-            time.sleep(100)  # Buffer time between consecutive beacon broadcasts.
-
-    def scanning(self):
-        """
-        Initiates a two-phase scanning process to discover available Access Points (APs).
-
-        The scanning consists of:
-        1. Passive Scanning - The device listens for beacon frames from nearby APs for a fixed duration (20 seconds)
-           without transmitting any requests.
-        2. Active Scanning - If no APs respond during the passive phase, the device repeatedly sends probe request
-           frames to solicit responses from APs. It continues probing until at least one AP responds.
-        """
-
-        log.info("Passive scanning - Listening for beacons")
-        time.sleep(20)
-
-        log.info("Active scanning - Probing")
-        while not self._probed_ap:
-            # No AP probe responded yet.
-            log.info("Sending probe request")
-            self.start_transmission_chain(frame_type="Probe Request", data=[],
-                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
-
-            time.sleep(60)  # Buffer time between consecutive probing requests.
 
     def start_transmission_chain(self, frame_type: str, data: list[int], destination_address: list[int]):
         """
