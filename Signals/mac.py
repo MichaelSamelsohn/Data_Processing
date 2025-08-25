@@ -199,7 +199,15 @@ class MAC:
 
     def transmission_queue(self):
         """
-        TODO: Complete the docstring.
+        Continuously monitors and processes the transmission queue.
+
+        This method runs an infinite loop that checks whether there are pending commands in the TX queue. If a command
+        is present and no acknowledgment (ACK) is required, it dequeues the first item and initiates a transmission.
+
+        After initiating a transmission, the method waits for 5 seconds to allow the transmission to complete before
+        attempting the next one. There is also a 1-second pause between each loop iteration to prevent constant polling.
+
+        Note - This method is intended to be run in a background thread or process, as it contains an infinite loop.
         """
 
         while True:
@@ -346,6 +354,9 @@ class MAC:
         This method interprets the subtype of the received management frame and performs appropriate actions based on
         the device's role (`AP` or `STA`). It manages the handshake and association process between Stations (STA) and
         Access Points (AP).
+
+        :param mac_header: The MAC header extracted from the received frame.
+        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
 
         # Extract important values from MAC header.
@@ -505,7 +516,12 @@ class MAC:
 
     def control_controller(self, mac_header: list[int], cast: str):
         """
-        TODO: Complete the docstring.
+        Handles control frame processing based on received MAC header and cast type.
+
+        This method inspects a portion of the received frame buffer to identify the subtype of the control frame.
+
+        :param mac_header: The MAC header extracted from the received frame.
+        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
 
         match self._rx_psdu_buffer[4:8][::-1]:
@@ -528,6 +544,9 @@ class MAC:
            - Extracts and decodes the application payload.
 
         Only frames from the associated AP are processed. All others are ignored.
+
+        :param mac_header: The MAC header extracted from the received frame.
+        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
 
         source_address = mac_header[10:16]
@@ -582,7 +601,17 @@ class MAC:
 
     def wait_for_acknowledgement(self):
         """
-        TODO: Complete the docstring.
+        Waits for an acknowledgment (ACK) after a frame transmission.
+
+        This method loops for a predefined number of attempts (based on SHORT_RETRY_LIMIT), pausing for a short period
+        in each iteration to allow time for an ACK response.
+
+        If an ACK is received, the method resets the acknowledgment status and exits early, confirming successful
+        delivery.
+        If no ACK is received after all retries, it logs that the frame was dropped and resets the acknowledgment state
+        in preparation for the next transmission.
+
+        Notes - This method should be called after initiating a transmission that requires an ACK (unicast).
         """
 
         # Waiting for ACK.
