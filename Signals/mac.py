@@ -313,7 +313,7 @@ class MAC:
                                 pass  # TODO: To be implemented.
                             case [1, 0]:  # Data.
                                 log.debug("Data frame type")
-                                self.data_controller()
+                                self.data_controller(mac_header=mac_header, cast=cast)
                             case [1, 1]:  # Extension.
                                 log.debug("Extension frame type")
                                 pass  # TODO: To be implemented.
@@ -475,7 +475,7 @@ class MAC:
                         # Used in Shared Key.
                         pass  # TODO: To be implemented.
 
-    def data_controller(self):
+    def data_controller(self, mac_header: list[int], cast: str):
         """
         Processes incoming data frames from the PHY layer and extracts application data.
 
@@ -489,11 +489,8 @@ class MAC:
         Only frames from the associated AP are processed. All others are ignored.
         """
 
-        # Extract MCA header.
-        mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-
         # Check that frame is from the associated AP and intended for us.
-        if mac_header[10:16] == self._associated_ap and mac_header[4:10] == self._mac_address:
+        if mac_header[10:16] == self._associated_ap and cast == "Unicast":
             match self._rx_psdu_buffer[4:8][::-1]:
                 case [0, 0, 0, 0]:  # Data.
                     log.debug("Data frame subtype")
