@@ -52,8 +52,7 @@ class CHIP:
 
         log.debug("Transferring the data to the MAC layer")
         # TODO: The address should have more meaning.
-        self.mac.start_transmission_chain(frame_type="Data", data=ascii_text,
-                                          destination_address=self.mac._associated_sta[0])
+        self.mac._tx_queue.append(("Data", ascii_text, self.mac._associated_sta[0], True))
 
     @staticmethod
     def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:

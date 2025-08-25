@@ -6,7 +6,7 @@ import threading
 import time
 
 from Settings.settings import log
-
+from Settings.signal_settings import SHORT_RETRY_LIMIT
 
 FRAME_TYPES = {
     # Management #
@@ -41,7 +41,7 @@ FRAME_TYPES = {
     "PS-Poll":                         {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 1, 0]},
     "RTS":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 0, 1, 1]},
     "CTS":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 0, 0]},
-    "ACK":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 0, 1]},
+    "ACK":                             {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 0, 1]},  # Implemented.
     "CF-End":                          {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 1, 0]},
     # "Reserved":                      {"TYPE_VALUE": [0, 1], "SUBTYPE_VALUE": [1, 1, 1, 1]},
 
@@ -83,6 +83,8 @@ class MAC:
 
         self.phy_rate = 6  # Default value.
 
+        self._is_acknowledged = "No ACK required"
+
         # Relevant for AP.
         self._authenticated_sta = []
         self._associated_sta = []
@@ -94,6 +96,8 @@ class MAC:
 
         # Buffers.
         self._tx_psdu_buffer = None
+        self._tx_queue = []
+        threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
 
     @staticmethod
@@ -193,6 +197,25 @@ class MAC:
         finally:
             self._mpif_socket.close()
 
+    def transmission_queue(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        while True:
+            if self._tx_queue:
+                # There are command(s) in the queue.
+                if self._is_acknowledged == "No ACK required":
+                    transmission_parameters = self._tx_queue.pop(0)  # Pop first item.
+                    self.start_transmission_chain(frame_type=transmission_parameters[0],
+                                                  data=transmission_parameters[1],
+                                                  destination_address=transmission_parameters[2],
+                                                  is_unicast=transmission_parameters[3])
+                    time.sleep(5)  # Allow the transmission to end before initiating another one.
+
+            # Buffer time between consecutive checks.
+            time.sleep(1)
+
     def beacon_broadcast(self):
         """
         Periodically broadcasts a beacon frame to indicate the presence of the device to other nodes in the network.
@@ -206,8 +229,7 @@ class MAC:
 
         while True:
             log.info("Sending beacon")
-            self.start_transmission_chain(frame_type="Beacon", data=[],
-                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+            self._tx_queue.append(("Beacon", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
 
             time.sleep(100)  # Buffer time between consecutive beacon broadcasts.
 
@@ -229,8 +251,7 @@ class MAC:
         while not self._probed_ap:
             # No AP probe responded yet.
             log.info("Sending probe request")
-            self.start_transmission_chain(frame_type="Probe Request", data=[],
-                                          destination_address=[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+            self._tx_queue.append(("Probe Request", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
 
             time.sleep(60)  # Buffer time between consecutive probing requests.
 
@@ -310,7 +331,7 @@ class MAC:
                                 self.management_controller(mac_header=mac_header, cast=cast)
                             case [0, 1]:  # Control.
                                 log.debug("Control frame type")
-                                pass  # TODO: To be implemented.
+                                self.control_controller(mac_header=mac_header, cast=cast)
                             case [1, 0]:  # Data.
                                 log.debug("Data frame type")
                                 self.data_controller(mac_header=mac_header, cast=cast)
@@ -341,13 +362,15 @@ class MAC:
                 if self._role == "AP" and cast == "Unicast":
                     log.debug("Association request frame subtype")
 
+                    log.info("Sending ACK response")
+                    self._tx_queue.append(("ACK", [], source_address, False))
+
                     # Assert that STA is authenticated.
                     if source_address in self._authenticated_sta:
                         self._associated_sta.append(source_address)  # Updating the list.
 
                         log.info("Sending association response")
-                        self.start_transmission_chain(frame_type="Association Response",
-                                                      data=[0x00, 0x00], destination_address=source_address)
+                        self._tx_queue.append(("Association Response", [0x00, 0x00], source_address, True))
 
             case [0, 0, 0, 1]:  # Association response.
                 """
@@ -359,6 +382,9 @@ class MAC:
                 # Checking that we are STA (association response are relevant for STA only) and this is an unicast.
                 if self._role == "STA" and cast == "Unicast":
                     log.debug("Association response frame subtype")
+
+                    log.info("Sending ACK response")
+                    self._tx_queue.append(("ACK", [], source_address, False))
 
                     # Assert that AP is authenticated.
                     if source_address == self._authenticated_ap:
@@ -377,8 +403,7 @@ class MAC:
                     log.debug("Probe request frame subtype")
 
                     log.info("Sending probe response")
-                    self.start_transmission_chain(frame_type="Probe Response", data=[],
-                                                  destination_address=source_address)
+                    self._tx_queue.append(("Probe Response", [], source_address, True))
 
             case [0, 1, 0, 1]:  # Probe response.
                 """
@@ -391,13 +416,15 @@ class MAC:
                 if self._role == "STA" and cast == "Unicast":
                     log.debug("Probe response frame subtype")
 
+                    log.info("Sending ACK response")
+                    self._tx_queue.append(("ACK", [], source_address, False))
+
                     # Updating the successfully probed AP MAC address.
                     self._probed_ap = source_address
 
                     log.info("Sending authenticating request")
                     # TODO: The authentication algorithm Should be a variable depending on the system.
-                    self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
-                                                  destination_address=self._probed_ap)
+                    self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x01], self._probed_ap, True))
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
@@ -416,8 +443,7 @@ class MAC:
 
                     log.info("Sending authenticating request")
                     # TODO: The authentication algorithm Should be a variable depending on the system.
-                    self.start_transmission_chain(frame_type="Authentication", data=[0x00, 0x00] + [0x00, 0x01],
-                                                  destination_address=self._probed_ap)
+                    self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x01], self._probed_ap, True))
 
             case [1, 0, 1, 1]:  # Authentication.
                 """
@@ -445,7 +471,6 @@ class MAC:
 
                 log.debug("Authentication frame subtype")
 
-
                 # Extract authentication data.
                 authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
 
@@ -453,27 +478,43 @@ class MAC:
                     case [0x00, 0x01]:  # Authentication request.
                         # Checking that we are AP (authentication requests are relevant for AP only).
                         if self._role == "AP" and cast == "Unicast":
+                            log.info("Sending ACK response")
+                            self._tx_queue.append(("ACK", [], source_address, False))
+
                             self._authenticated_sta.append(source_address)  # Updating the list.
                             log.info("Sending authentication response")
-                            self.start_transmission_chain(frame_type="Authentication",
-                                                          data=[0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
-                                                          destination_address=source_address)
+                            self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
+                                                   source_address, True))
                     case [0x00, 0x02]:  # Authentication response.
                         # Checking that we are STA (authentication responses are relevant for STA only).
                         if self._role == "STA" and cast == "Unicast":
+                            log.info("Sending ACK response")
+                            self._tx_queue.append(("ACK", [], source_address, False))
+
                             self._authenticated_ap = source_address  # Updating the list.
                             log.success("Authentication successful")
 
                             log.info("Sending association request")
-                            self.start_transmission_chain(frame_type="Association Request",
-                                                          data=[],
-                                                          destination_address=self._authenticated_ap)
+                            self._tx_queue.append(("Association Request", [], self._authenticated_ap, True))
                     case [0x00, 0x03]:
                         # Used in Shared Key.
                         pass  # TODO: To be implemented.
                     case [0x00, 0x04]:
                         # Used in Shared Key.
                         pass  # TODO: To be implemented.
+
+    def control_controller(self, mac_header: list[int], cast: str):
+        """
+        TODO: Complete the docstring.
+        """
+
+        match self._rx_psdu_buffer[4:8][::-1]:
+            case [1, 1, 0, 1]:  # ACK.
+                log.debug("ACK frame subtype")
+
+                # TODO: Add checks for validity of address.
+                log.success("Frame acknowledged - ACK received")
+                self._is_acknowledged = "ACK"
 
     def data_controller(self, mac_header: list[int], cast: str):
         """
@@ -489,18 +530,24 @@ class MAC:
         Only frames from the associated AP are processed. All others are ignored.
         """
 
+        source_address = mac_header[10:16]
+
         # Check that frame is from the associated AP and intended for us.
-        if mac_header[10:16] == self._associated_ap and cast == "Unicast":
-            match self._rx_psdu_buffer[4:8][::-1]:
-                case [0, 0, 0, 0]:  # Data.
-                    log.debug("Data frame subtype")
+        match self._rx_psdu_buffer[4:8][::-1]:
+            case [0, 0, 0, 0]:  # Data.
+                log.debug("Data frame subtype")
+
+                if mac_header[10:16] == self._associated_ap and cast == "Unicast":
+                    log.info("Sending ACK response")
+                    self._tx_queue.append(("ACK", [], source_address, False))
 
                     # Removing MAC header and CRC.
                     data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
                     log.info("Received message:")
                     log.print_data(data.decode('utf-8'), log_level="info")
 
-    def start_transmission_chain(self, frame_type: str, data: list[int], destination_address: list[int]):
+    def start_transmission_chain(self, frame_type: str, data: list[int], destination_address: list[int],
+                                 is_unicast: bool):
         """
         Initiates the data transmission process from the MAC layer to the PHY layer.
 
@@ -513,6 +560,9 @@ class MAC:
         :param frame_type: The type of the frame to be transmitted (e.g., data, control, management).
         :param data: The payload data to be included in the PSDU.
         :param destination_address: A list of integers representing the destination MAC address.
+        :param is_unicast: The type of cast. Can be either:
+        - Broacast - Doesn't require ACK.
+        - Unicast - Requires ACK.
         """
 
         # Generate MAC header.
@@ -524,6 +574,34 @@ class MAC:
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         self.send(primitive="PHY-TXSTART.request",
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
+
+        # Wait for ACK.
+        if is_unicast:
+            self._is_acknowledged = "Waiting for ACK"
+            threading.Thread(target=self.wait_for_acknowledgement, daemon=True).start()
+
+    def wait_for_acknowledgement(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Waiting for ACK.
+        for i in range(SHORT_RETRY_LIMIT):
+            # TODO: This time is dynamic (Contention Window).
+            time.sleep(15)  # Allow reception time for the ACK response.
+
+            if self._is_acknowledged == "ACK":
+                self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
+                return  # No need to continue as the frame was acknowledged.
+            else:
+                # No ACK, retransmitting.
+                # self.send(primitive="PHY-TXSTART.request",
+                #           data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
+                pass
+
+        # If we got to this point, the frame is dropped.
+        log.error("Frame was dropped")  # TODO: Better logging (to know which frame dropped).
+        self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
 
     def generate_psdu(self, mac_header, data) -> list[int]:
         """
