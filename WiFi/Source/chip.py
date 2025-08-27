@@ -16,30 +16,31 @@ from WiFi.Source.phy import PHY
 
 
 class CHIP:
-    def __init__(self, role: str):
-        log.info(f"Establishing WiFi chip as {role}")
+    def __init__(self, role: str, is_stub=False):
+        self._is_stub = is_stub
+        if not self._is_stub:
+            log.info(f"Establishing WiFi chip as {role}")
+            self._role = role
 
-        self._role = role
 
-        self.mpif = MPIF(host=HOST)
+            # Start MPIF block.
+            self.mpif = MPIF(host=HOST)
 
-        # Start clients after a slight delay to ensure server is ready.
-        time.sleep(1)
-        self.phy = PHY()
-        self.phy.mpif_connection(host=HOST, port=self.mpif.port)
-        self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
-        time.sleep(1)
-        self.mac = MAC(role=self._role)
-        self.mac.mpif_connection(host=HOST, port=self.mpif.port)
+            # Start clients after a slight delay to ensure server is ready.
+            self.phy = PHY()
+            self.phy.mpif_connection(host=HOST, port=self.mpif.port)
+            self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
+            self.mac = MAC(role=self._role)
+            self.mac.mpif_connection(host=HOST, port=self.mpif.port)
 
-        if self._role == "STA":
-            log.info("Scanning for APs to associate with")
-            threading.Thread(target=self.mac.scanning, daemon=True).start()
-            time.sleep(0.1)  # Buffer time.
-        else:  # AP.
-            log.info("Sending beacons to notify STAs")
-            threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
-            time.sleep(0.1)  # Buffer time.
+            if self._role == "STA":
+                log.info("Scanning for APs to associate with")
+                threading.Thread(target=self.mac.scanning, daemon=True).start()
+                time.sleep(0.1)  # Buffer time.
+            else:  # AP.
+                log.info("Sending beacons to notify STAs")
+                threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
+                time.sleep(0.1)  # Buffer time.
 
     def send_text(self, text: str):
         log.info("Sending data frame with the following message:")
