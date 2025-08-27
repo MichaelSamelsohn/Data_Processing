@@ -144,13 +144,6 @@ class Logger(logging.Logger):
         # Super call.
         super().__init__(name="Logger")
 
-        logging.SUCCESS = 25
-        logging.addLevelName(25, "SUCCESS")
-        logging.TRAFFIC = 11
-        logging.addLevelName(11, "TRAFFIC")
-        logging.CHANNEL = 12
-        logging.addLevelName(12, "CHANNEL")
-
         # Set class parameters.
         self._log_level = log_level
         self._color_scheme = color_scheme
@@ -160,6 +153,7 @@ class Logger(logging.Logger):
         self._file_handler = file_handler
         self._file_name = file_name
         self._level_name_only = level_name_only
+        self._custom_colors = {}  # Track custom log levels and their colors
 
         # Set formatter.
         self._formatter = logging.Formatter(self._format_string, self._format_time)
@@ -303,40 +297,78 @@ class Logger(logging.Logger):
     def __set_handlers(self):
         """
         Method for setting the handlers. The two available handlers are file and stream.
+        This version ensures that custom log level colors persist across handler resets.
         """
 
-        # Reset the handlers.
+        # Clear existing handlers
         self.handlers.clear()
 
-        # Add handlers to logger.
+        # Add stream handler if enabled
         if self._stream_handler:
-            # Adding the stream handler.
             stdout_stream_handler = logging.StreamHandler(stream=sys.stdout)
             stdout_stream_handler.setLevel(self._log_level)
-            # Set color formatter to the handler.
-            stdout_stream_handler.setFormatter(ColorFormatter(
-                self._format_string, self._color_scheme, self._format_time, self._level_name_only))
 
+            # Create color formatter
+            color_formatter = ColorFormatter(
+                format_string=self._format_string,
+                color_scheme=self._color_scheme,
+                format_time=self._format_time,
+                level_name_only=self._level_name_only
+            )
+
+            # Reapply custom log level colors
+            if hasattr(self, "_custom_colors"):
+                for level_num, color in self._custom_colors.items():
+                    color_formatter._COLORS[level_num] = color
+
+            # Set formatter
+            stdout_stream_handler.setFormatter(color_formatter)
+
+            # Add handler
             self.addHandler(stdout_stream_handler)
+
+        # Add file handler if enabled
         if self._file_handler:
-            # Adding the file handler.
-            file_handler = logging.FileHandler(filename=self._file_name, mode="a", encoding=None, delay=False,
-                                               errors=None)
+            file_handler = logging.FileHandler(
+                filename=self._file_name, mode="a", encoding=None, delay=False, errors=None
+            )
             file_handler.setLevel(self._log_level)
-            file_handler.setFormatter(self._formatter)  # Set formatter to the handler.
+
+            # Use plain (non-colored) formatter for file logging
+            file_formatter = logging.Formatter(self._format_string, self._format_time)
+            file_handler.setFormatter(file_formatter)
+
+            # Add handler
             self.addHandler(file_handler)
 
-    def success(self, msg, *args, **kwargs):
-        """TODO: Complete the docstring."""
-        self._log(logging.SUCCESS, msg, args, stacklevel=2, **kwargs)
+    def add_custom_log_level(self, level_name: str, level_num: int, color: str = None):
+        level_name = level_name.upper()
 
-    def traffic(self, msg, *args, **kwargs):
-        """TODO: Complete the docstring."""
-        self._log(logging.TRAFFIC, msg, args, stacklevel=2, **kwargs)
+        # Check for conflicts
+        if hasattr(logging, level_name):
+            raise ValueError(f"Log level '{level_name}' already exists.")
+        if level_num in logging._levelToName:
+            raise ValueError(f"Log level number '{level_num}' already exists.")
 
-    def channel(self, msg, *args, **kwargs):
-        """TODO: Complete the docstring."""
-        self._log(logging.CHANNEL, msg, args, stacklevel=2, **kwargs)
+        # Add to logging module
+        logging.addLevelName(level_num, level_name)
+        setattr(logging, level_name, level_num)
+
+        # Define log method with correct stacklevel
+        def log_for_level(self, message, *args, **kwargs):
+            self._log(level_num, message, args, stacklevel=2, **kwargs)
+
+        setattr(self.__class__, level_name.lower(), log_for_level)
+
+        # Store custom color
+        if color:
+            self._custom_colors[level_num] = color
+
+        # Add color to all formatters
+        for handler in self.handlers:
+            formatter = handler.formatter
+            if isinstance(formatter, ColorFormatter) and color:
+                formatter._COLORS[level_num] = color
 
     def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
@@ -390,9 +422,6 @@ class ColorFormatter(logging.Formatter):
             logging.WARNING: "\u001b[33;1m" if self._color_scheme else "\x1b[38;5;226m",  # Bright Yellow/Yellow.
             logging.ERROR: "\x1b[38;5;196m",                                              # Red.
             logging.CRITICAL: "\x1b[31;1m",                                               # Bold red.
-            logging.SUCCESS: "\x1b[32;1m",                                                # Bright Green.
-            logging.TRAFFIC: "\x1b[38;5;208m",                                            # Deep Violet / Grape.
-            logging.CHANNEL: "\x1b[38;5;5m",                                              # Magenta.
         }
         self._RESET_COLOR = "\x1b[0m"
 
