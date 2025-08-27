@@ -6,8 +6,7 @@ import time
 
 import numpy as np
 
-from Settings.settings import log
-from Settings.signal_settings import CHANNEL_HOST, CHANNEL_PORT
+from WiFi.Settings.wifi_settings import log, CHANNEL_HOST, CHANNEL_PORT
 
 
 class Channel:

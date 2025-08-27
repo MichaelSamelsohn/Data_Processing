@@ -1,11 +1,8 @@
 import time
 
-from Settings.settings import log
-from Signals.wifi import MPIF, CHIP
-from Signals.channel import Channel
-from debug import plot_rf_signal
-from debug import plot_constellation_mapping
-
+from WiFi.Settings.wifi_settings import log
+from WiFi.Source.channel import Channel
+from WiFi.Source.wifi import CHIP
 
 log.log_level = 20
 

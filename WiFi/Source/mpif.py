@@ -3,7 +3,7 @@ import json
 import socket
 import threading
 
-from Settings.settings import log
+from WiFi.Settings.wifi_settings import log
 
 
 class MPIF:

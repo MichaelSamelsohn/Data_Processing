@@ -9,11 +9,10 @@ Created by Michael Samelsohn, 19/07/25.
 # Imports #
 import time
 import threading
-from Settings.settings import log
-from mac import MAC
-from mpif import MPIF
-from phy import PHY
-from Settings.signal_settings import CHANNEL_HOST, CHANNEL_PORT, HOST
+from WiFi.Settings.wifi_settings import log, HOST, CHANNEL_HOST, CHANNEL_PORT
+from WiFi.Source.mac import MAC
+from WiFi.Source.mpif import MPIF
+from WiFi.Source.phy import PHY
 
 
 class CHIP:

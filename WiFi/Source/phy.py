@@ -7,7 +7,7 @@ import threading
 import numpy as np
 import random
 
-from Settings.settings import log
+from WiFi.Settings.wifi_settings import log
 
 # Constants #
 # Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder,

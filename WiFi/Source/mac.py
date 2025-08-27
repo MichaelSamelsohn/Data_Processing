@@ -5,8 +5,7 @@ import socket
 import threading
 import time
 
-from Settings.settings import log
-from Settings.signal_settings import SHORT_RETRY_LIMIT
+from WiFi.Settings.wifi_settings import log, SHORT_RETRY_LIMIT
 
 FRAME_TYPES = {
     # Management #
