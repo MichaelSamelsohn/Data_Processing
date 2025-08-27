@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
-from Settings.settings import log
-from mac import MAC
-from phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
-from wifi import CHIP
+from WiFi.Settings.wifi_settings import log
+from WiFi.Source.chip import CHIP
+from WiFi.Source.mac import MAC
+from WiFi.Source.phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
 
 # Constants #
 log.stream_handler = False
@@ -214,7 +214,7 @@ def test_convert_string_to_bits(style, expected_outcome):
     """
 
     # Steps (1)+(2) - Convert message to bits and compare to expected outcome.
-    assert CHIP(is_stub=True).convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
+    assert CHIP(role="", is_stub=True).convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
 
 
 @pytest.mark.parametrize("data_bytes", [os.urandom(50) for _ in range(RANDOM_TESTS)])
@@ -238,7 +238,7 @@ def test_crc32(data_bytes):
     expected_crc = expected_crc.to_bytes(4, 'little')  # Convert to little endian bytes.
 
     # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
-    assert MAC().cyclic_redundancy_check_32(data=data_bytes) == expected_crc
+    assert MAC(role="").cyclic_redundancy_check_32(data=list(data_bytes)) == expected_crc
 
 
 @pytest.mark.parametrize("phy_rate, length",
