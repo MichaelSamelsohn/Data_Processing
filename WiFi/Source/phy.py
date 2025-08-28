@@ -50,7 +50,8 @@ FREQUENCY_DOMAIN_LTF = [
 
 class PHY:
     def __init__(self):
-        log.info("Establishing PHY layer")
+        log.phy("Establishing PHY layer")
+        self._identifier = None
 
         self._mpif_socket = None  # Socket connection to MPIF.
         self._channel_socket = None
@@ -243,11 +244,11 @@ class PHY:
         match primitive:
             # Transmitter.
             case "PHY-TXSTART.request":
-                log.info("Updating TX vector information")
+                log.phy(f"({self._identifier}) Updating TX vector information")
                 self.tx_vector = data
-                log.info("Generating preamble")
+                log.phy(f"({self._identifier}) Generating preamble")
                 self._preamble = self.generate_preamble()
-                log.info("Generating SIGNAL symbol")
+                log.phy(f"({self._identifier}) Generating SIGNAL symbol")
                 self._signal = self.generate_signal_symbol()
                 self._bcc_shift_register = 7 * [0]  # Resetting the shift register for the DATA bits.
 
@@ -284,7 +285,7 @@ class PHY:
             case "PHY-TXEND.request":
                 time.sleep(1)  # Buffer time for viewing/debug purposes.
 
-                log.info("Generating PPDU")
+                log.phy(f"({self._identifier}) Generating PPDU")
                 self._ppdu = self.generate_ppdu()
                 # self._rf_frame_tx = self.generate_rf_signal() TODO: Is it relevant?
 
@@ -303,39 +304,39 @@ class PHY:
                     # This is the message we just sent.
                     self._ppdu = []  # Clearing the PPDU.
                 else:  # New message.
-                    log.info("Starting reception chain")
+                    log.phy(f"({self._identifier}) Starting reception chain")
                     self._rf_frame_rx = data
 
-                    log.info("Detecting frame using STF correlation")
+                    log.phy(f"({self._identifier}) Detecting frame using STF correlation")
                     index = self.detect_frame(baseband_signal=self._rf_frame_rx)
                     if index is None:
                         self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(IDLE)", data=[])
                     else:
-                        log.info("Frame detected")
+                        log.phy(f"({self._identifier}) Frame detected")
                         self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(BUSY)", data=[])
 
-                        log.info("Performing channel estimation using LTF")
+                        log.phy(f"({self._identifier}) Performing channel estimation using LTF")
                         self._channel_estimate = self.channel_estimation(
                             time_domain_ltf=self._rf_frame_rx[index + 160: index + 320])
 
-                        log.info("Extracting RATE and LENGTH from SIGNAL")
+                        log.phy(f"({self._identifier}) Extracting RATE and LENGTH from SIGNAL")
                         phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
                         if phy_rate is None and length is None:
                             # Either invalid rate or parity check failed.
                             self.send(socket_connection=self._mpif_socket,
                                       primitive="PHY-RXEND.indication(FormatViolation)", data=[])
                         else:
-                            log.info("Setting and calculating MCS parameters")
+                            log.phy(f"({self._identifier}) Setting and calculating MCS parameters")
                             self.rx_vector = [phy_rate, length]
 
-                            log.info("Deciphering DATA symbols")
+                            log.phy(f"({self._identifier}) Deciphering DATA symbols")
                             self._psdu = self.decipher_data(data=self._rf_frame_rx[index + 400:])
                             if not self._psdu:
                                 # Unable to find scramble seed.
                                 self.send(socket_connection=self._mpif_socket,
                                           primitive="PHY-RXEND.indication(ScrambleSeedNotFound)", data=[])
                             else:
-                                log.info("Sending PSDU to MAC")
+                                log.phy(f"({self._identifier}) Sending PSDU to MAC")
                                 for _ in range(self._length):
                                     self.send(socket_connection=self._mpif_socket, primitive="PHY-DATA.indication",
                                               data=self._psdu[:8])

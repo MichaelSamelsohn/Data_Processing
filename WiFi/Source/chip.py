@@ -16,29 +16,32 @@ from WiFi.Source.phy import PHY
 
 
 class CHIP:
-    def __init__(self, role: str, is_stub=False):
+    def __init__(self, role: str, identifier: str, is_stub=False):
         self._role = role
+        self._identifier = identifier
         self._is_stub = is_stub
 
         if not self._is_stub:
-            log.info(f"Establishing WiFi chip as {self._role}")
+            log.info(f"Establishing WiFi chip as {self._role} (with identifier - {self._identifier})")
 
             # Start MPIF block.
             self.mpif = MPIF(host=HOST)
 
             # Start clients after a slight delay to ensure server is ready.
             self.phy = PHY()
+            self.phy._identifier = self._identifier
             self.phy.mpif_connection(host=HOST, port=self.mpif.port)
             self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
             self.mac = MAC(role=self._role)
+            self.mac._identifier = self._identifier
             self.mac.mpif_connection(host=HOST, port=self.mpif.port)
 
             if self._role == "STA":
-                log.info("Scanning for APs to associate with")
+                # Scan for APs to associate with.
                 threading.Thread(target=self.mac.scanning, daemon=True).start()
                 time.sleep(0.1)  # Buffer time.
             else:  # AP.
-                log.info("Sending beacons to notify STAs")
+                # Send beacons to notify STAs.
                 threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
                 time.sleep(0.1)  # Buffer time.
 

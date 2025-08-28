@@ -417,7 +417,7 @@ class ColorFormatter(logging.Formatter):
         https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html.
         """
         self._COLORS = {
-            logging.DEBUG: "\u001b[36m" if self._color_scheme else "\x1b[38;21m",         # Cyan/Grey.,
+            logging.DEBUG: "\u001b[36m" if self._color_scheme else "\x1b[38;21m",         # Cyan/Grey.
             logging.INFO: "\u001b[30m" if self._color_scheme else "\x1b[38;5;39m",        # Black/Blue.
             logging.WARNING: "\u001b[33;1m" if self._color_scheme else "\x1b[38;5;226m",  # Bright Yellow/Yellow.
             logging.ERROR: "\x1b[38;5;196m",                                              # Red.
