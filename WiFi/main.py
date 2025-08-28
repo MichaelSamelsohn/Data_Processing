@@ -2,7 +2,7 @@ import time
 
 from WiFi.Settings.wifi_settings import log
 from WiFi.Source.channel import Channel
-from WiFi.Source.wifi import CHIP
+from WiFi.Source.chip import CHIP
 
 log.log_level = 20
 

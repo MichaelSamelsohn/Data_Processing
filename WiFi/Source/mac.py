@@ -82,8 +82,6 @@ class MAC:
 
         self.phy_rate = 6  # Default value.
 
-        self._is_acknowledged = "No ACK required"
-
         # Relevant for AP.
         self._authenticated_sta = []
         self._associated_sta = []
@@ -93,8 +91,9 @@ class MAC:
         self._authenticated_ap = None
         self._associated_ap = None
 
-        # Buffers.
+        # Buffers and booleans.
         self._tx_psdu_buffer = None
+        self._is_acknowledged = "No ACK required"
         self._tx_queue = []
         threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
@@ -231,8 +230,6 @@ class MAC:
         seconds). The beacon is sent to the broadcast address (FF:FF:FF:FF:FF:FF), making it visible to all nearby
         receivers.
         """
-
-        time.sleep(10)  # TODO: Needs to be deleted once thread handling is done.
 
         while True:
             log.info("Sending beacon")
@@ -656,6 +653,13 @@ class MAC:
         This method constructs a 24-byte MAC header used in wireless communication frames. It includes fields such as
         Frame Control, Destination Address (DA), and Source Address (SA).
 
+        Octets       2          2         6       0 or 6    0 or 6     0 or 2     0 or 6     0 or 2     0 or 4
+                +---------+----------+---------+---------+---------+-----------+---------+-----------+---------+
+                |  Frame  | Duration | Address | Address | Address |  Sequence | Address |    QoS    |   HT    |
+                | Control |   /ID    |    1    |    2    |    3    |  Control  |    4    |  Control  | Control |
+                +---------+----------+---------+---------+---------+-----------+---------+-----------+---------+
+
+
         :param frame_type: Type of the frame to be transmitted (e.g., "Beacon", "Data"). Determines how the Frame
         Control field is set.
         :param destination_address: A 6-byte (list of 6 integers) destination MAC address. Typically, this will be a
@@ -664,7 +668,7 @@ class MAC:
         :return: A list of 24 integers representing the MAC header in byte format.
         """
 
-        mac_header = 24 * [0]  # TODO: Should be dynamic depending on the frame type.
+        mac_header = 24 * [0]  # TODO: Size should be dynamic depending on the frame type.
 
         # Frame control.
         mac_header[:2] = self.generate_frame_control_field(frame_type=frame_type)
@@ -683,12 +687,11 @@ class MAC:
 
         The Frame Control field is the first field in an 802.11 MAC header and consists of the following subfields:
 
-        B0      B1 B2  B3 B4     B7   B8      B9        B10        B11        B12        B13        B14        B15
+        B0      B1  B2  B3 B4     B7   B8      B9        B10        B11        B12        B13        B14        B15
         +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
         | Protocol | Type | Subtype |  To  |  From  |    More    | Retry |    Power    |  More  |  Protected |  +HTC  |
         | Version  |      |         |  DS  |   DS   |  Fragments |       |  Management |  Data  |    Frame   |        |
         +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
-
 
         :param frame_type: A key identifying the frame type, used to look up corresponding TYPE_VALUE and SUBTYPE_VALUE
         from FRAME_TYPES.

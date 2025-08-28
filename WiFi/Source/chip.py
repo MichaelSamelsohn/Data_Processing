@@ -17,11 +17,11 @@ from WiFi.Source.phy import PHY
 
 class CHIP:
     def __init__(self, role: str, is_stub=False):
+        self._role = role
         self._is_stub = is_stub
-        if not self._is_stub:
-            log.info(f"Establishing WiFi chip as {role}")
-            self._role = role
 
+        if not self._is_stub:
+            log.info(f"Establishing WiFi chip as {self._role}")
 
             # Start MPIF block.
             self.mpif = MPIF(host=HOST)
