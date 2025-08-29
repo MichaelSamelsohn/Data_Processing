@@ -1,4 +1,5 @@
 # Imports #
+import copy
 import json
 import random
 import socket
@@ -96,6 +97,7 @@ class MAC:
         # Buffers and booleans.
         self._tx_psdu_buffer = None
         self._is_acknowledged = "No ACK required"
+        self._is_retry = False
         self._tx_queue = []
         log.mac("Activating transmission queue")
         threading.Thread(target=self.transmission_queue, daemon=True).start()
@@ -214,7 +216,7 @@ class MAC:
         while True:
             if self._tx_queue:
                 # There are command(s) in the queue.
-                if self._is_acknowledged == "No ACK required":
+                if self._is_acknowledged == "No ACK required" and not self._is_retry:
                     transmission_parameters = self._tx_queue.pop(0)  # Pop first item.
                     self.start_transmission_chain(frame_type=transmission_parameters[0],
                                                   data=transmission_parameters[1],
@@ -258,9 +260,9 @@ class MAC:
         log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
         time.sleep(20)
 
-        log.mac(f"({self._identifier}) Active scanning - Probing")
         while not self._probed_ap:
             # No AP probe responded yet, send probe request.
+            log.mac(f"({self._identifier}) Active scanning - Probing")
             self._tx_queue.append(("Probe Request", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
 
             time.sleep(60)  # Buffer time between consecutive probing requests.
@@ -335,6 +337,10 @@ class MAC:
                     log.debug(f"({self._identifier}) Checking that frame is either broadcasted or unicast intended for "
                               f"us")
                     if cast:
+                        log.debug(f"({self._identifier}) Checking if received frame is a retransmission")
+                        self._is_retry = True if self._rx_psdu_buffer[11] == 1 else False
+                        log.debug(f"({self._identifier}) Is retransmission - {self._is_retry}")
+
                         # Delegate frame handling to relevant controller based on the frame type.
                         match self._rx_psdu_buffer[2:4][::-1]:
                             case [0, 0]:  # Management.
@@ -349,6 +355,19 @@ class MAC:
                             case [1, 1]:  # Extension.
                                 log.debug(f"({self._identifier}) Extension frame type")
                                 pass  # TODO: To be implemented.
+
+                        if self._is_retry:
+                            log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
+                                      f"over-responding to the same retransmitted request")
+                            seen = set()  # Collection of unique occurrences.
+                            result = []   # Clean queue without duplicates.
+                            for item in self._tx_queue:
+                                if item not in seen:
+                                    result.append(item)
+                                    seen.add(item)
+
+                            self._tx_queue = result  # Update the TX queue.
+                            self._is_retry = False   # Reset the retry boolean.
 
     def management_controller(self, mac_header: list[int], cast: str):
         """
@@ -598,7 +617,7 @@ class MAC:
         mac_header = self.generate_mac_header(frame_type=frame_type, destination_address=destination_address)
 
         log.mac(f"({self._identifier}) Generating PSDU")
-        self._tx_psdu_buffer = self.generate_psdu(mac_header=mac_header, data=data)
+        self._tx_psdu_buffer = self.generate_psdu(payload=mac_header + data)
 
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         log.mac(f"({self._identifier}) Sending TX vector to PHY")
@@ -635,16 +654,22 @@ class MAC:
                 self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
                 return  # No need to continue as the frame was acknowledged.
             else:
-                # No ACK, retransmitting.
+                log.warning(f"({self._identifier}) No ACK, retransmitting")
+
+                retry_payload = copy.deepcopy(self._tx_psdu_buffer)  # Copy TX PSDU buffer.
+                retry_payload[11] = 1  # Switch on the retry bit.
+                retry_payload = self.convert_bits_to_bytes(bits=retry_payload)  # Convert to bytes.
+                # Remove CRC and generate retry PSDU.
+                self._tx_psdu_buffer = self.generate_psdu(payload=retry_payload[:-4])
+                # Retransmit PSDU.
                 self.send(primitive="PHY-TXSTART.request",
                           data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
-                pass
 
         # If we got to this point, the frame is dropped.
-        log.error("Frame was dropped")  # TODO: Better logging (to know which frame dropped).
+        log.error(f"({self._identifier}) Frame was dropped")  # TODO: Better logging (to know which frame dropped).
         self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
 
-    def generate_psdu(self, mac_header, data) -> list[int]:
+    def generate_psdu(self, payload) -> list[int]:
         """
         Prepares a data packet by appending a predefined MAC header and a CRC-32 checksum.
 
@@ -659,9 +684,9 @@ class MAC:
         """
 
         log.debug(f"({self._identifier}) Appending CRC-32 as suffix")
-        crc = list(self.cyclic_redundancy_check_32(data=mac_header + data))
+        crc = list(self.cyclic_redundancy_check_32(data=payload))
 
-        return [int(bit) for byte in mac_header + data + crc for bit in f'{byte:08b}']
+        return [int(bit) for byte in payload + crc for bit in f'{byte:08b}']
 
     def generate_mac_header(self, frame_type: str, destination_address: list[int]) -> list[int]:
         """
