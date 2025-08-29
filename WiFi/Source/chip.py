@@ -46,12 +46,12 @@ class CHIP:
                 time.sleep(0.1)  # Buffer time.
 
     def send_text(self, text: str):
-        log.info("Sending data frame with the following message:")
+        log.info(f"({self._identifier}) Sending data frame with the following message:")
         log.print_data(data=text, log_level='info')
-        log.debug("Converting data to bytes")
+        log.debug(f"({self._identifier}) Converting data to bytes")
         ascii_text = self.convert_string_to_bits(text=text, style='bytes')
 
-        log.debug("Transferring the data to the MAC layer")
+        log.debug(f"({self._identifier}) Transferring the data to the MAC layer")
         # TODO: The address should have more meaning.
         self.mac._tx_queue.append(("Data", ascii_text, self.mac._associated_sta[0], True))
 

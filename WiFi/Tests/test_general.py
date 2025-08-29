@@ -27,4 +27,5 @@ def test_convert_string_to_bits(style, expected_outcome):
     """
 
     # Steps (1)+(2) - Convert message to bits and compare to expected outcome.
-    assert CHIP(role="", is_stub=True).convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
+    assert (CHIP(role="", identifier="", is_stub=True).convert_string_to_bits(text=MESSAGE, style=style) ==
+            expected_outcome)

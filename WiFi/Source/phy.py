@@ -139,7 +139,7 @@ class PHY:
                     primitive = message['PRIMITIVE']
                     data = message['DATA']
 
-                    log.traffic(f"PHY received: {primitive} "
+                    log.traffic(f"({self._identifier}) PHY received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
                 else:
@@ -461,11 +461,11 @@ class PHY:
         :return: List of complex values representing the preamble in the time domain.
         """
 
-        log.debug("Generating short training field - STF")
+        log.debug(f"({self._identifier}) Generating short training field - STF")
         short_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')
-        log.debug("Generating long training field - LTF")
+        log.debug(f"({self._identifier}) Generating long training field - LTF")
         long_training_field = self.convert_to_time_domain(ofdm_symbol=FREQUENCY_DOMAIN_LTF, field_type='LTF')
-        log.debug("Overlapping the STF and LTF")
+        log.debug(f"({self._identifier}) Overlapping the STF and LTF")
         return (short_training_field[:-1] +                                 # STF.
                 [short_training_field[-1] + long_training_field[0]] +       # Overlap.
                 long_training_field[1:])                                    # LTF.
@@ -486,18 +486,18 @@ class PHY:
         :return: List of bits representing the SIGNAL field.
         """
 
-        log.debug("Generating the SIGNAL field")
+        log.debug(f"({self._identifier}) Generating the SIGNAL field")
         signal_field = self.generate_signal_field()
-        log.debug("Encoding the SIGNAL field")
+        log.debug(f"({self._identifier}) Encoding the SIGNAL field")
         coded_signal_field = self.bcc_encode(bits=signal_field, coding_rate='1/2')
-        log.debug("Interleaving the SIGNAL")
+        log.debug(f"({self._identifier}) Interleaving the SIGNAL")
         interleaved_signal_field = self.interleave(bits=coded_signal_field, phy_rate=6)
-        log.debug("Modulating the SIGNAL")
+        log.debug(f"({self._identifier}) Modulating the SIGNAL")
         modulated_signal_field = self.subcarrier_modulation(bits=interleaved_signal_field, phy_rate=6)
-        log.debug("Pilot subcarrier insertion for SIGNAL")
+        log.debug(f"({self._identifier}) Pilot subcarrier insertion for SIGNAL")
         frequency_domain_signal_field = self.pilot_subcarrier_insertion(modulated_subcarriers=modulated_signal_field,
                                                                         pilot_polarity=1)
-        log.debug("Converting SIGNAL to time domain")
+        log.debug(f"({self._identifier}) Converting SIGNAL to time domain")
         return self.convert_to_time_domain(ofdm_symbol=frequency_domain_signal_field, field_type='SIGNAL')
 
     def generate_signal_field(self) -> list[int]:
@@ -532,15 +532,15 @@ class PHY:
 
         # Setting the rate bits, 0-3.
         signal_field[:4] = self._signal_field_coding
-        log.debug(f"Rate bits 0-3, {signal_field[:4]}")
+        log.debug(f"({self._identifier}) Rate bits 0-3, {signal_field[:4]}")
 
         # Setting the length bits, 5-16.
         signal_field[5:17] = [int(bit) for bit in format(self._length, '012b')][::-1]
-        log.debug(f"Length bits 5-16, {signal_field[5:17]}")
+        log.debug(f"({self._identifier}) Length bits 5-16, {signal_field[5:17]}")
 
         # Setting the parity bit 17.
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
-        log.debug(f"Parity bit 17, [{signal_field[17]}]")
+        log.debug(f"({self._identifier}) Parity bit 17, [{signal_field[17]}]")
 
         return signal_field
 
@@ -661,7 +661,7 @@ class PHY:
         :return: BCC encoded bits.
         """
 
-        log.debug(f"Coding rate - {coding_rate}")
+        log.debug(f"({self._identifier}) Coding rate - {coding_rate}")
 
         encoded = []
 
@@ -679,7 +679,7 @@ class PHY:
         if coding_rate == '1/2':
             return encoded
         else:
-            log.debug("Performing puncturing")
+            log.debug(f"({self._identifier}) Performing puncturing")
 
             # Converting the encoded bits list to a numpy array to better perform puncturing.
             encoded = np.array(encoded)
@@ -698,8 +698,7 @@ class PHY:
             # Puncturing the encoded bits.
             return encoded[mask == 1].tolist()
 
-    @staticmethod
-    def interleave(bits: list[int], phy_rate: int) -> list[int]:
+    def interleave(self, bits: list[int], phy_rate: int) -> list[int]:
         """
         All encoded data bits shall be interleaved by a block interleaver with a block size corresponding to the number
         of bits in a single OFDM symbol (Ncbps). The interleaver is defined by a two-step permutation:
@@ -731,17 +730,19 @@ class PHY:
         s = max(n_bpsc // 2, 1)
         k = np.arange(n_cbps)
 
-        log.debug("First permutation - Ensures that adjacent coded bits are mapped onto nonadjacent sub-carriers")
+        log.debug(f"({self._identifier}) First permutation - Ensures that adjacent coded bits are mapped onto "
+                  f"nonadjacent sub-carriers")
         i = (n_cbps // 16) * (k % 16) + k // 16
 
-        log.debug("Second permutation - Ensures bits are spread over different constellation bits")
+        log.debug(f"({self._identifier}) Second permutation - Ensures bits are spread over different constellation "
+                  f"bits")
         j = s * (i // s) + ((i + n_cbps - (16 * i // n_cbps)) % s)
 
-        log.debug("Interleaving the data bits according to the indexes of second permutation result")
+        log.debug(f"({self._identifier}) Interleaving the data bits according to the indexes of second permutation "
+                  f"result")
         return [bits[np.where(j == index)[0][0]] for index in k]
 
-    @staticmethod
-    def subcarrier_modulation(bits: list[int], phy_rate: int) -> list[complex]:
+    def subcarrier_modulation(self, bits: list[int], phy_rate: int) -> list[complex]:
         """
         The OFDM sub-carriers shall be modulated by using BPSK, QPSK, 16-QAM, or 64-QAM, depending on the RATE
         requested. The encoded and interleaved binary serial input data shall be divided into groups of Nbpsc (1, 2, 4,
@@ -777,16 +778,16 @@ class PHY:
 
         # Determining the modulation and mapping the bits.
         modulation = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]
-        log.debug(f"Modulation scheme - {modulation}")
+        log.debug(f"({self._identifier}) Modulation scheme - {modulation}")
         match modulation:
             case 'BPSK':
-                log.debug(f"Modulating the bits, normalization factor - {1}")
+                log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {1}")
                 symbols = [2 * bit - 1 + 0j for bit in bits]
 
             case 'QPSK':
                 qpsk_modulation_mapping = {0: -1, 1: 1}
 
-                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(2), 3)}")
+                log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {round(np.sqrt(2), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qpsk_modulation_mapping[b[0]],  # I.
@@ -796,7 +797,7 @@ class PHY:
             case '16-QAM':
                 qam16_modulation_mapping = {0: -3, 1: -1, 2: 3, 3: 1}
 
-                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(10), 3)}")
+                log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {round(np.sqrt(10), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qam16_modulation_mapping[2 * b[0] + b[1]],  # I.
@@ -806,7 +807,7 @@ class PHY:
             case '64-QAM':
                 qam64_modulation_mapping = {0: -7, 1: -5, 2: -1, 3: -3, 4: 7, 5: 5, 6: 1, 7: 3}
 
-                log.debug(f"Modulating the bits, normalization factor - {round(np.sqrt(42), 3)}")
+                log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {round(np.sqrt(42), 3)}")
                 for b in grouped_bits:
                     symbols.append(complex(
                         qam64_modulation_mapping[4 * b[0] + 2 * b[1] + b[2]],  # I.
@@ -851,8 +852,7 @@ class PHY:
 
         return ofdm_symbol
 
-    @staticmethod
-    def convert_to_time_domain(ofdm_symbol: list[complex], field_type: str) -> list[complex]:
+    def convert_to_time_domain(self, ofdm_symbol: list[complex], field_type: str) -> list[complex]:
         """
         The following descriptions of the discrete time implementation are informational.
         In a typical implementation, the windowing function is represented in discrete time. As an example, when a
@@ -917,28 +917,28 @@ class PHY:
         :return: Time domain OFDM symbol.
         """
 
-        log.debug("Re-ordering the symbol")
+        log.debug(f"({self._identifier}) Re-ordering the symbol")
         reordered_ofdm_symbol = 64 * [0]
         reordered_ofdm_symbol[1:27] = ofdm_symbol[26:]
         reordered_ofdm_symbol[38:] = ofdm_symbol[:26]
 
-        log.debug("Computing the IFFT")
+        log.debug(f"({self._identifier}) Computing the IFFT")
         time_signal = np.fft.ifft(reordered_ofdm_symbol)
         time_signal = [complex(round(value.real, 3), round(value.imag, 3)) for value in time_signal]
 
         # Add cyclic prefix and overlap sample suffix.
         match field_type:
             case 'STF':
-                log.debug("STF symbols - Cyclic extension")
+                log.debug(f"({self._identifier}) STF symbols - Cyclic extension")
                 time_signal = time_signal + time_signal + time_signal[:33]
             case 'LTF':
-                log.debug("LTF symbols - Adding double guard interval")
+                log.debug(f"({self._identifier}) LTF symbols - Adding double guard interval")
                 time_signal = time_signal[-32:] + time_signal + time_signal + [time_signal[0]]
             case 'SIGNAL' | 'DATA':
-                log.debug(f"{field_type} symbol - Adding guard interval")
+                log.debug(f"({self._identifier}) {field_type} symbol - Adding guard interval")
                 time_signal = time_signal[-16:] + time_signal + [time_signal[0]]
 
-        log.debug("Applying window function")
+        log.debug(f"({self._identifier}) Applying window function")
         time_signal[0] *= 0.5
         time_signal[-1] *= 0.5
 
@@ -981,14 +981,14 @@ class PHY:
         correlation_magnitude = np.abs(correlation)
 
         highest_correlation_index = np.argmax(correlation_magnitude)
-        log.debug(f"Highest correlation value - {correlation_magnitude[highest_correlation_index]:.3f} "
-                  f"(at index {highest_correlation_index})")
+        log.debug(f"({self._identifier}) Highest correlation value - "
+                  f"{correlation_magnitude[highest_correlation_index]:.3f} (at index {highest_correlation_index})")
 
         if correlation_magnitude[highest_correlation_index] >= 1.5:
-            log.debug("Identified STF")
+            log.debug(f"({self._identifier}) Identified STF")
             return highest_correlation_index
         else:
-            log.debug("Correlation is too low")
+            log.debug(f"({self._identifier}) Correlation is too low")
             return None
 
     def channel_estimation(self, time_domain_ltf: list[complex]):
@@ -1006,18 +1006,18 @@ class PHY:
         :return: Estimated channel response across all non-null subcarriers.
         """
 
-        log.debug("Using second LTF for FFT (to convert to frequency domain)")
+        log.debug(f"({self._identifier}) Using second LTF for FFT (to convert to frequency domain)")
         pilots = self.convert_to_frequency_domain(time_domain_symbol=time_domain_ltf)
         normalized_pilots = [a / b for a, b in zip(pilots, FREQUENCY_DOMAIN_LTF)]
 
-        log.debug("Separating magnitude and phase")
+        log.debug(f"({self._identifier}) Separating magnitude and phase")
         pilot_magnitudes = np.abs(normalized_pilots)
         pilot_phases = np.angle(normalized_pilots)
 
-        log.debug("Reconstructing complex channel estimate")
+        log.debug(f"({self._identifier}) Reconstructing complex channel estimate")
         channel_estimate = pilot_magnitudes * np.exp(1j * pilot_phases)
 
-        log.debug("'Smoothing' the channel estimate to avoid division by zero (or near-zero)")
+        log.debug(f"({self._identifier}) 'Smoothing' the channel estimate to avoid division by zero (or near-zero)")
         epsilon = 1e-10
         safe_channel_estimate = np.where(np.abs(channel_estimate) < epsilon, epsilon, channel_estimate)
 
@@ -1054,39 +1054,39 @@ class PHY:
         # SIGNAL FFT (with removed GI).
         frequency_signal_symbol = self.convert_to_frequency_domain(time_domain_symbol=signal)
 
-        log.debug("Equalizing and removing pilot sub-carriers")
+        log.debug(f"({self._identifier}) Equalizing and removing pilot sub-carriers")
         equalized_symbol = self.equalize_and_remove_pilots(frequency_symbol=frequency_signal_symbol)
 
-        log.debug("Demapping the SIGNAL symbol")
+        log.debug(f"({self._identifier}) Demapping the SIGNAL symbol")
         interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol, modulation='BPSK')
 
-        log.debug("Deinterleaving the SIGNAL symbol")
+        log.debug(f"({self._identifier}) Deinterleaving the SIGNAL symbol")
         encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=6)
 
-        log.debug("Decoding the SIGNAL symbol")
+        log.debug(f"({self._identifier}) Decoding the SIGNAL symbol")
         signal_data = self.convolutional_decode_viterbi(received_bits=encoded_signal_symbol, coding_rate='1/2')
 
-        log.debug("Checking parity bit correctness")
+        log.debug(f"({self._identifier}) Checking parity bit correctness")
         if not np.sum(signal_data[:18]) % 2 == 0:
             log.error("Parity bit check failed, unable to decode SIGNAL properly")
             return None, None  # No point to continue - Parity check failed.
 
-        log.debug("Extracting RATE")
+        log.debug(f"({self._identifier}) Extracting RATE")
         signal_field_coding = signal_data[:4]
         phy_rate = None
         for key, params in MODULATION_CODING_SCHEME_PARAMETERS.items():
             if params["SIGNAL_FIELD_CODING"] == signal_field_coding:
                 phy_rate = key
-                log.debug(f"Found RATE is - {phy_rate}")
+                log.debug(f"({self._identifier}) Found RATE is - {phy_rate}")
         if phy_rate is None:
             log.error("Invalid PHY RATE detected, unable to decode SIGNAL properly")
             return None, None  # No point to continue - Illegal PHY rate.
 
-        log.debug("Extracting LENGTH")
+        log.debug(f"({self._identifier}) Extracting LENGTH")
         length = signal_data[5:17]
         length = length[::-1]  # MSB is the last bit.
         length = int("".join(map(str, length)), 2)  # Conversion to a decimal (number of DATA octets).
-        log.debug(f"Found LENGTH is - {length}")
+        log.debug(f"({self._identifier}) Found LENGTH is - {length}")
 
         return phy_rate, length
 
@@ -1112,36 +1112,36 @@ class PHY:
 
         deinterleaved_data = []
         for i in range(self._n_symbols):
-            log.debug(f"DATA symbol #{i+1}")
+            log.debug(f"({self._identifier}) DATA symbol #{i+1}")
 
-            log.debug("Computing the FFT (with removed GI)")
+            log.debug(f"({self._identifier}) Computing the FFT (with removed GI)")
             frequency_domain_data_symbol = self.convert_to_frequency_domain(data[80 * i: 80 * (i + 1)])
 
-            log.debug("Equalizing and removing pilot sub-carriers")
+            log.debug(f"({self._identifier}) Equalizing and removing pilot sub-carriers")
             equalized_symbol = self.equalize_and_remove_pilots(frequency_symbol=frequency_domain_data_symbol)
 
-            log.debug(f"Demapping DATA symbol #{i+1}")
+            log.debug(f"({self._identifier}) Demapping DATA symbol #{i+1}")
             interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol,
                                                                      modulation=self._modulation)
 
-            log.debug(f"Deinterleaving DATA symbol #{i+1}")
+            log.debug(f"({self._identifier}) Deinterleaving DATA symbol #{i+1}")
             encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=self._phy_rate)
 
             deinterleaved_data += encoded_signal_symbol
 
-        log.debug("Decoding all DATA bits")
+        log.debug(f"({self._identifier}) Decoding all DATA bits")
         decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data,
                                                          coding_rate=self._data_coding_rate)
 
-        log.debug("Descrambling all DATA bits")
+        log.debug(f"({self._identifier}) Descrambling all DATA bits")
         service_field = decoded_data[:16]
         for seed in range(1,128):
             if ([a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=16, seed=seed), service_field)]
                     == 16 * [0]):
-                log.debug(f"Seed found - {seed}")
+                log.debug(f"({self._identifier}) Seed found - {seed}")
                 descrambled_data = [a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=len(decoded_data),
                                                                                       seed=seed), decoded_data)]
-                log.debug("Removing SERVICE, TAIL and padding bits")
+                log.debug(f"({self._identifier}) Removing SERVICE, TAIL and padding bits")
                 return descrambled_data[16:-6 - self._pad_bits]
 
         # If we got to this point, no seed was found for the scrambler, unable to descramble.
@@ -1383,8 +1383,7 @@ class PHY:
 
         return equalized_symbol_no_pilots
 
-    @staticmethod
-    def convert_to_frequency_domain(time_domain_symbol: list[complex]) -> list[complex]:
+    def convert_to_frequency_domain(self, time_domain_symbol: list[complex]) -> list[complex]:
         """
         Converts a time-domain OFDM symbol to its frequency-domain representation.
 
@@ -1400,9 +1399,9 @@ class PHY:
         :return: A list of complex numbers representing the reordered frequency-domain subcarriers.
         """
 
-        log.debug("Using only last 64 samples for FFT")
+        log.debug(f"({self._identifier}) Using only last 64 samples for FFT")
         frequency_symbol = list(np.fft.fft(time_domain_symbol[-64:]))
 
-        log.debug("Reordering subcarriers")
+        log.debug(f"({self._identifier}) Reordering subcarriers")
         # [38:] = negative frequencies, [1:27] = positive frequencies (no DC).
         return frequency_symbol[38:] + frequency_symbol[1:27]

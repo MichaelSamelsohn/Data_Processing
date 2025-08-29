@@ -145,11 +145,11 @@ class MAC:
         exchange.
         """
 
-        log.debug("MAC connecting to MPIF socket")
+        log.debug(f"({self._identifier}) MAC connecting to MPIF socket")
         self._mpif_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._mpif_socket.connect((host, port))
 
-        log.debug("MAC sending ID to MPIF")
+        log.debug(f"({self._identifier}) MAC sending ID to MPIF")
         self.send(primitive="MAC", data=[])
 
         # Start listener thread.
@@ -188,7 +188,7 @@ class MAC:
                     primitive = message['PRIMITIVE']
                     data = message['DATA']
 
-                    log.traffic(f"MAC received: {primitive} "
+                    log.traffic(f"({self._identifier}) MAC received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
                 else:
@@ -260,8 +260,7 @@ class MAC:
 
         log.mac(f"({self._identifier}) Active scanning - Probing")
         while not self._probed_ap:
-            # No AP probe responded yet.
-            log.mac(f"({self._identifier}) Sending probe request")
+            # No AP probe responded yet, send probe request.
             self._tx_queue.append(("Probe Request", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
 
             time.sleep(60)  # Buffer time between consecutive probing requests.
@@ -307,7 +306,7 @@ class MAC:
 
             # Receiver.
             case "PHY-CCA.indication(BUSY)":
-                log.debug("Clearing PSDU buffer")
+                log.debug(f"({self._identifier}) Clearing PSDU buffer")
                 self._rx_psdu_buffer = []  # Clear previously stored data (if any exists).
             case "PHY-DATA.indication":
                 self._rx_psdu_buffer += data
@@ -331,23 +330,24 @@ class MAC:
                         cast = "Unicast"
                     else:  # Some unknown destination address (not related to us).
                         cast = False
-                    log.debug(f"Cast type is - {cast}")
+                    log.debug(f"({self._identifier}) Cast type is - {cast}")
 
-                    log.debug("Checking that frame is either broadcasted or unicast intended for us")
+                    log.debug(f"({self._identifier}) Checking that frame is either broadcasted or unicast intended for "
+                              f"us")
                     if cast:
                         # Delegate frame handling to relevant controller based on the frame type.
                         match self._rx_psdu_buffer[2:4][::-1]:
                             case [0, 0]:  # Management.
-                                log.debug("Management frame type")
+                                log.debug(f"({self._identifier}) Management frame type")
                                 self.management_controller(mac_header=mac_header, cast=cast)
                             case [0, 1]:  # Control.
-                                log.debug("Control frame type")
+                                log.debug(f"({self._identifier}) Control frame type")
                                 self.control_controller(mac_header=mac_header, cast=cast)
                             case [1, 0]:  # Data.
-                                log.debug("Data frame type")
+                                log.debug(f"({self._identifier}) Data frame type")
                                 self.data_controller(mac_header=mac_header, cast=cast)
                             case [1, 1]:  # Extension.
-                                log.debug("Extension frame type")
+                                log.debug(f"({self._identifier}) Extension frame type")
                                 pass  # TODO: To be implemented.
 
     def management_controller(self, mac_header: list[int], cast: str):
@@ -658,7 +658,7 @@ class MAC:
         CRC-32 checksum.
         """
 
-        log.debug("Appending CRC-32 as suffix")
+        log.debug(f"({self._identifier}) Appending CRC-32 as suffix")
         crc = list(self.cyclic_redundancy_check_32(data=mac_header + data))
 
         return [int(bit) for byte in mac_header + data + crc for bit in f'{byte:08b}']
@@ -726,8 +726,7 @@ class MAC:
 
         return self.convert_bits_to_bytes(bits=frame_control_field)
 
-    @staticmethod
-    def cyclic_redundancy_check_32(data: list[int]) -> bytes:
+    def cyclic_redundancy_check_32(self, data: list[int]) -> bytes:
         """
         Calculate the CRC-32 checksum of the given data using the polynomial 0xEDB88320.
 
@@ -740,7 +739,7 @@ class MAC:
         :return: The CRC-32 checksum as a 4-byte little-endian byte string.
         """
 
-        log.debug("Generating CRC table using the 0xEDB88320 polynomial")
+        log.debug(f"({self._identifier}) Generating CRC table using the 0xEDB88320 polynomial")
         crc_table = [0] * 256
         crc32 = 1
         for i in [128, 64, 32, 16, 8, 4, 2, 1]:  # Same as: for (i = 128; i; i >>= 1)
@@ -748,17 +747,18 @@ class MAC:
             for j in range(0, 256, 2 * i):
                 crc_table[i + j] = crc32 ^ crc_table[j]
 
-        log.debug("Initializing CRC-32 to starting value")
+        log.debug(f"({self._identifier}) Initializing CRC-32 to starting value")
         crc32 = 0xFFFFFFFF
 
         for byte in data:
             crc32 ^= byte
             crc32 = (crc32 >> 8) ^ crc_table[crc32 & 0xFF]
 
-        log.debug("Finalizing the CRC-32 value by inverting all the bits")
+        log.debug(f"({self._identifier}) Finalizing the CRC-32 value by inverting all the bits")
         crc32 ^= 0xFFFFFFFF
 
-        log.debug("Converting the integer into a byte representation of length 4, using little-endian byte order")
+        log.debug(f"({self._identifier}) Converting the integer into a byte representation of length 4, using "
+                  f"little-endian byte order")
         return crc32.to_bytes(4, 'little')
 
     @staticmethod
