@@ -820,6 +820,18 @@ class MAC:
             # Usually, management/control frames.
             frame_control_field[8:10] = [0, 0]
 
+        # Retry subfield.
+        """
+        The Retry subfield is set to 1 in any Data or Management frame that is a retransmission of an earlier frame. It
+        is set to 0 in all other frames in which the Retry subfield is present. A receiving STA uses this indication to
+        aid in the process of eliminating duplicate frames.
+        """
+        try:
+            frame_control_field[11] = frame_parameters["RETRY"]
+        except KeyError:
+            # Original frame.
+            frame_control_field[11] = 0
+
         return self.convert_bits_to_bytes(bits=frame_control_field)
 
     def cyclic_redundancy_check_32(self, data: list[int]) -> bytes:
