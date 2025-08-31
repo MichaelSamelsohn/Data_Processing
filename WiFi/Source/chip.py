@@ -52,8 +52,13 @@ class CHIP:
         ascii_text = self.convert_string_to_bits(text=text, style='bytes')
 
         log.debug(f"({self._identifier}) Transferring the data to the MAC layer")
-        # TODO: The address should have more meaning.
-        self.mac._tx_queue.append(("Data", ascii_text, self.mac._associated_sta[0], True))
+        frame_parameters = {
+            "TYPE": "Data",
+            "DIRECTION": "Uplink",  # TODO: This depends on where we are sending.
+            "DESTINATION_ADDRESS": self.mac._associated_sta[0],  # TODO: The address should have more meaning.
+            "IS_UNICAST": True
+        }
+        self.mac._tx_queue.append((frame_parameters, ascii_text))
 
     @staticmethod
     def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:

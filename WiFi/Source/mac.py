@@ -217,11 +217,9 @@ class MAC:
             if self._tx_queue:
                 # There are command(s) in the queue.
                 if self._is_acknowledged == "No ACK required" and not self._is_retry:
-                    transmission_parameters = self._tx_queue.pop(0)  # Pop first item.
-                    self.start_transmission_chain(frame_type=transmission_parameters[0],
-                                                  data=transmission_parameters[1],
-                                                  destination_address=transmission_parameters[2],
-                                                  is_unicast=transmission_parameters[3])
+                    transmission_details = self._tx_queue.pop(0)  # Pop first item.
+                    self.start_transmission_chain(frame_parameters=transmission_details[0],
+                                                  data=transmission_details[1])
                     time.sleep(5)  # Allow the transmission to end before initiating another one.
 
             # Buffer time between consecutive checks.
@@ -240,7 +238,12 @@ class MAC:
 
         while True:
             log.mac(f"({self._identifier}) Sending beacon")
-            self._tx_queue.append(("Beacon", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
+            frame_parameters = {
+                "TYPE": "Beacon",
+                "DESTINATION_ADDRESS": [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+                "IS_UNICAST": False
+            }
+            self._tx_queue.append((frame_parameters, []))
 
             time.sleep(100)  # Buffer time between consecutive beacon broadcasts.
 
@@ -263,7 +266,12 @@ class MAC:
         while not self._probed_ap:
             # No AP probe responded yet, send probe request.
             log.mac(f"({self._identifier}) Active scanning - Probing")
-            self._tx_queue.append(("Probe Request", [], [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], False))
+            frame_parameters = {
+                "TYPE": "Probe Request",
+                "DESTINATION_ADDRESS": [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+                "IS_UNICAST": False
+            }
+            self._tx_queue.append((frame_parameters, []))
 
             time.sleep(60)  # Buffer time between consecutive probing requests.
 
@@ -396,14 +404,24 @@ class MAC:
                     log.mac(f"({self._identifier}) Association request frame subtype")
 
                     # Send ACK response.
-                    self._tx_queue.append(("ACK", [], source_address, False))
+                    frame_parameters = {
+                        "TYPE": "ACK",
+                        "DESTINATION_ADDRESS": source_address,
+                        "IS_UNICAST": False
+                    }
+                    self._tx_queue.append((frame_parameters, []))
 
                     # Assert that STA is authenticated.
                     if source_address in self._authenticated_sta:
                         self._associated_sta.append(source_address)  # Updating the list.
 
                         # Send association response.
-                        self._tx_queue.append(("Association Response", [0x00, 0x00], source_address, True))
+                        frame_parameters = {
+                            "TYPE": "Association Response",
+                            "DESTINATION_ADDRESS": source_address,
+                            "IS_UNICAST": True
+                        }
+                        self._tx_queue.append((frame_parameters, [0x00, 0x00]))
 
             case [0, 0, 0, 1]:  # Association response.
                 """
@@ -417,7 +435,12 @@ class MAC:
                     log.mac(f"({self._identifier}) Association response frame subtype")
 
                     # Send ACK response.
-                    self._tx_queue.append(("ACK", [], source_address, False))
+                    frame_parameters = {
+                        "TYPE": "ACK",
+                        "DESTINATION_ADDRESS": source_address,
+                        "IS_UNICAST": False
+                    }
+                    self._tx_queue.append((frame_parameters, []))
 
                     # Assert that AP is authenticated.
                     if source_address == self._authenticated_ap:
@@ -436,7 +459,12 @@ class MAC:
                     log.mac(f"({self._identifier}) Probe request frame subtype")
 
                     # Send probe response.
-                    self._tx_queue.append(("Probe Response", [], source_address, True))
+                    frame_parameters = {
+                        "TYPE": "Probe Response",
+                        "DESTINATION_ADDRESS": source_address,
+                        "IS_UNICAST": True
+                    }
+                    self._tx_queue.append((frame_parameters, []))
 
             case [0, 1, 0, 1]:  # Probe response.
                 """
@@ -450,14 +478,24 @@ class MAC:
                     log.mac(f"({self._identifier}) Probe response frame subtype")
 
                     # Send ACK response.
-                    self._tx_queue.append(("ACK", [], source_address, False))
+                    frame_parameters = {
+                        "TYPE": "ACK",
+                        "DESTINATION_ADDRESS": source_address,
+                        "IS_UNICAST": False
+                    }
+                    self._tx_queue.append((frame_parameters, []))
 
                     # Updating the successfully probed AP MAC address.
                     self._probed_ap = source_address
 
                     # Send authenticating request.
                     # TODO: The authentication algorithm Should be a variable depending on the system.
-                    self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x01], self._probed_ap, True))
+                    frame_parameters = {
+                        "TYPE": "Authentication",
+                        "DESTINATION_ADDRESS": self._probed_ap,
+                        "IS_UNICAST": True
+                    }
+                    self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
@@ -476,7 +514,12 @@ class MAC:
 
                     # Send authenticating request.
                     # TODO: The authentication algorithm Should be a variable depending on the system.
-                    self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x01], self._probed_ap, True))
+                    frame_parameters = {
+                        "TYPE": "Authentication",
+                        "DESTINATION_ADDRESS": self._probed_ap,
+                        "IS_UNICAST": True
+                    }
+                    self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
                 else:
                     log.mac(f"({self._identifier}) Beacon received but already probed/authenticated/associated, no "
                             f"response needed")
@@ -515,23 +558,42 @@ class MAC:
                         # Checking that we are AP (authentication requests are relevant for AP only).
                         if self._role == "AP" and cast == "Unicast":
                             # Send ACK response.
-                            self._tx_queue.append(("ACK", [], source_address, False))
+                            frame_parameters = {
+                                "TYPE": "ACK",
+                                "DESTINATION_ADDRESS": source_address,
+                                "IS_UNICAST": False
+                            }
+                            self._tx_queue.append((frame_parameters, []))
 
                             self._authenticated_sta.append(source_address)  # Updating the list.
                             # Send authentication response.
-                            self._tx_queue.append(("Authentication", [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00],
-                                                   source_address, True))
+                            frame_parameters = {
+                                "TYPE": "Authentication",
+                                "DESTINATION_ADDRESS": source_address,
+                                "IS_UNICAST": True
+                            }
+                            self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
                     case [0x00, 0x02]:  # Authentication response.
                         # Checking that we are STA (authentication responses are relevant for STA only).
                         if self._role == "STA" and cast == "Unicast":
                             # Send ACK response.
-                            self._tx_queue.append(("ACK", [], source_address, False))
+                            frame_parameters = {
+                                "TYPE": "ACK",
+                                "DESTINATION_ADDRESS": source_address,
+                                "IS_UNICAST": False
+                            }
+                            self._tx_queue.append((frame_parameters, []))
 
                             self._authenticated_ap = source_address  # Updating the list.
                             log.success("Authentication successful")
 
                             # Send association request.
-                            self._tx_queue.append(("Association Request", [], self._authenticated_ap, True))
+                            frame_parameters = {
+                                "TYPE": "Association Request",
+                                "DESTINATION_ADDRESS": self._authenticated_ap,
+                                "IS_UNICAST": True
+                            }
+                            self._tx_queue.append((frame_parameters, []))
                     case [0x00, 0x03]:
                         # Used in Shared Key.
                         pass  # TODO: To be implemented.
@@ -580,17 +642,22 @@ class MAC:
             case [0, 0, 0, 0]:  # Data.
                 log.mac(f"({self._identifier}) Data frame subtype")
 
-                if mac_header[10:16] == self._associated_ap and cast == "Unicast":
+                # TODO: Need to account for uplink and downlink (currently, only one direction).
+                if source_address == self._associated_ap and cast == "Unicast":
                     # Send ACK response.
-                    self._tx_queue.append(("ACK", [], source_address, False))
+                    frame_parameters = {
+                        "TYPE": "ACK",
+                        "DESTINATION_ADDRESS": source_address,
+                        "IS_UNICAST": False
+                    }
+                    self._tx_queue.append((frame_parameters, []))
 
                     # Remove MAC header and CRC.
                     data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
                     log.info("Received message:")
                     log.print_data(data.decode('utf-8'), log_level="info")
 
-    def start_transmission_chain(self, frame_type: str, data: list[int], destination_address: list[int],
-                                 is_unicast: bool):
+    def start_transmission_chain(self, frame_parameters: dict, data: list[int]):
         """
         Initiates the data transmission process from the MAC layer to the PHY layer.
 
@@ -600,21 +667,17 @@ class MAC:
         3. Sends a PHY-TXSTART.request primitive to the PHY layer to begin transmission, including a TXVECTOR with the
            physical layer rate and the length of the PSDU in bytes.
 
-        :param frame_type: The type of the frame to be transmitted (e.g., data, control, management).
-        :param data: The payload data to be included in the PSDU.
-        :param destination_address: A list of integers representing the destination MAC address.
-        :param is_unicast: The type of cast. Can be either:
-        - Broacast - Doesn't require ACK.
-        - Unicast - Requires ACK.
+        :param frame_parameters: Transmission frame parameters (such as - type, destination address, etc').
         """
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
-        log.mac(f"({self._identifier}) Frame type - {frame_type}")
+        log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE']}")
         log.mac(f"({self._identifier}) Data size (in octets) - {len(data)}")
-        log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in destination_address)}")
+        log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in 
+                                                                       frame_parameters['DESTINATION_ADDRESS'])}")
 
         log.mac(f"({self._identifier}) Generating MAC header")
-        mac_header = self.generate_mac_header(frame_type=frame_type, destination_address=destination_address)
+        mac_header = self.generate_mac_header(frame_parameters=frame_parameters)
 
         log.mac(f"({self._identifier}) Generating PSDU")
         self._tx_psdu_buffer = self.generate_psdu(payload=mac_header + data)
@@ -625,7 +688,7 @@ class MAC:
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
         # Wait for ACK (if relevant).
-        if is_unicast:
+        if frame_parameters['IS_UNICAST']:
             log.mac(f"({self._identifier}) Waiting for ACK")
             self._is_acknowledged = "Waiting for ACK"
             threading.Thread(target=self.wait_for_acknowledgement, daemon=True).start()
@@ -647,7 +710,6 @@ class MAC:
 
         # Waiting for ACK.
         for i in range(SHORT_RETRY_LIMIT):
-            # TODO: This time is dynamic (Contention Window).
             time.sleep(15)  # Allow reception time for the ACK response.
 
             if self._is_acknowledged == "ACK":
@@ -662,6 +724,7 @@ class MAC:
                 # Remove CRC and generate retry PSDU.
                 self._tx_psdu_buffer = self.generate_psdu(payload=retry_payload[:-4])
                 # Retransmit PSDU.
+                # TODO: This time is dynamic (Contention Window).
                 self.send(primitive="PHY-TXSTART.request",
                           data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
@@ -688,7 +751,7 @@ class MAC:
 
         return [int(bit) for byte in payload + crc for bit in f'{byte:08b}']
 
-    def generate_mac_header(self, frame_type: str, destination_address: list[int]) -> list[int]:
+    def generate_mac_header(self, frame_parameters: dict) -> list[int]:
         """
         Generates a basic MAC header for a given frame type and destination address.
 
@@ -701,11 +764,7 @@ class MAC:
                 | Control |   /ID    |    1    |    2    |    3    |  Control  |    4    |  Control  | Control |
                 +---------+----------+---------+---------+---------+-----------+---------+-----------+---------+
 
-
-        :param frame_type: Type of the frame to be transmitted (e.g., "Beacon", "Data"). Determines how the Frame
-        Control field is set.
-        :param destination_address: A 6-byte (list of 6 integers) destination MAC address. Typically, this will be a
-        broadcast or unicast address.
+        :param frame_parameters: Transmission frame parameters (such as - type, destination address, etc').
 
         :return: A list of 24 integers representing the MAC header in byte format.
         """
@@ -713,17 +772,18 @@ class MAC:
         mac_header = 24 * [0]  # TODO: Size should be dynamic depending on the frame type.
 
         # Frame control.
-        mac_header[:2] = self.generate_frame_control_field(frame_type=frame_type)
+        mac_header[:2] = self.generate_frame_control_field(frame_parameters=frame_parameters)
 
         # Address 1 (DA).
-        mac_header[4:10] = destination_address
+        mac_header[4:10] = frame_parameters["DESTINATION_ADDRESS"]
 
-        # Address 2 (SA).
+        # TODO: If relevant.
+        # Address 2 (SA) - Optional.
         mac_header[10:16] = self._mac_address
 
         return mac_header
 
-    def generate_frame_control_field(self, frame_type) -> list[int]:
+    def generate_frame_control_field(self, frame_parameters: dict) -> list[int]:
         """
         Generate the 16-bit Frame Control field for a given 802.11 frame type.
 
@@ -735,8 +795,7 @@ class MAC:
         | Version  |      |         |  DS  |   DS   |  Fragments |       |  Management |  Data  |    Frame   |        |
         +----------+------+---------+------+--------+------------+-------+-------------+--------+------------+--------+
 
-        :param frame_type: A key identifying the frame type, used to look up corresponding TYPE_VALUE and SUBTYPE_VALUE
-        from FRAME_TYPES.
+        :param frame_parameters: Transmission frame parameters (such as - type, destination address, etc').
 
         :return: A list of integers (0s and 1s) representing the 16-bit Frame Control field.
         """
@@ -745,9 +804,23 @@ class MAC:
 
         # Type and Subtype subfields.
         """The Type and Subtype subfields together identify the function of the frame."""
-        frame_function = FRAME_TYPES[frame_type]
+        frame_function = FRAME_TYPES[frame_parameters["TYPE"]]
         frame_control_field[2:4] = frame_function["TYPE_VALUE"][::-1]  # Type subfield.
         frame_control_field[4:8] = frame_function["SUBTYPE_VALUE"][::-1]  # Subtype subfield.
+
+        # To DS and From DS subfields.
+        """
+        These two 1-bit flags are crucial for determining the direction of data transmission within a Wi-Fi network and 
+        how the frame should be processed.
+        """
+        try:
+            if frame_parameters["DIRECTION"] == "Uplink":
+                frame_control_field[8:10] = [1, 0]
+            elif frame_parameters["DIRECTION"] == "Downlink":
+                frame_control_field[8:10] = [0, 1]
+        except KeyError:
+            # Usually, management/control frames.
+            frame_control_field[8:10] = [0, 0]
 
         return self.convert_bits_to_bytes(bits=frame_control_field)
 
