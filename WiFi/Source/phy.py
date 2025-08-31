@@ -110,11 +110,11 @@ class PHY:
         MPIF for message exchange.
         """
 
-        log.debug("PHY connecting to MPIF socket")
+        log.debug(f"({self._identifier}) PHY connecting to MPIF socket")
         self._mpif_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._mpif_socket.connect((host, port))
 
-        log.debug("PHY sending ID to MPIF")
+        log.debug(f"({self._identifier}) PHY sending ID to MPIF")
         self.send(socket_connection=self._mpif_socket, primitive="PHY", data=[])
 
         # Start listener thread.
@@ -145,7 +145,7 @@ class PHY:
                 else:
                     break
         except Exception as e:
-            log.error(f"PHY listen error: {e}")
+            log.error(f"({self._identifier}) PHY listen error: {e}")
         finally:
             self._mpif_socket.close()
 
@@ -161,7 +161,7 @@ class PHY:
         MPIF for message exchange.
         """
 
-        log.debug("PHY connecting to Channel socket")
+        log.debug(f"({self._identifier}) PHY connecting to Channel socket")
         self._channel_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._channel_socket.connect((host, port))
 
@@ -176,7 +176,7 @@ class PHY:
         This method continuously reads data from the socket in chunks of up to 16,384 bytes. Each message is expected to
         be a JSON-encoded object containing 'PRIMITIVE' and 'DATA' fields. Upon receiving a message, it is decoded and
         passed to the controller for further handling.
-        Note - Unlike MPIF listen which expects simple, serializble data, channel listen receives list of complex data
+        Note - Unlike MPIF listen which expects simple, serializable data, channel listen receives list of complex data
         (time domain PPDU complex values).
         """
 
@@ -190,13 +190,13 @@ class PHY:
                     # Message data is a list of complex values which require special handling.
                     data = [complex(r, i) for r, i in message['DATA']]
 
-                    log.traffic(f"PHY received: {primitive} "
+                    log.traffic(f"({self._identifier}) PHY received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
         except Exception as e:
-            log.error(f"PHY listen error: {e}")
+            log.error(f"({self._identifier}) PHY listen error: {e}")
         finally:
             self._channel_socket.close()
 
@@ -1145,6 +1145,7 @@ class PHY:
                 return descrambled_data[16:-6 - self._pad_bits]
 
         # If we got to this point, no seed was found for the scrambler, unable to descramble.
+        log.error(f"({self._identifier}) Unable to descramble (seed not found)")
         return None
 
     # Decoding (frequency domain, demodulation, demapping, deinterleaving, decoding, descrambling) #

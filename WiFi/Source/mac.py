@@ -196,7 +196,7 @@ class MAC:
                 else:
                     break
         except Exception as e:
-            log.error(f"MAC listen error: {e}")
+            log.error(f"({self._identifier}) MAC listen error: {e}")
         finally:
             self._mpif_socket.close()
 
@@ -325,9 +325,9 @@ class MAC:
 
                 log.mac(f"({self._identifier}) Performing CRC check")
                 if not list(self.cyclic_redundancy_check_32(data=byte_list[:-4])) == byte_list[-4:]:
-                    log.error("CRC check failed")
+                    log.error(f"({self._identifier}) CRC check failed")
                 else:  # CRC check passed.
-                    log.success("CRC check passed")
+                    log.success(f"({self._identifier}) CRC check passed")
 
                     log.mac(f"({self._identifier}) Extracting MAC header and destination address")
                     mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
@@ -370,12 +370,18 @@ class MAC:
                             seen = set()  # Collection of unique occurrences.
                             result = []   # Clean queue without duplicates.
                             for item in self._tx_queue:
-                                if item not in seen:
+                                item_key = json.dumps(item, sort_keys=True)
+                                if item_key not in seen:
                                     result.append(item)
-                                    seen.add(item)
+                                    seen.add(item_key)
 
                             self._tx_queue = result  # Update the TX queue.
                             self._is_retry = False   # Reset the retry boolean.
+            # Error cases.
+            case "PHY-RXEND.indication(FormatViolation)":
+                pass  # TODO: Add to statistics and possibly effect rate selection?
+            case "PHY-RXEND.indication(ScrambleSeedNotFound)":
+                pass  # TODO: Add to statistics and possibly effect rate selection?
 
     def management_controller(self, mac_header: list[int], cast: str):
         """
@@ -671,7 +677,7 @@ class MAC:
         """
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
-        log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE']}")
+        log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE'].upper()}")
         log.mac(f"({self._identifier}) Data size (in octets) - {len(data)}")
         log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in 
                                                                        frame_parameters['DESTINATION_ADDRESS'])}")
