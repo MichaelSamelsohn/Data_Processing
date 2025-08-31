@@ -691,9 +691,9 @@ class MAC:
         if frame_parameters['IS_UNICAST']:
             log.mac(f"({self._identifier}) Waiting for ACK")
             self._is_acknowledged = "Waiting for ACK"
-            threading.Thread(target=self.wait_for_acknowledgement, daemon=True).start()
+            threading.Thread(target=self.wait_for_acknowledgement, args=(frame_parameters, data), daemon=True).start()
 
-    def wait_for_acknowledgement(self):
+    def wait_for_acknowledgement(self, frame_parameters: dict, data: list[int]):
         """
         Waits for an acknowledgment (ACK) after a frame transmission.
 
@@ -716,17 +716,15 @@ class MAC:
                 self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
                 return  # No need to continue as the frame was acknowledged.
             else:
+                # TODO: This time is dynamic (Contention Window).
                 log.warning(f"({self._identifier}) No ACK, retransmitting")
 
-                retry_payload = copy.deepcopy(self._tx_psdu_buffer)  # Copy TX PSDU buffer.
-                retry_payload[11] = 1  # Switch on the retry bit.
-                retry_payload = self.convert_bits_to_bytes(bits=retry_payload)  # Convert to bytes.
-                # Remove CRC and generate retry PSDU.
-                self._tx_psdu_buffer = self.generate_psdu(payload=retry_payload[:-4])
-                # Retransmit PSDU.
-                # TODO: This time is dynamic (Contention Window).
-                self.send(primitive="PHY-TXSTART.request",
-                          data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
+                # Adjust the frame parameters for a retransmission.
+                frame_parameters["RETRY"] = 1           # Turn on the retry bit.
+                frame_parameters["IS_UNICAST"] = False  # To avoid another thread waiting for ACK.
+
+                # Retransmit.
+                self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
 
         # If we got to this point, the frame is dropped.
         log.error(f"({self._identifier}) Frame was dropped")  # TODO: Better logging (to know which frame dropped).
