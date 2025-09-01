@@ -350,7 +350,6 @@ class PHY:
                                 self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(IDLE)",
                                           data=[])
 
-
     def _set_general_parameters(self, vector: str):
         self._phy_rate = self._tx_vector[0] if vector == 'TX' else self._rx_vector[0]
         self._length = self._tx_vector[1] if vector == 'TX' else self._rx_vector[1]
@@ -1121,13 +1120,14 @@ class PHY:
             equalized_symbol = self.equalize_and_remove_pilots(frequency_symbol=frequency_domain_data_symbol)
 
             log.debug(f"({self._identifier}) Demapping DATA symbol #{i+1}")
-            interleaved_signal_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol,
+            # TODO: Change the variable name to data instead of signal.
+            interleaved_data_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol,
                                                                      modulation=self._modulation)
 
             log.debug(f"({self._identifier}) Deinterleaving DATA symbol #{i+1}")
-            encoded_signal_symbol = self.deinterleave(bits=interleaved_signal_symbol, phy_rate=self._phy_rate)
+            encoded_data_symbol = self.deinterleave(bits=interleaved_data_symbol, phy_rate=self._phy_rate)
 
-            deinterleaved_data += encoded_signal_symbol
+            deinterleaved_data += encoded_data_symbol
 
         log.debug(f"({self._identifier}) Decoding all DATA bits")
         decoded_data = self.convolutional_decode_viterbi(received_bits=deinterleaved_data,
