@@ -33,7 +33,7 @@ class EPIC:
         Note - The images are saved as .png files.
         """
 
-        log.epic("Retrieving EPIC (Earth Polychromatic Imaging Camera) image(s)")
+        log.epic("Retrieving EPIC (Earth Polychromatic Imaging Camera) image")
 
         # Perform the API request.
         json_object = get_request(url=f"{EPIC_URL_PREFIX}{EPIC_URL_SUFFIX}")

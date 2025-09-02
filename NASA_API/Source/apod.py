@@ -26,14 +26,10 @@ class APOD:
         log.apod("Initializing the APOD class")
 
         self.image_directory = image_directory
-        self._date = None
         self.hd = hd
+        self._date = None
 
         self._apod_image = None
-
-    @property
-    def apod_image(self):
-        return self._apod_image
 
     @staticmethod
     def validate_date(date: str) -> bool:
@@ -86,6 +82,10 @@ class APOD:
             self._date = new_date
         else:
             log.error("Date not valid")
+
+    @property
+    def apod_image(self):
+        return self._apod_image
 
     def astronomy_picture_of_the_day(self) -> bool:
         """
