@@ -9,11 +9,11 @@ Created by Michael Samelsohn, 05/05/22.
 
 # Imports #
 import re
-from datetime import datetime
 
+from datetime import datetime
 from PIL import Image
 from NASA_API.Settings.api_settings import *
-from NASA_API.Source.nasa import download_image_url, get_request
+from NASA_API.Source.api_utilities import download_image_url, get_request
 
 
 class APOD:

@@ -3,7 +3,7 @@ import pytest
 
 from datetime import date, timedelta
 from NASA_API.Source.apod import APOD
-
+from constants import *
 
 @pytest.mark.parametrize(
     "input_date, result",
@@ -30,3 +30,18 @@ def test_validate_date(input_date, result):
 
     # Steps (1)+(2) - Validate and assert that result is correct.
     assert APOD.validate_date(date=input_date) == result
+
+
+def test_apod_no_date_set():
+    """
+    Test purpose - Correct error handling of when no date is set.
+    Criteria: False is returned when requesting APOD without specifying a date.
+
+    Test steps:
+    1) Request APOD without a date set.
+    2) Assert that False is returned.
+    """
+
+    # Step (1)+(2) - Request APOD without set date and assert False return value.
+    apod = APOD()
+    assert apod.astronomy_picture_of_the_day() == False
