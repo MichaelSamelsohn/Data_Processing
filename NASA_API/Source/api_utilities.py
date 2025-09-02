@@ -11,6 +11,7 @@ import subprocess
 import time
 import requests
 
+from PIL import Image
 from NASA_API.Settings.api_settings import *
 
 
@@ -58,8 +59,8 @@ def download_image_url(image_directory: str, api_type: str, image_url_list: list
 
         # Trying to download the image(s) with retries.
         for attempt in range(MAX_RETRIES):
-            log.debug(f"{image_index}) Attempting to download image from URL: "
-                      f"{url} (Attempt {attempt + 1}/{MAX_RETRIES})")
+            log.debug(f"Attempting to download image {image_index} from URL - "
+                      f"{url} (attempt {attempt + 1}/{MAX_RETRIES})")
 
             # Running the curl command to download the image.
             output = subprocess.run(f"curl -o {image_path} {url}", capture_output=True, text=True)
@@ -74,7 +75,9 @@ def download_image_url(image_directory: str, api_type: str, image_url_list: list
                     log.error(f"Image download failed - {image_path} (file not found after download)")
             else:
                 # If curl failed, logging the error and retrying.
-                log.error(f"Error downloading image, curl returned {output.returncode}: {output.stderr}")
+                log.error(f"Error downloading image, curl returned {output.returncode}")
+                log.print_data(data=output.stderr, log_level="error")
+
                 if attempt < MAX_RETRIES - 1:
                     log.debug(f"Retrying in {RETRY_DELAY} seconds...")
                     time.sleep(RETRY_DELAY)  # Buffer time before retrying.
@@ -82,4 +85,22 @@ def download_image_url(image_directory: str, api_type: str, image_url_list: list
                     log.error(f"Failed to download image after {MAX_RETRIES} attempts, moving to next image")
 
         image_index += 1  # Incrementing the index for the next image.
+
     return image_path
+
+
+def display_image(image_path: str):
+    """
+    Display the most recently downloaded image using the default image viewer.
+
+    This method checks if there is a downloaded image stored in the `_latest_image` attribute.
+    If an image is available, it opens and displays the image using the system's default image viewer.
+    """
+
+    # Checking if there is a downloaded image.
+    if image_path:
+        log.debug("Displaying the latest downloaded image")
+        img = Image.open(image_path)
+        img.show()
+    else:
+        log.error("No image to display")

@@ -11,9 +11,7 @@ Created by Michael Samelsohn, 05/05/22.
 import re
 
 from datetime import datetime
-from PIL import Image
-from NASA_API.Settings.api_settings import *
-from NASA_API.Source.api_utilities import download_image_url, get_request
+from NASA_API.Source.api_utilities import *
 
 
 class APOD:
@@ -31,7 +29,11 @@ class APOD:
         self._date = None
         self.hd = hd
 
-        self._latest_image = None
+        self._apod_image = None
+
+    @property
+    def apod_image(self):
+        return self._apod_image
 
     @staticmethod
     def validate_date(date: str) -> bool:
@@ -105,27 +107,13 @@ class APOD:
             return False
 
         log.apod("IMAGE INFORMATION:")
-        log.print_data(data=json_object, log_level="apod")
+        # Cleaning the dictionary values from unnecessary \n characters.
+        log.print_data(data={k: v.replace('\n', '') for k, v in json_object.items()}, log_level="apod")
 
         # Download and save the image to the relevant directory.
-        self._latest_image = download_image_url(
+        self._apod_image = download_image_url(
             image_directory=self.image_directory, api_type="APOD",
             image_url_list=[json_object["hdurl"] if self.hd else json_object["url"]], image_suffix=f"_{self._date}")
 
         return True
 
-    def display_image(self):
-        """
-        Display the most recently downloaded image using the default image viewer.
-
-        This method checks if there is a downloaded image stored in the `_latest_image` attribute.
-        If an image is available, it opens and displays the image using the system's default image viewer.
-        """
-
-        # Checking if there is a downloaded image.
-        if self._latest_image:
-            log.apod("Displaying the latest downloaded image")
-            img = Image.open(self._latest_image)
-            img.show()
-        else:
-            log.error("No image to display")
