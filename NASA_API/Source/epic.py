@@ -14,10 +14,6 @@ from NASA_API.Source.api_utilities import *
 
 class EPIC:
     def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
-        """
-        :param image_directory: The directory where the image is to be saved at.
-        """
-
         log.epic("Initializing the EPIC class")
 
         self.image_directory = image_directory

@@ -16,10 +16,6 @@ from NASA_API.Source.api_utilities import *
 
 class MARS:
     def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
-        """
-        :param image_directory: The directory where the image is to be saved at.
-        """
-
         log.mars("Initializing the MARS class")
 
         self.image_directory = image_directory
@@ -129,6 +125,10 @@ class MARS:
         log.mars("Checking if a date is set")
         if self._date is None:
             log.error("No date set")
+            return False
+        log.mars("Checking if rover is set")
+        if self._rover is None:
+            log.error("No rover set")
             return False
 
         # Perform the API request.

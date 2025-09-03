@@ -15,18 +15,11 @@ from NASA_API.Source.api_utilities import *
 
 
 class APOD:
-    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY, hd=APOD_DEFAULT_HD):
-        """
-        Class for downloading APOD (Astronomy Picture Of the Day) images.
-
-        :param image_directory: The directory where the image is to be saved at.
-        :param hd: Boolean indicating the quality of the image.
-        """
-
+    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
         log.apod("Initializing the APOD class")
 
         self.image_directory = image_directory
-        self.hd = hd
+        self.hd = False
         self._date = None
 
         self._apod_image = None
@@ -93,12 +86,12 @@ class APOD:
         Note - The images are saved as .JPG files.
         """
 
+        log.apod("Retrieving APOD (Astronomy Picture Of the Day) image")
+
         log.apod("Checking if a date is set")
         if self._date is None:
             log.error("No date set")
             return False
-
-        log.apod("Retrieving APOD (Astronomy Picture Of the Day) image")
 
         # Perform the API request.
         json_object = get_request(url=f"{APOD_URL_PREFIX}date={self._date}&{API_KEY}")

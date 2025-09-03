@@ -64,6 +64,7 @@ def download_image_url(image_directory: str, api_type: str, image_url_list: list
 
             # Running the curl command to download the image.
             output = subprocess.run(f"curl -o {image_path} {url}", capture_output=True, text=True)
+            log.print_data(data=output.stderr, log_level="debug")
 
             # Checking if the download was successful (curl return code is 0).
             if output.returncode == 0:

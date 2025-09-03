@@ -19,6 +19,7 @@ log.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
 log.add_custom_log_level("apod", 11, "\x1b[38;5;208m")      # Orange.
 log.add_custom_log_level("epic", 12, "\x1b[38;5;5m")        # Magenta.
 log.add_custom_log_level("mars", 13, "\x1b[38;5;5m")        # Magenta.
+log.add_custom_log_level("nil", 14, "\x1b[38;5;208m")       # Orange.
 
 # Handling verbosity levels.
 match verbosity_level:
@@ -59,5 +60,3 @@ MARS_ROVERS = ["Curiosity", "Opportunity", "Spirit"]
 # NIL (NASA Imaging Library) #
 NIL_URL_PREFIX = "https://images-api.nasa.gov/search?"
 NIL_MEDIA_TYPES = ["image", "audio"]
-NIL_DEFAULT_MEDIA_TYPE = "image"
-NIL_DEFAULT_SEARCH_YEARS = [1960, 2022]
