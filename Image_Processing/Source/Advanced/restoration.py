@@ -11,13 +11,11 @@ from numpy import ndarray
 from Image_Processing.Source.Basic.common import pad_image, extract_sub_image
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference
-from Settings.settings import log
 
 
 @book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.328-330")
-def mean_filter(image: ndarray, filter_type=DEFAULT_MEAN_FILTER_TYPE, padding_type=DEFAULT_PADDING_TYPE,
-                filter_size=DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
+def mean_filter(image: ndarray, filter_type: str, padding_type: str, filter_size: int, **kwargs) -> ndarray:
     """
     TODO: Complete the docstring.
 
@@ -107,8 +105,7 @@ def mean_filter(image: ndarray, filter_type=DEFAULT_MEAN_FILTER_TYPE, padding_ty
 
 @book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.330-332")
-def order_statistic_filter(image: ndarray, filter_type=DEFAULT_ORDER_STATISTIC_FILTER_TYPE,
-                           padding_type=DEFAULT_PADDING_TYPE, filter_size=DEFAULT_FILTER_SIZE, **kwargs) -> ndarray:
+def order_statistic_filter(image: ndarray, filter_type: str, padding_type: str, filter_size: int, **kwargs) -> ndarray:
     """
     TODO: Expand on order-statistic filters.
 

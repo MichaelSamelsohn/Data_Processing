@@ -11,7 +11,6 @@ from numpy import ndarray, random
 from Image_Processing.Source.Basic.common import image_normalization
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference
-from Settings.settings import log
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.319-320")

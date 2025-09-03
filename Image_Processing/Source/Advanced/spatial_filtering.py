@@ -13,7 +13,6 @@ from numpy import ndarray
 from Image_Processing.Source.Basic.common import generate_filter, convolution_2d, image_normalization
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference
-from Settings.settings import log
 
 # Constants #
 SOBEL_OPERATORS = {
@@ -27,9 +26,8 @@ SOBEL_OPERATORS = {
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 3.5 - Smoothing (Lowpass) Spatial Filters, p.164-175")
-def blur_image(image: ndarray, filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
-               padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
-               normalization_method=DEFAULT_NORMALIZATION_METHOD) -> ndarray:
+def blur_image(image: ndarray, filter_type: str, filter_size: int, padding_type: str, sigma: float,
+               normalization_method: str) -> ndarray:
     """
     Apply a low pass filter (blur) on an image.
 
@@ -103,9 +101,8 @@ When adding the equations for f(x+1) and f(x-1), we get the second derivative:
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.178-182")
-def laplacian_gradient(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
-                       include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                       normalization_method=DEFAULT_NORMALIZATION_METHOD) -> ndarray:
+def laplacian_gradient(image: ndarray, padding_type: str, include_diagonal_terms: bool, normalization_method: str) \
+        -> ndarray:
     """
     Apply the Laplacian gradient (second derivative) on an image.
 
@@ -163,8 +160,7 @@ def laplacian_gradient(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.178-182")
-def laplacian_image_sharpening(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
-                               include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS) -> ndarray:
+def laplacian_image_sharpening(image: ndarray, padding_type: str, include_diagonal_terms: bool) -> ndarray:
     """
     Perform image sharpening using the laplacian operator.
 
@@ -198,8 +194,7 @@ def laplacian_image_sharpening(image: ndarray, padding_type=DEFAULT_PADDING_TYPE
 
 @book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.182-184")
-def high_boost_filter(image: ndarray, filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
-                      padding_type=DEFAULT_PADDING_TYPE, k=DEFAULT_K_VALUE) -> ndarray:
+def high_boost_filter(image: ndarray, filter_type: str, filter_size: int, padding_type: str, k: float) -> ndarray:
     """
     Use a high boost filter (un-sharp masking) to sharpen the image.
 
@@ -242,8 +237,7 @@ def high_boost_filter(image: ndarray, filter_type=DEFAULT_FILTER_TYPE, filter_si
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 3.6 - Sharpening (Highpass) Spatial Filters, p.184-188")
 # TODO: Find the article reference.
-def sobel_filter(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
-                 normalization_method=DEFAULT_NORMALIZATION_METHOD) -> (ndarray, ndarray):
+def sobel_filter(image: ndarray, padding_type: str, normalization_method: str) -> (ndarray, ndarray):
     """
     Use a sobel operator filter (first-order derivative) to sharpen the image.
 

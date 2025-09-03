@@ -13,86 +13,44 @@ import matplotlib.pyplot as plt
 from scipy.io import loadmat
 
 from common import *
-from spatial_filtering import *
-from intensity_transformations import *
-from noise_models import *
-from segmentation import *
-from restoration import *
-from thinning import *
-from morphology import *
-from Image_Processing.Settings import image_settings
-from Settings.settings import log
+from Image_Processing.Source.Advanced.intensity_transformations import *
+from Image_Processing.Source.Advanced.spatial_filtering import *
+from Image_Processing.Source.Advanced.segmentation import *
+from Image_Processing.Source.Advanced.restoration import *
 
 
 class Image:
-    """
-    TODO: Add explanation how the class works.
-    """
+    def __init__(self, image_path=DEFAULT_IMAGE_LENA, display_time=None):
+        log.info(f"Initiating image class (image path - {image_path})")
 
-    def __init__(self, image_path=image_settings.DEFAULT_IMAGE_LENA, display_time=None):
-        # TODO: Add support for grayscale images.
-
-        self.__image_path = image_path
         self.display_time = display_time
-        log.debug(f"The selected directory is - {self.__image_path}")
 
-        log.debug("Asserting that image path exists")
-        log.error(f"Image, {self.__image_path}, doesn't exist, will use Lena image") \
-            if not os.path.exists(path=self.__image_path) \
-            else log.info(f"Image, {self.__image_path}, exists")
+        log.debug("Checking that image path exists")
+        log.error(f"Image, {image_path}, doesn't exist, will use Lena image") \
+            if not os.path.exists(path=image_path) \
+            else log.success(f"Image, {image_path}, exists")
 
         log.debug("Loading the image (in accordance to its format)")
         try:
-            if '.mat' in self.__image_path:
-                log.debug("MATLAB file identified")
-                self.__original_image = loadmat(self.__image_path)
+            if '.mat' in image_path:
+                log.debug("MATLAB (.mat) file identified")
+                self._original_image = loadmat(image_path)
                 log.debug("Searching for ndarray class object")
-                for key in self.__original_image:
-                    if isinstance(self.__original_image[key], ndarray):
-                        self.__original_image = self.__original_image[key]
+                for key in self._original_image:
+                    if isinstance(self._original_image[key], ndarray):
+                        self._original_image = self._original_image[key]
                         break  # Image found, no need to continue.
             else:
                 log.debug("Normal image format identified")
-                self.__original_image = im.imread(fname=self.__image_path)
-            log.info("Custom image loaded successfully")
+                self._original_image = im.imread(fname=image_path)
+            log.success("Custom image loaded successfully")
         except Exception:  # TODO: Identify potential error types.
             log.error("Failed to load image")
             log.print_data(data=traceback.format_exc(), log_level='error')
 
-        log.debug("Deep copying image (for later comparison)")
-        self.__images = [{"Name": "Original", "Image": self.__original_image}]
-        self.__image = copy.deepcopy(self.__original_image)
-
-    # Properties #
-
-    @property
-    def image_path(self):
-        """
-        Get the image path.
-        :return: The image path.
-        """
-        return self.__image_path
-
-    @property
-    def image(self):
-        """
-        Get the image pixel array.
-        :return: The image pixel array.
-        """
-        return copy.deepcopy(self.__image)
-
-    @image.setter
-    def image(self, set_image):
-        log.debug("Setting the image")
-        # Asserting the image is of ndarray type.
-        if not isinstance(set_image, ndarray):
-            log.error("Unable to set image as it is not an ndarray instance")
-
-        # Setting the image.
-        self.__image = set_image
-
-        # Appending the image.
-        self.__images.append({"Name": f"set_image", "Image": set_image})
+        log.debug("Deep copying original image")
+        self._image_buffer = [{"Name": "Original", "Image": self._original_image}]
+        self._last_image = copy.deepcopy(self._original_image)
 
     # Basic operations #
 
@@ -101,32 +59,8 @@ class Image:
         Reset the edited image to the original one.
         """
 
-        log.warning("Resetting the edited image to original one")
-        self.__image = copy.deepcopy(self.__original_image)
-
-    def transform_image(self, transformation_type: str, *args, **kwargs):
-        """
-        Performing a transformation on the selected image.
-
-        :param transformation_type: The name of the method to be used.
-        :param args: Arguments (no assigned to a keyword).
-        :param kwargs: Keyword arguments.
-        """
-
-        # Performing the selected transformation with given arguments.
-        transformed_image = globals()[transformation_type](*args, **kwargs)
-
-        log.debug("Matching the return type of the transformation")
-        if isinstance(transformed_image, ndarray):
-            log.debug("Single image returned")
-            self.__images.append({"Name": transformation_type, "Image": transformed_image})
-            self.__image = transformed_image
-        else:
-            log.debug("Image dictionary returned")
-            for image in transformed_image:
-                self.__images.append({"Name": f"{transformation_type} ({image})",
-                                      "Image": transformed_image[image]})
-                self.__image = transformed_image[image]
+        log.info("Resetting the last image to original one")
+        self._last_image = copy.deepcopy(self._original_image)
 
     # Image(s) display #
 
@@ -136,18 +70,19 @@ class Image:
         """
 
         log.debug("Displaying the original image")
-        plt.imshow(self.__original_image)
+        plt.imshow(self._original_image)
+        plt.title("Original image")
         # TODO: Add option to have grid lines.
         self.plt_show()
 
-    def display_image(self):
+    def display_last_image(self):
         """
         Display the edited image.
         """
 
-        log.debug("Displaying the edited image")
-        plt.imshow(self.__image, cmap='gray') if len(self.__image.shape) == 2 else plt.imshow(self.__image)
-        plt.title("Image")
+        log.debug("Displaying the last image")
+        plt.imshow(self._last_image, cmap='gray') if len(self._last_image.shape) == 2 else plt.imshow(self._last_image)
+        plt.title("Last image")
         # TODO: Add option to have grid lines.
         self.plt_show()
 
@@ -156,20 +91,20 @@ class Image:
         Display the edited image in comparison with the original one.
         """
 
-        log.debug("Displaying the original and edited images side-by-side for comparison")
+        log.debug("Displaying the original and last images side-by-side for comparison")
         plt.subplot(1, 2, 1)
-        plt.title("original")
-        plt.imshow(self.__original_image)
+        plt.title("Original")
+        plt.imshow(self._original_image)
 
         plt.subplot(1, 2, 2)
-        plt.title(self.__images[-1]["Name"])
-        plt.imshow(self.__images[-1]["Image"], cmap='gray') if len(self.__image.shape) == 2 \
-            else plt.imshow(self.__images[-1]["Image"])
+        plt.title(self._image_buffer[-1]["Name"])
+        plt.imshow(self._image_buffer[-1]["Image"], cmap='gray') if len(self._last_image.shape) == 2 \
+            else plt.imshow(self._image_buffer[-1]["Image"])
 
         # TODO: Add option to have grid lines.
         self.plt_show()
 
-    def display_histogram(self, normalize=image_settings.DEFAULT_HISTOGRAM_NORMALIZATION):
+    def display_histogram(self, normalize=DEFAULT_HISTOGRAM_NORMALIZATION):
         """
         Display image histogram. Histogram is a graph showing the pixel count per pixel value. It provides an insight of
         the dominant pixel values in the image.
@@ -178,7 +113,7 @@ class Image:
         """
 
         # TODO: Handle color image histogram display.
-        histogram = calculate_histogram(image=self.__image, normalize=normalize)
+        histogram = calculate_histogram(image=self._last_image, normalize=normalize)
         plt.title("Image Histogram")
         plt.xlabel("Pixel Intensity")
         plt.ylabel("Pixel Count")
@@ -194,17 +129,17 @@ class Image:
         log.info("Displaying all available images in the buffer")
 
         # Understand how many plots there are and rows/cols accordingly.
-        number_of_images = len(self.__images)
+        number_of_images = len(self._image_buffer)
         log.debug(f"Number of images found in buffer - {number_of_images}")
 
         # Displaying original image.
         plt.subplot(1, number_of_images, 1)
-        plt.title("original")
-        plt.imshow(self.__original_image)
+        plt.title("Original")
+        plt.imshow(self._original_image)
 
         # Displaying the rest of the images found in the buffer.
         for i in range(1, number_of_images):
-            current_image = self.__images[i]
+            current_image = self._image_buffer[i]
             plt.subplot(1, number_of_images, i + 1)
             plt.imshow(current_image["Image"], cmap='gray') if len(current_image["Image"].shape) == 2 \
                 else plt.imshow(current_image["Image"])
@@ -214,9 +149,143 @@ class Image:
         self.plt_show()
 
     def plt_show(self):
+        """
+        TODO: Complete the docstring.
+        """
+
         if self.display_time:
             plt.show(block=False)
             plt.pause(self.display_time)
             plt.close()
         else:
             plt.show()
+
+    # Intensity transformations #
+
+    def negative(self):
+        self._last_image = negative(image=self._last_image)
+        self._image_buffer.append({"Name": "Negative", "Image": self._last_image})
+
+    def gamma_correction(self, gamma=DEFAULT_GAMMA_VALUE):
+        self._last_image = gamma_correction(image=self._last_image, gamma=gamma)
+        self._image_buffer.append({"Name": "Gamma correction", "Image": self._last_image})
+
+    def bit_plane_reconstruction(self, degree_of_reduction=DEFAULT_DEGREE_OF_REDUCTION):
+        self._last_image = bit_plane_reconstruction(image=self._last_image, degree_of_reduction=degree_of_reduction)
+        self._image_buffer.append({"Name": "Bit plane reconstruction", "Image": self._last_image})
+
+    def bit_plane_slicing(self, bit_plane=DEFAULT_BIT_PLANE):
+        self._last_image = bit_plane_slicing(image=self._last_image, bit_plane=bit_plane)
+        self._image_buffer.append({"Name": "Bit plane slicing", "Image": self._last_image})
+
+    # Spatial filtering #
+
+    def blur_image(self, filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
+                   padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
+                   normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = blur_image(image=self._last_image, filter_type=filter_type, filter_size=filter_size,
+                                      padding_type=padding_type, sigma=sigma, normalization_method=normalization_method)
+        self._image_buffer.append({"Name": "Blur", "Image": self._last_image})
+
+    def laplacian_gradient(self, padding_type=DEFAULT_PADDING_TYPE,
+                           include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                           normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = laplacian_gradient(image=self._last_image, padding_type=padding_type,
+                                              include_diagonal_terms=include_diagonal_terms,
+                                              normalization_method=normalization_method)
+        self._image_buffer.append({"Name": "Laplacian gradient", "Image": self._last_image})
+
+    def laplacian_image_sharpening(self, padding_type=DEFAULT_PADDING_TYPE,
+                                   include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS):
+        self._last_image = laplacian_image_sharpening(image=self._last_image, padding_type=padding_type,
+                                                      include_diagonal_terms=include_diagonal_terms)
+        self._image_buffer.append({"Name": "Laplacian image sharpening", "Image": self._last_image})
+
+    def high_boost_filter(self, filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
+                          padding_type=DEFAULT_PADDING_TYPE, k=DEFAULT_K_VALUE):
+        self._last_image = high_boost_filter(image=self._last_image, filter_type=filter_type, filter_size=filter_size,
+                                             padding_type=padding_type, k=k)
+        self._image_buffer.append({"Name": "High boost filter", "Image": self._last_image})
+
+    def sobel_filter(self, padding_type=DEFAULT_PADDING_TYPE, normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = sobel_filter(image=self._last_image, padding_type=padding_type,
+                                        normalization_method=normalization_method)
+        self._image_buffer.append({"Name": "Sobel filter", "Image": self._last_image})
+
+    # Segmentation #
+
+    def isolated_point_detection(self, padding_type=DEFAULT_PADDING_TYPE,
+                                 normalization_method=DEFAULT_NORMALIZATION_METHOD,
+                                 include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                                 threshold_value=DEFAULT_THRESHOLD_VALUE):
+        self._last_image = isolated_point_detection(image=self._last_image, padding_type=padding_type,
+                                                    normalization_method=normalization_method,
+                                                    include_diagonal_terms=include_diagonal_terms,
+                                                    threshold_value=threshold_value)
+        self._image_buffer.append({"Name": "Isolated point detection", "Image": self._last_image})
+
+    def line_detection(self, padding_type=DEFAULT_PADDING_TYPE, normalization_method=DEFAULT_NORMALIZATION_METHOD,
+                       threshold_value=DEFAULT_THRESHOLD_VALUE):
+        self._last_image = line_detection(image=self._last_image, padding_type=padding_type,
+                                          normalization_method=normalization_method, threshold_value=threshold_value)
+        self._image_buffer.append({"Name": "Line detection", "Image": self._last_image})
+
+    def kirsch_edge_detection(self, padding_type=DEFAULT_PADDING_TYPE,
+                              normalization_method=DEFAULT_NORMALIZATION_METHOD, compare_max_value=True):
+        # TODO: Make the compare_max_value a constant.
+        kirsch_images = kirsch_edge_detection(image=self._last_image, padding_type=padding_type,
+                                              normalization_method=normalization_method,
+                                              compare_max_value=compare_max_value)
+        for image in kirsch_images:
+            self._image_buffer.append({"Name": f"{image}", "Image": kirsch_images[image]})
+
+    def marr_hildreth_edge_detection(self, filter_size=DEFAULT_FILTER_SIZE, padding_type=DEFAULT_PADDING_TYPE,
+                                     sigma=DEFAULT_SIGMA_VALUE, include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
+                                     threshold=DEFAULT_THRESHOLD_VALUE):
+        self._last_image = marr_hildreth_edge_detection(image=self._last_image, filter_size=filter_size,
+                                                        padding_type=padding_type, sigma=sigma,
+                                                        include_diagonal_terms=include_diagonal_terms,
+                                                        threshold=threshold)
+        self._image_buffer.append({"Name": "Marr Hildreth edge detection", "Image": self._last_image})
+
+    def canny_edge_detection(self, filter_size=DEFAULT_FILTER_SIZE,
+                         padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
+                         high_threshold=DEFAULT_HIGH_THRESHOLD_CANNY,
+                         low_threshold=DEFAULT_LOW_THRESHOLD_CANNY):
+        self._last_image = canny_edge_detection(image=self._last_image, filter_size=filter_size,
+                                                padding_type=padding_type, sigma=sigma,
+                                                high_threshold=high_threshold, low_threshold=low_threshold)
+        self._image_buffer.append({"Name": "Canny edge detection", "Image": self._last_image})
+
+    def thresholding(self, threshold_value=DEFAULT_THRESHOLD_VALUE):
+        self._last_image = thresholding(image=self._last_image, threshold_value=threshold_value)
+        self._image_buffer.append({"Name": "Thresholding", "Image": self._last_image})
+
+    def global_thresholding(self, initial_threshold=DEFAULT_THRESHOLD_VALUE, delta_t=DEFAULT_DELTA_T):
+        self._last_image = global_thresholding(image=self._last_image, initial_threshold=initial_threshold,
+                                               delta_t=delta_t)
+        self._image_buffer.append({"Name": "Global thresholding", "Image": self._last_image})
+
+    def otsu_global_thresholding(self):
+        self._last_image = otsu_global_thresholding(image=self._last_image)
+        self._image_buffer.append({"Name": "Otsu global thresholding", "Image": self._last_image})
+
+    # Restoration #
+
+    def mean_filter(self, filter_type=DEFAULT_MEAN_FILTER_TYPE, padding_type=DEFAULT_PADDING_TYPE,
+                    filter_size=DEFAULT_FILTER_SIZE, **kwargs):
+        self._last_image = mean_filter(image=self._last_image, filter_type=filter_type, padding_type=padding_type,
+                                       filter_size=filter_size, **kwargs)
+        self._image_buffer.append({"Name": f"Mean filter ({filter_type})", "Image": self._last_image})
+
+    def order_statistic_filter(self, filter_type=DEFAULT_ORDER_STATISTIC_FILTER_TYPE,
+                               padding_type=DEFAULT_PADDING_TYPE, filter_size=DEFAULT_FILTER_SIZE, **kwargs):
+        self._last_image = order_statistic_filter(image=self._last_image, filter_type=filter_type,
+                                                  padding_type=padding_type, filter_size=filter_size, **kwargs)
+        self._image_buffer.append({"Name": f"Order statistic filter ({filter_type})", "Image": self._last_image})
+
+    # Noise models #
+
+    # Thinning #
+
+    # Morphology #

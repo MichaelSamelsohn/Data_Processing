@@ -3,11 +3,31 @@ Script Name - image_settings.py
 
 Purpose - Centralize all the constants and settings of the Image_Processing directory.
 
-Created by Michael Samelsohn, 05/05/22
+Created by Michael Samelsohn, 05/05/22.
 """
 
 # Imports #
 import os
+from Utilities.logger import Logger
+
+# Logger settings #
+verbosity_level = 3  # Setting the verbosity level.
+log = Logger()       # Initiating the logger.
+
+# Adding custom levels.
+log.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
+
+# Handling verbosity levels.
+match verbosity_level:
+    case 1:
+        log.format_string = "%(asctime)s - %(levelname)s - %(message)s"
+        log.log_level = 20
+    case 2:
+        log.format_string = "%(asctime)s - %(levelname)s - %(message)s"
+        log.log_level = 11
+    case 3:
+        log.format_string = "%(asctime)s - %(levelname)s (%(module)s:%(funcName)s:%(lineno)d) - %(message)s"
+        log.log_level = 10
 
 # Image Class #
 DEFAULT_IMAGE_LENA = os.path.abspath('../Images/Lena.png')

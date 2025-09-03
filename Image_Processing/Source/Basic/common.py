@@ -3,7 +3,7 @@ Script Name - common.py
 
 Purpose - Commonly used functions.
 
-Created by Michael Samelsohn, 12/05/22
+Created by Michael Samelsohn, 12/05/22.
 """
 
 # Imports #
@@ -14,7 +14,6 @@ import numpy as np
 from numpy import ndarray
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import measure_runtime, log_suppression
-from Settings.settings import log
 
 
 def convert_to_grayscale(image: ndarray) -> ndarray:
@@ -80,7 +79,7 @@ def scale_image(image: ndarray, scale_factor=DEFAULT_SCALING_FACTOR) -> ndarray:
     """
     Scale the pixel values of an image by the provided scaling factor.
     This function is useful when the pixel range is [0, 1] and it needs to be converted to integer values (scaling
-    upwards by 255) and vice-versa.
+    upwards by 255) and vice versa.
 
     :param image: The image to be scaled.
     :param scale_factor: The scaling factor.

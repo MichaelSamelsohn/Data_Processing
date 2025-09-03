@@ -52,16 +52,13 @@ from numpy import ndarray
 from Image_Processing.Source.Basic.common import convolution_2d, extract_sub_image, calculate_histogram
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference, article_reference
-from Settings.settings import log
 from spatial_filtering import laplacian_gradient, blur_image, sobel_filter
 
 
 @book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.706-707")
-def isolated_point_detection(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
-                             normalization_method=DEFAULT_NORMALIZATION_METHOD,
-                             include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                             threshold_value=DEFAULT_THRESHOLD_VALUE) -> ndarray:
+def isolated_point_detection(image: ndarray, padding_type: str, normalization_method: str, include_diagonal_terms: bool,
+                             threshold_value: float) -> ndarray:
     """
     Isolated point detection using the Laplacian kernel (second-derivative).
     As seen above, second-order derivatives have a stronger response to fine detail, such as thin lines, isolated
@@ -90,8 +87,7 @@ def isolated_point_detection(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
 
 @book_reference(book=GONZALES_WOODS_BOOK,
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.707-710")
-def line_detection(image: ndarray, padding_type=DEFAULT_PADDING_TYPE, normalization_method=DEFAULT_NORMALIZATION_METHOD,
-                   threshold_value=DEFAULT_THRESHOLD_VALUE) -> dict:
+def line_detection(image: ndarray, padding_type: str, normalization_method: str, threshold_value: float) -> dict:
     """
     Line detection in an image.
 
@@ -146,9 +142,8 @@ def line_detection(image: ndarray, padding_type=DEFAULT_PADDING_TYPE, normalizat
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.720-722")
 @article_reference(article="Kirsch, R. [1971]. “Computer Determination of the Constituent Structure of Biological "
                            "Images,” Comput. Biomed. Res., vol. 4, pp. 315–328")
-def kirsch_edge_detection(image: ndarray, padding_type=DEFAULT_PADDING_TYPE,
-                          normalization_method=DEFAULT_NORMALIZATION_METHOD,
-                          compare_max_value=True) -> dict:
+def kirsch_edge_detection(image: ndarray, padding_type: str, normalization_method: str, compare_max_value: bool) \
+        -> dict:
     """
     Perform Kirsch edge detection on an image.
 
@@ -236,9 +231,8 @@ and the nature of edges themselves.
                 reference="Chapter 10.2 - Point, Line, and Edge Detection, p.724-729")
 @article_reference(article="Marr, D.; Hildreth, E. (29 Feb 1980). “Theory of Edge Detection“. Proceedings of the Royal "
                            "Society of London. Series B, Biological Sciences. 207 (1167): 187–217")
-def marr_hildreth_edge_detection(image: ndarray, filter_size=DEFAULT_FILTER_SIZE, padding_type=DEFAULT_PADDING_TYPE,
-                                 sigma=DEFAULT_SIGMA_VALUE, include_diagonal_terms=DEFAULT_INCLUDE_DIAGONAL_TERMS,
-                                 threshold=DEFAULT_THRESHOLD_VALUE) -> ndarray:
+def marr_hildreth_edge_detection(image: ndarray, filter_size: int, padding_type: str, sigma: float,
+                                 include_diagonal_terms: bool, threshold: float) -> ndarray:
     """
     Marr and Hildreth [1980] argued that:
     1. Intensity changes are not independent of image scale, implying that their detection requires using operators of
@@ -345,10 +339,8 @@ def zero_crossing(sub_image: ndarray, threshold: float) -> int:
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 10.2 - Point, Line, and Edge Detection, p.729-735")
 @article_reference(article="Canny, J. [1986]. “A Computational Approach for Edge Detection,” IEEE Trans. Pattern Anal. "
                            "Machine Intell., vol. 8, no. 6, pp. 679–698")
-def canny_edge_detection(image: ndarray, filter_size=DEFAULT_FILTER_SIZE,
-                         padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
-                         high_threshold=DEFAULT_HIGH_THRESHOLD_CANNY,
-                         low_threshold=DEFAULT_LOW_THRESHOLD_CANNY) -> ndarray:
+def canny_edge_detection(image: ndarray, filter_size: int, padding_type: str, sigma: float, high_threshold: float,
+                         low_threshold: float) -> ndarray:
     """
     Canny’s approach is based on three basic objectives:
     1. Low error rate. All edges should be found, and there should be no spurious responses.
@@ -523,7 +515,7 @@ def hysteresis_thresholding(suppression_image: ndarray, high_threshold: float, l
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 10.3 - Thresholding, p.742-746")
-def thresholding(image: ndarray, threshold_value=DEFAULT_THRESHOLD_VALUE) -> ndarray:
+def thresholding(image: ndarray, threshold_value: float) -> ndarray:
     """
     Transforming the image to its binary version using the provided threshold.
     Comparing pixel values against provided threshold. If pixel value is larger, convert it to 1 (white).
@@ -543,7 +535,7 @@ def thresholding(image: ndarray, threshold_value=DEFAULT_THRESHOLD_VALUE) -> nda
 # TODO: Implement multi-thresholding (Chapter 10.3 - Thresholding, p.743)
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 10.3 - Thresholding, p.746-747")
-def global_thresholding(image: ndarray, initial_threshold=DEFAULT_THRESHOLD_VALUE, delta_t=DEFAULT_DELTA_T) -> ndarray:
+def global_thresholding(image: ndarray, initial_threshold: float, delta_t: float) -> ndarray:
     """
     When the intensity distributions of objects and background pixels are sufficiently distinct, it is possible to use a
     single (global) threshold applicable over the entire image. In most applications, there is usually enough
