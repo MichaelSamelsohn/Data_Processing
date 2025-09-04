@@ -334,7 +334,7 @@ class MAC:
                 byte_list = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)
 
                 log.mac(f"({self._identifier}) Performing CRC check")
-                if not list(self.cyclic_redundancy_check_32(data=byte_list[:-4])) == byte_list[-4:]:
+                if not self.cyclic_redundancy_check_32(data=byte_list[:-4]) == byte_list[-4:]:
                     log.error(f"({self._identifier}) CRC check failed")
                 else:  # CRC check passed.
                     log.success(f"({self._identifier}) CRC check passed")
@@ -684,6 +684,7 @@ class MAC:
            physical layer rate and the length of the PSDU in bytes.
 
         :param frame_parameters: Transmission frame parameters (such as - type, destination address, etc').
+        :param data: Data payload.
         """
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
@@ -761,7 +762,7 @@ class MAC:
         """
 
         log.debug(f"({self._identifier}) Appending CRC-32 as suffix")
-        crc = list(self.cyclic_redundancy_check_32(data=payload))
+        crc = self.cyclic_redundancy_check_32(data=payload)
 
         return [int(bit) for byte in payload + crc for bit in f'{byte:08b}']
 
@@ -850,7 +851,7 @@ class MAC:
 
         return self.convert_bits_to_bytes(bits=frame_control_field)
 
-    def cyclic_redundancy_check_32(self, data: list[int]) -> bytes:
+    def cyclic_redundancy_check_32(self, data: list[int]) -> list[int]:
         """
         Calculate the CRC-32 checksum of the given data using the polynomial 0xEDB88320.
 
@@ -883,7 +884,7 @@ class MAC:
 
         log.debug(f"({self._identifier}) Converting the integer into a byte representation of length 4, using "
                   f"little-endian byte order")
-        return crc32.to_bytes(4, 'little')
+        return list(crc32.to_bytes(4, 'little'))
 
     @staticmethod
     def convert_bits_to_bytes(bits: list[int]) -> list[int]:

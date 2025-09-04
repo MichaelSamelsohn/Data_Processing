@@ -72,4 +72,33 @@ def test_crc32(data_bytes):
     # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
     with (patch.object(MAC, 'generate_mac_address'),
           patch.object(MAC, 'transmission_queue')):
-        assert MAC(role="").cyclic_redundancy_check_32(data=list(data_bytes)) == expected_crc
+        assert MAC(role="").cyclic_redundancy_check_32(data=list(data_bytes)) == list(expected_crc)
+
+
+@pytest.mark.parametrize(
+    "payload, crc, psdu",
+    [
+        (0xFF, 0xFF, 16 * [1]),
+        (0x00, 0xFF, 8 * [0] + 8 * [1]),
+        (0xFF, 0x00, 8 * [1] + 8 * [0]),
+        (0x00, 0x00, 16 * [0]),
+    ]
+)
+def test_generate_psdu(payload, crc, psdu):
+    """
+    Test purpose - Basic functionality of generating PSDU.
+    Criteria - Correct PSDU value generated for a known byte (and CRC) sequence.
+
+    Test steps:
+    1) Mock CRC32 result.
+    3) Generate PSDU sequence.
+    4) Assert that generated sequence is bit-exact to expected outcome.
+    """
+
+    # Step (1) - Mock CRC32 result.
+    with (patch.object(MAC, 'generate_mac_address'),
+          patch.object(MAC, 'transmission_queue'),
+          patch.object(MAC, 'cyclic_redundancy_check_32', return_value=[crc])):
+
+        # Steps (2)+(3) - Generate PSDU sequence and assert that it matches expected result.
+        assert MAC(role="").generate_psdu(payload=[payload]) == psdu
