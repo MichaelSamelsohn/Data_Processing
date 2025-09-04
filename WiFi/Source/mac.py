@@ -73,6 +73,15 @@ FRAME_TYPES = {
 
 class MAC:
     def __init__(self, role: str):
+        """
+        Initialize the MAC layer with the specified role.
+
+        A random, valid MAC address (unicast, locally administered) is generated for this block. Transmission queue
+        becomes active.
+
+        :param role: The role of the current chip, either 'AP' (Access Point) or 'STA' (Station).
+        """
+
         log.mac("Establishing MAC layer")
         self._role = role  # Role of the current chip, either AP or STA.
         self._identifier = None

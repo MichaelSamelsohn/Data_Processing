@@ -1,3 +1,17 @@
+"""
+Script Name - channel.py
+
+This module implements a simulated wireless communication channel that models multipath effects and additive noise. It
+listens for client connections (e.g., transmitters and receivers) via TCP sockets, receives transmitted signals in JSON
+format, processes them through a channel impulse response with added noise based on a specified SNR, and broadcasts the
+resulting signals back to all connected clients.
+
+The simulation supports complex baseband signals and enables real-time interaction with multiple clients to mimic
+realistic channel behavior.
+
+Created by Michael Samelsohn, 19/07/25.
+"""
+
 # Imports #
 import json
 import socket

@@ -1,3 +1,13 @@
+"""
+Script Name: mpif.py
+
+This module implements the MPIF class, which sets up a TCP server to facilitate communication between two clients
+identified as "MAC" and "PHY". It accepts connections from these clients, establishes bidirectional message forwarding
+between them, and handles connection lifecycle management.
+
+Created by Michael Samelsohn, 19/07/25.
+"""
+
 # Imports #
 import json
 import socket
@@ -9,6 +19,16 @@ from WiFi.Settings.wifi_settings import log
 
 class MPIF:
     def __init__(self, host: str):
+        """
+        Initialize the MPIF server block.
+
+        Sets up a TCP server socket bound to the given host and an automatically assigned free port. Begins listening
+        for incoming client connections and starts a background thread to establish connections with two specific
+        clients: "MAC" and "PHY".
+
+        :param host: The hostname or IP address to bind the server socket to.
+        """
+
         log.info("Establishing MPIF block")
 
         log.debug("Configuring listening socket for MPIF block")
@@ -24,6 +44,14 @@ class MPIF:
         time.sleep(0.5)
 
     def establish_connections(self):
+        """
+        Accept and identify connections from "MAC" and "PHY" clients.
+
+        This method blocks until both clients have connected and identified themselves by sending a JSON message with a
+        "PRIMITIVE" field set to either "MAC" or "PHY". Once both clients are connected, it starts two threads to
+        forward data bidirectionally between them.
+        """
+
         log.debug("Identifying MAC/PHY connections")
 
         clients = {}
@@ -50,6 +78,16 @@ class MPIF:
 
     @staticmethod
     def forward(src, dst):
+        """
+        Forward data from the source socket to the destination socket.
+
+        Continuously reads data from the source socket and sends it to the destination socket until the source closes
+        the connection or an error occurs. On disconnection or exception, both sockets are closed.
+
+        :param src: The source socket to receive data from.
+        :param dst: The destination socket to send data to.
+        """
+
         try:
             while True:
                 data = src.recv(65536)

@@ -1,7 +1,17 @@
 """
 Script Name - wifi.py
 
-TODO: Add explanation as to what this script does.
+This script simulates the behavior of a WiFi chip by instantiating its core components:
+- MPIF (Message Passing Interface).
+- PHY (Physical Layer).
+- MAC (Medium Access Control) layers.
+
+It supports two roles:
+- STA (Station): Scans for available Access Points (APs) and can send data.
+- AP (Access Point): Broadcasts beacons to advertise its presence to nearby STAs.
+
+The CHIP class encapsulates initialization and communication logic, including sending text as data frames.
+Designed for use in a simulated WiFi stack for testing or educational purposes.
 
 Created by Michael Samelsohn, 19/07/25.
 """
@@ -17,6 +27,19 @@ from WiFi.Source.phy import PHY
 
 class CHIP:
     def __init__(self, role: str, identifier: str, is_stub=False):
+        """
+        Initializes a CHIP instance representing a WiFi chip with PHY and MAC layer setup.
+
+        Behavior (if not a stub):
+        - Initializes and connects the MPIF, PHY, and MAC components.
+        - For STA role: Starts scanning for access points in a background thread.
+        - For AP role: Starts broadcasting beacons in a background thread.
+
+        :param role: The role of the chip, either 'STA' (Station) or 'AP' (Access Point).
+        :param identifier: A unique identifier for the chip instance.
+        :param is_stub: If True, initializes the chip as a stub without actual functionality. Defaults to False.
+        """
+
         self._role = role
         self._identifier = identifier
         self._is_stub = is_stub
@@ -46,6 +69,15 @@ class CHIP:
                 time.sleep(0.1)  # Buffer time.
 
     def send_text(self, text: str):
+        """
+        Sends a text message as a data frame through the MAC layer.
+
+        This method converts the given text into a byte array representation, prepares frame parameters including the
+        destination address and frame type, and enqueues the frame for transmission via the MAC layer.
+
+        :param text: The textual message to be sent.
+        """
+
         log.info(f"({self._identifier}) Sending data frame with the following message:")
         log.print_data(data=text, log_level='info')
         log.debug(f"({self._identifier}) Converting data to bytes")
