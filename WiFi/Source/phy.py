@@ -970,7 +970,7 @@ class PHY:
         Notes:
         - The function uses `np.correlate` to compute the linear correlation between the input signal and the known
           time-domain STF sequence (complex conjugate flipped).
-        - The correlation threshold is currently set to 2. This is an empirical value that may need to be adjusted
+        - The correlation threshold is currently set to 1.5. This is an empirical value that may need to be adjusted
           depending on the signal-to-noise ratio (SNR), signal scaling, or implementation-specific characteristics.
         """
 
@@ -1030,14 +1030,14 @@ class PHY:
         field, based on the IEEE 802.11a/g SIGNAL field decoding process.
 
         The decoding process includes the following steps:
-            1. Converts the time-domain OFDM symbol (with guard interval removed) to the frequency domain using FFT.
-            2. Applies equalization using the known channel estimate.
-            3. Performs BPSK demapping with hard decision to recover interleaved bits.
-            4. Deinterleaves the bits based on the known PHY rate (assumed to be 6 Mbps at this stage).
-            5. Uses Viterbi decoding to recover the convolutionally encoded data at coding rate 1/2.
-            6. Performs a parity check on the first 18 bits to validate integrity.
-            7. Extracts the RATE field (first 4 bits) and maps it to a known PHY rate.
-            8. Extracts the LENGTH field (12 bits), reverses bit order (MSB last), and converts to integer.
+        1. Converts the time-domain OFDM symbol (with guard interval removed) to the frequency domain using FFT.
+        2. Applies equalization using the known channel estimate.
+        3. Performs BPSK demapping with hard decision to recover interleaved bits.
+        4. Deinterleaves the bits based on the known PHY rate (assumed to be 6 Mbps at this stage).
+        5. Uses Viterbi decoding to recover the convolutionally encoded data at coding rate 1/2.
+        6. Performs a parity check on the first 18 bits to validate integrity.
+        7. Extracts the RATE field (first 4 bits) and maps it to a known PHY rate.
+        8. Extracts the LENGTH field (12 bits), reverses bit order (MSB last), and converts to integer.
 
         :param signal: Time-domain OFDM symbol with the guard interval removed.
 
@@ -1096,13 +1096,13 @@ class PHY:
         Processes a received OFDM signal and extracts the original transmitted data.
 
         This method performs the following operations in sequence:
-            1. Converts the time-domain signal to frequency domain via FFT (after removing Guard Intervals).
-            2. Equalizes the signal using a known channel estimate.
-            3. Demaps the equalized symbols into bits based on the modulation scheme.
-            4. Deinterleaves the bits using the specified PHY data rate.
-            5. Decodes the bits using Viterbi decoding with a given convolutional code rate.
-            6. Descrambles the decoded bits by identifying the correct scrambler seed.
-            7. Removes the SERVICE field, TAIL bits, and any padding bits from the descrambled data.
+        1. Converts the time-domain signal to frequency domain via FFT (after removing Guard Intervals).
+        2. Equalizes the signal using a known channel estimate.
+        3. Demaps the equalized symbols into bits based on the modulation scheme.
+        4. Deinterleaves the bits using the specified PHY data rate.
+        5. Decodes the bits using Viterbi decoding with a given convolutional code rate.
+        6. Descrambles the decoded bits by identifying the correct scrambler seed.
+        7. Removes the SERVICE field, TAIL bits, and any padding bits from the descrambled data.
 
         :param data: The received time-domain OFDM DATA containing multiple symbols.
 
@@ -1265,22 +1265,19 @@ class PHY:
         Supports convolutional codes with constraint length K=7 and generator polynomials G1=133₈, G2=171₈.
         Coding rates higher than 1/2 are supported via puncturing patterns as defined in the IEEE 802.11 standard.
 
-        Args:
-            received_bits (list of int): The received hard-decision bits (0 or 1), possibly punctured
-                                         depending on the coding rate.
-            coding_rate (str): Coding rate. Supported values:
-                        - '1/2': No puncturing (default)
-                        - '2/3': Puncturing pattern 1101 (remove 4th bit in every 4)
-                        - '3/4': Puncturing pattern 111001 (remove 4th and 5th bits in every 6)
+        :param received_bits: The received hard-decision bits (0 or 1), possibly punctured depending on the coding rate.
+        :param coding_rate: Coding rate. Supported values:
+        - '1/2': No puncturing (default)
+        - '2/3': Puncturing pattern 1101 (remove 4th bit in every 4)
+        - '3/4': Puncturing pattern 111001 (remove 4th and 5th bits in every 6)
 
-        Returns:
-            list of int: The most likely decoded bitstream (list of 0s and 1s) using the Viterbi algorithm.
+        :return: The most likely decoded bitstream (list of 0s and 1s) using the Viterbi algorithm.
 
         Notes:
-            - Uses hard-decision decoding (i.e., received bits must be 0 or 1).
-            - Decoding is based on minimum Hamming distance between received and expected outputs.
-            - Trellis is traced from state 0 and uses full traceback for simplicity.
-            - Works best on shorter sequences. For long streams, sliding window or early termination may be needed.
+        - Uses hard-decision decoding (i.e., received bits must be 0 or 1).
+        - Decoding is based on minimum Hamming distance between received and expected outputs.
+        - Trellis is traced from state 0 and uses full traceback for simplicity.
+        - Works best on shorter sequences. For long streams, sliding window or early termination may be needed.
         """
 
         # Define puncturing patterns
@@ -1393,9 +1390,9 @@ class PHY:
         arrange the subcarriers in the correct frequency order (typically used in systems like IEEE 802.11).
 
         Subcarrier mapping:
-            - frequency_symbol[38:] corresponds to negative frequency subcarriers [-26 to -1]
-            - frequency_symbol[1:27] corresponds to positive frequency subcarriers [+1 to +26]
-            - DC subcarrier (frequency_symbol[0]) is omitted
+        - frequency_symbol[38:] corresponds to negative frequency subcarriers [-26 to -1]
+        - frequency_symbol[1:27] corresponds to positive frequency subcarriers [+1 to +26]
+        - DC subcarrier (frequency_symbol[0]) is omitted
 
         :return: A list of complex numbers representing the reordered frequency-domain subcarriers.
         """

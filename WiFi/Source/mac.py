@@ -289,16 +289,18 @@ class MAC:
         for managing the sequence of events during data transmission to the PHY layer.
 
         Behavior:
-            - On receiving "PHY-TXSTART.confirm": Starts transmission by sending the first 8 bytes (an octet) of `_psdu`
-              to the PHY.
-            - On receiving "PHY-DATA.confirm": Sends the next 8-byte chunk if more data remains, or ends transmission
-              with "PHY-TXEND.request" if all data has been sent.
-            - On receiving "PHY-TXEND.confirm": Logs a success message and waits briefly for observation.
+        - On receiving "PHY-TXSTART.confirm": Starts transmission by sending the first 8 bytes (an octet) of `_psdu`
+          to the PHY.
+        - On receiving "PHY-DATA.confirm": Sends the next 8-byte chunk if more data remains, or ends transmission
+          with "PHY-TXEND.request" if all data has been sent.
+        - On receiving "PHY-TXEND.confirm": Logs a success message and waits briefly for observation.
 
-            - On receiving "PHY-CCA.indication(BUSY)": Prepare to receive PSDU from PHY, reset relevant buffers.
-            - On receiving "PHY-DATA.indication": Receiving an octet from PHY and storing it in the relevant buffer.
-            - On receiving "PHY-RXEND.indication(No_Error)": Reception process ended and no errors occurred. Converting
-              PSDU to bytes, performing a CRC check and if passed, delegates to relevant controller helper method.
+        - On receiving "PHY-CCA.indication(BUSY)": Prepare to receive PSDU from PHY, reset relevant buffers.
+        - On receiving "PHY-DATA.indication": Receiving an octet from PHY and storing it in the relevant buffer.
+        - On receiving "PHY-RXEND.indication(No_Error)": Reception process ended and no errors occurred. Converting
+          PSDU to bytes, performing a CRC check and if passed, delegates to relevant controller helper method.
+
+        TODO: Update the primitives.
 
         :param primitive: The primitive received from the PHY layer indicating the current state of transmission.
         :param data: Payload or metadata associated with the primitive. May be unused for some cases.
