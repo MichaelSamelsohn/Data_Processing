@@ -1,12 +1,11 @@
 # Imports #
-import copy
 import json
 import random
 import socket
 import threading
 import time
 
-from WiFi.Settings.wifi_settings import log, SHORT_RETRY_LIMIT
+from WiFi.Settings.wifi_settings import *
 
 FRAME_TYPES = {
     # Management #
@@ -312,7 +311,7 @@ class MAC:
                     self.send(primitive="PHY-DATA.request", data=self._tx_psdu_buffer[:8])  # Send an octet.
                     self._tx_psdu_buffer = self._tx_psdu_buffer[8:]  # Remove sent octet.
             case "PHY-TXEND.confirm":
-                log.success("Transmission successful")
+                log.success(f"({self._identifier}) Transmission successful")
 
             # Receiver.
             case "PHY-CCA.indication(BUSY)":
@@ -451,7 +450,7 @@ class MAC:
                     # Assert that AP is authenticated.
                     if source_address == self._authenticated_ap:
                         self._associated_ap = source_address
-                        log.success("Association successful")
+                        log.success(f"({self._identifier}) Association successful")
 
             case [0, 1, 0, 0]:  # Probe request.
                 """
@@ -591,7 +590,7 @@ class MAC:
                             self._tx_queue.append((frame_parameters, []))
 
                             self._authenticated_ap = source_address  # Updating the list.
-                            log.success("Authentication successful")
+                            log.success(f"({self._identifier}) Authentication successful")
 
                             # Send association request.
                             frame_parameters = {
@@ -621,7 +620,7 @@ class MAC:
             case [1, 1, 0, 1]:  # ACK.
                 log.mac(f"({self._identifier}) ACK frame subtype")
 
-                log.success("Frame acknowledged - ACK received")
+                log.success(f"({self._identifier}) Frame acknowledged - ACK received")
                 self._is_acknowledged = "ACK"
 
     def data_controller(self, mac_header: list[int], cast: str):
