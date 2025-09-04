@@ -3,7 +3,7 @@ Script Name - image.py
 
 Purpose - Class for image representation.
 
-Created by Michael Samelsohn, 12/05/22
+Created by Michael Samelsohn, 12/05/22.
 """
 
 # Imports #
@@ -17,6 +17,9 @@ from Image_Processing.Source.Advanced.intensity_transformations import *
 from Image_Processing.Source.Advanced.spatial_filtering import *
 from Image_Processing.Source.Advanced.segmentation import *
 from Image_Processing.Source.Advanced.restoration import *
+from Image_Processing.Source.Advanced.noise_models import *
+from Image_Processing.Source.Advanced.thinning import *
+from Image_Processing.Source.Advanced.morphology import *
 
 
 class Image:
@@ -150,7 +153,13 @@ class Image:
 
     def plt_show(self):
         """
-        TODO: Complete the docstring.
+        Display a matplotlib plot with optional timed display.
+
+        If display_time is set (i.e., not None or 0), the plot will be shown in non-blocking mode for the specified
+        number of seconds and then automatically closed. Otherwise, the plot will be shown in blocking mode, requiring
+        the user to manually close it.
+
+        Note - This method assumes that a matplotlib plot has already been created prior to calling it.
         """
 
         if self.display_time:
@@ -286,6 +295,75 @@ class Image:
 
     # Noise models #
 
+    def add_gaussian_noise(self, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT_GAUSSIAN_SIGMA):
+        self._last_image = add_gaussian_noise(image=self._last_image, mean=mean, sigma=sigma)
+        self._image_buffer.append({"Name": "Gaussian noise", "Image": self._last_image})
+
+    def add_rayleigh_noise(self, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_B):
+        self._last_image = add_rayleigh_noise(image=self._last_image, a=a, b=b)
+        self._image_buffer.append({"Name": "Rayleigh noise", "Image": self._last_image})
+
+    def add_erlang_noise(self, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A):
+        self._last_image = add_erlang_noise(image=self._last_image, a=a, b=b)
+        self._image_buffer.append({"Name": "Erlang noise", "Image": self._last_image})
+
+    def add_exponential_noise(self, a=DEFAULT_EXPONENTIAL_DECAY):
+        self._last_image = add_exponential_noise(image=self._last_image, a=a)
+        self._image_buffer.append({"Name": "Exponential noise", "Image": self._last_image})
+
+    def add_uniform_noise(self, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B):
+        self._last_image = add_uniform_noise(image=self._last_image, a=a, b=b)
+        self._image_buffer.append({"Name": "Uniform noise", "Image": self._last_image})
+
+    def add_salt_and_pepper(self, pepper=DEFAULT_PEPPER, salt=DEFAULT_SALT):
+        self._last_image = add_salt_and_pepper(image=self._last_image, pepper=pepper, salt=salt)
+        self._image_buffer.append({"Name": "Salt & Pepper noise", "Image": self._last_image})
+
     # Thinning #
 
+    # TODO: Make the method value a constant.
+    def parallel_sub_iteration_thinning(self, method="ZS", is_pre_thinning=False):
+        self._last_image = parallel_sub_iteration_thinning(image=self._last_image, method=method,
+                                                           is_pre_thinning=is_pre_thinning)
+        self._image_buffer.append({"Name": f"Parallel sub-iteration thinning ({method} method, "
+                                           f"{'with' if is_pre_thinning else 'without'} pre-thinning)",
+                                   "Image": self._last_image})
+
+    def pta2t_thinning(self):
+        self._last_image = pta2t_thinning(image=self._last_image)
+        self._image_buffer.append({"Name": "PTA2T thinning algorithm", "Image": self._last_image})
+
+    def measure_thinning_rate(self):
+        return measure_thinning_rate(self._last_image)
+
     # Morphology #
+
+    # TODO: Make the structuring_element value a constant.
+    def erosion(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+        self._last_image = erosion(image=self._last_image, structuring_element=structuring_element,
+                                   padding_type=padding_type)
+        self._image_buffer.append({"Name": "Erosion", "Image": self._last_image})
+
+    # TODO: Make the structuring_element value a constant.
+    def dilation(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+        self._last_image = dilation(image=self._last_image, structuring_element=structuring_element,
+                                    padding_type=padding_type)
+        self._image_buffer.append({"Name": "Dilation", "Image": self._last_image})
+
+    # TODO: Make the structuring_element value a constant.
+    def opening(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+        self._last_image = opening(image=self._last_image, structuring_element=structuring_element,
+                                   padding_type=padding_type)
+        self._image_buffer.append({"Name": "Opening", "Image": self._last_image})
+
+    # TODO: Make the structuring_element value a constant.
+    def closing(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+        self._last_image = closing(image=self._last_image, structuring_element=structuring_element,
+                                   padding_type=padding_type)
+        self._image_buffer.append({"Name": "Closing", "Image": self._last_image})
+
+    # TODO: Make the structuring_element value a constant.
+    def boundary_extraction(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+        self._last_image = boundary_extraction(image=self._last_image, structuring_element=structuring_element,
+                                               padding_type=padding_type)
+        self._image_buffer.append({"Name": "Boundary extraction", "Image": self._last_image})

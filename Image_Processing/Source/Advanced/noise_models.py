@@ -14,7 +14,7 @@ from Utilities.decorators import book_reference
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.319-320")
-def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT_GAUSSIAN_SIGMA) -> ndarray:
+def add_gaussian_noise(image: ndarray, mean: float, sigma: float) -> ndarray:
     """
     Add Gaussian noise to an image.
     TODO: Extend the docstring.
@@ -44,7 +44,7 @@ def add_gaussian_noise(image: ndarray, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.320")
-def add_rayleigh_noise(image: ndarray, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_B) -> ndarray:
+def add_rayleigh_noise(image: ndarray, a: float, b: float) -> ndarray:
     """
     Add Rayleigh noise to an image.
     TODO: Extend the docstring.
@@ -84,7 +84,7 @@ def add_rayleigh_noise(image: ndarray, a=DEFAULT_RAYLEIGH_A, b=DEFAULT_RAYLEIGH_
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.321")
-def add_erlang_noise(image: ndarray, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A) -> ndarray:
+def add_erlang_noise(image: ndarray, a: int, b: int) -> ndarray:
     """
     Add Erlang (Gamma) noise to an image.
     TODO: Extend the docstring.
@@ -117,7 +117,7 @@ def add_erlang_noise(image: ndarray, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A) -> 
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.320-321")
-def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarray:
+def add_exponential_noise(image: ndarray, a: float) -> ndarray:
     """
     Add exponential noise to an image.
     TODO: Extend the docstring.
@@ -145,7 +145,7 @@ def add_exponential_noise(image: ndarray, a=DEFAULT_EXPONENTIAL_DECAY) -> ndarra
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.320-322")
-def add_uniform_noise(image: ndarray, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B) -> ndarray:
+def add_uniform_noise(image: ndarray, a: float, b: float) -> ndarray:
     """
     Add uniform noise to an image.
     TODO: Extend the docstring.
@@ -176,7 +176,7 @@ def add_uniform_noise(image: ndarray, a=DEFAULT_UNIFORM_A, b=DEFAULT_UNIFORM_B) 
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.322-324")
-def add_salt_and_pepper(image: ndarray, pepper=DEFAULT_PEPPER, salt=DEFAULT_SALT) -> ndarray:
+def add_salt_and_pepper(image: ndarray, pepper: float, salt: float) -> ndarray:
     """
     Add salt and pepper (white and black) pixels to an image at random.
     TODO: Extend the docstring.

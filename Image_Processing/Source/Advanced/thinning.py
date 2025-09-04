@@ -11,9 +11,9 @@ import copy
 import numpy as np
 from numpy import ndarray
 
+from Image_Processing.Settings.image_settings import *
 from Image_Processing.Source.Basic.common import extract_sub_image, contrast_stretching
 from Utilities.decorators import article_reference
-from Settings.settings import log
 from intensity_transformations import negative
 from segmentation import thresholding, global_thresholding
 from spatial_filtering import blur_image
@@ -50,7 +50,7 @@ def pre_thinning(image: ndarray) -> ndarray:
     return pre_thinned_image
 
 
-def parallel_sub_iteration_thinning(image: ndarray, method="ZS", is_pre_thinning=False) -> ndarray:
+def parallel_sub_iteration_thinning(image: ndarray, method: str, is_pre_thinning: bool) -> ndarray:
     """
     A fast parallel thinning algorithm. It consists of two sub-iterations:
     • one aimed at deleting the south-east boundary points and the north-west corner points
@@ -733,21 +733,3 @@ def measure_thinning_rate(image: ndarray) -> float:
     log.info(f"The Thinning rate (TR) is - {thinning_rate}")
 
     return thinning_rate
-
-
-def noiseless_doublet(image: ndarray) -> ndarray:
-    """
-    TODO: Complete the docstring.
-    """
-
-    stretched_image = contrast_stretching(image=image)
-
-    high_intensity_contour = thresholding(image=stretched_image, threshold_value=0.75)
-
-    negative_image = negative(image=stretched_image)
-    low_intensity_contour = thresholding(image=negative_image, threshold_value=0.75)
-
-    blurred = blur_image(image=high_intensity_contour, filter_size=23)
-    blob = global_thresholding(image=blurred, initial_threshold=0.1)
-
-    return blob

@@ -12,22 +12,20 @@ Purpose - Listed below are rules when working with morphological operations:
         * 1 - Foreground
         * -1 - Don't care
 
-Created by Michael Samelsohn, 20/12/22
+Created by Michael Samelsohn, 20/12/22.
 """
 
 # Imports #
 import numpy as np
 from numpy import ndarray
 
-from Image_Processing.Settings.image_settings import GONZALES_WOODS_BOOK
+from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference
 from Image_Processing.Source.Basic.common import pad_image, extract_sub_image
-from Image_Processing.Settings import image_settings
-from Settings.settings import log
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.2 - Erosion and Dilation, p.638-641")
-def erosion(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def erosion(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
     Perform a morphological erosion operation on an image using the structuring element.
 
@@ -44,7 +42,7 @@ def erosion(image: ndarray, structuring_element: ndarray, padding_type=image_set
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.2 - Erosion and Dilation, p.641-643")
-def dilation(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def dilation(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
     Perform a morphological dilation operation on an image using the structuring element.
 
@@ -61,7 +59,7 @@ def dilation(image: ndarray, structuring_element: ndarray, padding_type=image_se
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
-def opening(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def opening(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
     TODO: Complete the docstring.
 
@@ -81,7 +79,7 @@ def opening(image: ndarray, structuring_element: ndarray, padding_type=image_set
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
-def closing(image: ndarray, structuring_element: ndarray, padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def closing(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
     TODO: Complete the docstring.
 
@@ -101,8 +99,7 @@ def closing(image: ndarray, structuring_element: ndarray, padding_type=image_set
 
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.5 - Some Basic Morphological Algorithms, p.653-655")
-def boundary_extraction(image: ndarray, structuring_element: ndarray,
-                        padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+def boundary_extraction(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
     TODO: Complete the docstring.
     """
@@ -111,7 +108,7 @@ def boundary_extraction(image: ndarray, structuring_element: ndarray,
 
 
 def morphological_convolution(image: ndarray, structuring_element: ndarray, operation_type: str,
-                              padding_type=image_settings.DEFAULT_PADDING_TYPE) -> ndarray:
+                              padding_type=DEFAULT_PADDING_TYPE) -> ndarray:
     """
     Perform a morphological convolution on an image with a structuring element.
 
