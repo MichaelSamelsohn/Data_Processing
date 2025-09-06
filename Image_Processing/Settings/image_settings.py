@@ -32,7 +32,7 @@ match verbosity_level:
         log.log_level = 10
 
 # Image Class #
-DEFAULT_IMAGE_LENA = os.path.abspath('../Images/Lena.png')
+DEFAULT_IMAGE_LENA = os.path.abspath('../Image_Processing/Images/Lena.png')
 GONZALES_WOODS_BOOK = "Digital Image Processing (4th edition) - Gonzales & Woods"
 
 # Intensity Transformations #

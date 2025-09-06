@@ -97,7 +97,8 @@ class Image:
         log.debug("Displaying the original and last images side-by-side for comparison")
         plt.subplot(1, 2, 1)
         plt.title("Original")
-        plt.imshow(self._original_image)
+        plt.imshow(self._original_image, cmap='gray') if len(self._last_image.shape) == 2 \
+            else plt.imshow(self._original_image)
 
         plt.subplot(1, 2, 2)
         plt.title(self._image_buffer[-1]["Name"])
@@ -169,6 +170,12 @@ class Image:
         else:
             plt.show()
 
+    # Basic operations #
+
+    def convert_to_grayscale(self):
+        self._last_image = convert_to_grayscale(image=self._last_image)
+        self._image_buffer.append({"Name": "Grayscale", "Image": self._last_image})
+
     # Intensity transformations #
 
     def negative(self):
@@ -177,15 +184,16 @@ class Image:
 
     def gamma_correction(self, gamma=DEFAULT_GAMMA_VALUE):
         self._last_image = gamma_correction(image=self._last_image, gamma=gamma)
-        self._image_buffer.append({"Name": "Gamma correction", "Image": self._last_image})
+        self._image_buffer.append({"Name": f"Gamma correction (gamma={gamma})", "Image": self._last_image})
 
     def bit_plane_reconstruction(self, degree_of_reduction=DEFAULT_DEGREE_OF_REDUCTION):
         self._last_image = bit_plane_reconstruction(image=self._last_image, degree_of_reduction=degree_of_reduction)
-        self._image_buffer.append({"Name": "Bit plane reconstruction", "Image": self._last_image})
+        self._image_buffer.append({"Name": f"Bit plane reconstruction (degree={degree_of_reduction})",
+                                   "Image": self._last_image})
 
     def bit_plane_slicing(self, bit_plane=DEFAULT_BIT_PLANE):
         self._last_image = bit_plane_slicing(image=self._last_image, bit_plane=bit_plane)
-        self._image_buffer.append({"Name": "Bit plane slicing", "Image": self._last_image})
+        self._image_buffer.append({"Name": f"Bit plane slicing (plane={bit_plane})", "Image": self._last_image})
 
     # Spatial filtering #
 

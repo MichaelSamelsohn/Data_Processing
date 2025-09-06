@@ -1,6 +1,7 @@
 # Imports #
 import time
-from Settings.settings import log
+
+from Image_Processing.Settings.image_settings import log
 
 
 def measure_runtime(func):
