@@ -252,8 +252,6 @@ class PHY:
                 self._signal = self.generate_signal_symbol()
                 self._bcc_shift_register = 7 * [0]  # Resetting the shift register for the DATA bits.
 
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
-
                 # Confirm TXSTART.
                 self.send(socket_connection=self._mpif_socket, primitive="PHY-TXSTART.confirm", data=[])
             case "PHY-DATA.request":
@@ -283,13 +281,9 @@ class PHY:
                 # Confirm DATA.
                 self.send(socket_connection=self._mpif_socket, primitive="PHY-DATA.confirm", data=[])
             case "PHY-TXEND.request":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
-
                 log.phy(f"({self._identifier}) Generating PPDU")
                 self._ppdu = self.generate_ppdu()
                 # self._rf_frame_tx = self.generate_rf_signal() TODO: Is it relevant?
-
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
 
                 # Confirm TXEND.
                 self.send(socket_connection=self._mpif_socket, primitive="PHY-TXEND.confirm", data=[])

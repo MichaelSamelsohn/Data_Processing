@@ -226,12 +226,15 @@ class MAC:
                 # There are command(s) in the queue.
                 if self._is_acknowledged == "No ACK required" and not self._is_retry:
                     transmission_details = self._tx_queue.pop(0)  # Pop first item.
+
+                    if not transmission_details[0]["TYPE"] == "ACK":
+                        time.sleep(5)  # Allow the transmission to end before initiating another one.
+
                     self.start_transmission_chain(frame_parameters=transmission_details[0],
                                                   data=transmission_details[1])
-                    time.sleep(5)  # Allow the transmission to end before initiating another one.
 
             # Buffer time between consecutive checks.
-            time.sleep(1)
+            time.sleep(0.01)
 
     def beacon_broadcast(self):
         """
@@ -309,7 +312,6 @@ class MAC:
         match primitive:
             # Transmitter.
             case "PHY-TXSTART.confirm":
-                time.sleep(1)  # Buffer time for viewing/debug purposes.
                 # Start sending DATA to PHY.
                 self.send(primitive="PHY-DATA.request", data=self._tx_psdu_buffer[:8])  # Send an octet.
                 self._tx_psdu_buffer = self._tx_psdu_buffer[8:]  # Remove sent octet.
@@ -379,10 +381,10 @@ class MAC:
                                       f"over-responding to the same retransmitted request")
                             seen = set()  # Collection of unique occurrences.
                             result = []   # Clean queue without duplicates.
-                            for item in self._tx_queue:
+                            for item in reversed(self._tx_queue):
                                 item_key = json.dumps(item, sort_keys=True)
                                 if item_key not in seen:
-                                    result.append(item)
+                                    result.insert(0, item)  # Insert at the beginning to reverse the reversal.
                                     seen.add(item_key)
 
                             self._tx_queue = result  # Update the TX queue.
@@ -727,7 +729,7 @@ class MAC:
 
         # Waiting for ACK.
         for i in range(SHORT_RETRY_LIMIT):
-            time.sleep(15)  # Allow reception time for the ACK response.
+            time.sleep(4)  # Allow reception time for the ACK response.
 
             if self._is_acknowledged == "ACK":
                 self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
