@@ -240,8 +240,8 @@ class Image:
         self._image_buffer.append({"Name": "Line detection", "Image": self._last_image})
 
     def kirsch_edge_detection(self, padding_type=DEFAULT_PADDING_TYPE,
-                              normalization_method=DEFAULT_NORMALIZATION_METHOD, compare_max_value=True):
-        # TODO: Make the compare_max_value a constant.
+                              normalization_method=DEFAULT_NORMALIZATION_METHOD,
+                              compare_max_value=DEFAULT_COMPARE_MAX_VALUES):
         kirsch_images = kirsch_edge_detection(image=self._last_image, padding_type=padding_type,
                                               normalization_method=normalization_method,
                                               compare_max_value=compare_max_value)
@@ -258,9 +258,9 @@ class Image:
         self._image_buffer.append({"Name": "Marr Hildreth edge detection", "Image": self._last_image})
 
     def canny_edge_detection(self, filter_size=DEFAULT_FILTER_SIZE,
-                         padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
-                         high_threshold=DEFAULT_HIGH_THRESHOLD_CANNY,
-                         low_threshold=DEFAULT_LOW_THRESHOLD_CANNY):
+                             padding_type=DEFAULT_PADDING_TYPE, sigma=DEFAULT_SIGMA_VALUE,
+                             high_threshold=DEFAULT_HIGH_THRESHOLD_CANNY,
+                             low_threshold=DEFAULT_LOW_THRESHOLD_CANNY):
         self._last_image = canny_edge_detection(image=self._last_image, filter_size=filter_size,
                                                 padding_type=padding_type, sigma=sigma,
                                                 high_threshold=high_threshold, low_threshold=low_threshold)
@@ -321,8 +321,7 @@ class Image:
 
     # Thinning #
 
-    # TODO: Make the method value a constant.
-    def parallel_sub_iteration_thinning(self, method="ZS", is_pre_thinning=False):
+    def parallel_sub_iteration_thinning(self, method=DEFAULT_THINNING_METHOD, is_pre_thinning=DEFAULT_PRE_THINNING):
         self._last_image = parallel_sub_iteration_thinning(image=self._last_image, method=method,
                                                            is_pre_thinning=is_pre_thinning)
         self._image_buffer.append({"Name": f"Parallel sub-iteration thinning ({method} method, "
@@ -338,32 +337,27 @@ class Image:
 
     # Morphology #
 
-    # TODO: Make the structuring_element value a constant.
-    def erosion(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+    def erosion(self, structuring_element=DEFAULT_STRUCTURING_ELEMENT, padding_type=DEFAULT_PADDING_TYPE):
         self._last_image = erosion(image=self._last_image, structuring_element=structuring_element,
                                    padding_type=padding_type)
         self._image_buffer.append({"Name": "Erosion", "Image": self._last_image})
 
-    # TODO: Make the structuring_element value a constant.
-    def dilation(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+    def dilation(self, structuring_element=DEFAULT_STRUCTURING_ELEMENT, padding_type=DEFAULT_PADDING_TYPE):
         self._last_image = dilation(image=self._last_image, structuring_element=structuring_element,
                                     padding_type=padding_type)
         self._image_buffer.append({"Name": "Dilation", "Image": self._last_image})
 
-    # TODO: Make the structuring_element value a constant.
-    def opening(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+    def opening(self, structuring_element=DEFAULT_STRUCTURING_ELEMENT, padding_type=DEFAULT_PADDING_TYPE):
         self._last_image = opening(image=self._last_image, structuring_element=structuring_element,
                                    padding_type=padding_type)
         self._image_buffer.append({"Name": "Opening", "Image": self._last_image})
 
-    # TODO: Make the structuring_element value a constant.
-    def closing(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+    def closing(self, structuring_element=DEFAULT_STRUCTURING_ELEMENT, padding_type=DEFAULT_PADDING_TYPE):
         self._last_image = closing(image=self._last_image, structuring_element=structuring_element,
                                    padding_type=padding_type)
         self._image_buffer.append({"Name": "Closing", "Image": self._last_image})
 
-    # TODO: Make the structuring_element value a constant.
-    def boundary_extraction(self, structuring_element: ndarray, padding_type=DEFAULT_PADDING_TYPE):
+    def boundary_extraction(self, structuring_element=DEFAULT_STRUCTURING_ELEMENT, padding_type=DEFAULT_PADDING_TYPE):
         self._last_image = boundary_extraction(image=self._last_image, structuring_element=structuring_element,
                                                padding_type=padding_type)
         self._image_buffer.append({"Name": "Boundary extraction", "Image": self._last_image})
