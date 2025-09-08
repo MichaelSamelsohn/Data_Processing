@@ -227,7 +227,7 @@ class MAC:
                     transmission_details = self._tx_queue.pop(0)  # Pop first item.
 
                     if not transmission_details[0]["TYPE"] == "ACK":
-                        time.sleep(5)  # Allow the transmission to end before initiating another one.
+                        time.sleep(6)  # Allow the transmission to end before initiating another one.
 
                     self.start_transmission_chain(frame_parameters=transmission_details[0],
                                                   data=transmission_details[1])
@@ -251,7 +251,7 @@ class MAC:
             frame_parameters = {
                 "TYPE": "Beacon",
                 "DESTINATION_ADDRESS": [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-                "IS_UNICAST": False
+                "WAIT_FOR_ACK": False
             }
             self._tx_queue.append((frame_parameters, []))
 
@@ -279,7 +279,7 @@ class MAC:
             frame_parameters = {
                 "TYPE": "Probe Request",
                 "DESTINATION_ADDRESS": [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-                "IS_UNICAST": False
+                "WAIT_FOR_ACK": False
             }
             self._tx_queue.append((frame_parameters, []))
 
@@ -424,7 +424,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "ACK",
                         "DESTINATION_ADDRESS": source_address,
-                        "IS_UNICAST": False
+                        "WAIT_FOR_ACK": False
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -436,7 +436,7 @@ class MAC:
                         frame_parameters = {
                             "TYPE": "Association Response",
                             "DESTINATION_ADDRESS": source_address,
-                            "IS_UNICAST": True
+                            "WAIT_FOR_ACK": True
                         }
                         self._tx_queue.append((frame_parameters, [0x00, 0x00]))
 
@@ -455,7 +455,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "ACK",
                         "DESTINATION_ADDRESS": source_address,
-                        "IS_UNICAST": False
+                        "WAIT_FOR_ACK": False
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -479,7 +479,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "Probe Response",
                         "DESTINATION_ADDRESS": source_address,
-                        "IS_UNICAST": True
+                        "WAIT_FOR_ACK": True
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -498,7 +498,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "ACK",
                         "DESTINATION_ADDRESS": source_address,
-                        "IS_UNICAST": False
+                        "WAIT_FOR_ACK": False
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -510,7 +510,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "Authentication",
                         "DESTINATION_ADDRESS": self._probed_ap,
-                        "IS_UNICAST": True
+                        "WAIT_FOR_ACK": True
                     }
                     self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
 
@@ -534,7 +534,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "Authentication",
                         "DESTINATION_ADDRESS": self._probed_ap,
-                        "IS_UNICAST": True
+                        "WAIT_FOR_ACK": True
                     }
                     self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
                 else:
@@ -578,7 +578,7 @@ class MAC:
                             frame_parameters = {
                                 "TYPE": "ACK",
                                 "DESTINATION_ADDRESS": source_address,
-                                "IS_UNICAST": False
+                                "WAIT_FOR_ACK": False
                             }
                             self._tx_queue.append((frame_parameters, []))
 
@@ -587,7 +587,7 @@ class MAC:
                             frame_parameters = {
                                 "TYPE": "Authentication",
                                 "DESTINATION_ADDRESS": source_address,
-                                "IS_UNICAST": True
+                                "WAIT_FOR_ACK": True
                             }
                             self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
                     case [0x00, 0x02]:  # Authentication response.
@@ -597,7 +597,7 @@ class MAC:
                             frame_parameters = {
                                 "TYPE": "ACK",
                                 "DESTINATION_ADDRESS": source_address,
-                                "IS_UNICAST": False
+                                "WAIT_FOR_ACK": False
                             }
                             self._tx_queue.append((frame_parameters, []))
 
@@ -608,7 +608,7 @@ class MAC:
                             frame_parameters = {
                                 "TYPE": "Association Request",
                                 "DESTINATION_ADDRESS": self._authenticated_ap,
-                                "IS_UNICAST": True
+                                "WAIT_FOR_ACK": True
                             }
                             self._tx_queue.append((frame_parameters, []))
                     case [0x00, 0x03]:
@@ -665,7 +665,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "ACK",
                         "DESTINATION_ADDRESS": source_address,
-                        "IS_UNICAST": False
+                        "WAIT_FOR_ACK": False
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -706,7 +706,7 @@ class MAC:
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
         # Wait for ACK (if relevant).
-        if frame_parameters['IS_UNICAST']:
+        if frame_parameters['WAIT_FOR_ACK']:
             log.mac(f"({self._identifier}) Waiting for ACK")
             self._is_acknowledged = "Waiting for ACK"
             threading.Thread(target=self.wait_for_acknowledgement, args=(frame_parameters, data), daemon=True).start()
@@ -728,7 +728,7 @@ class MAC:
 
         # Waiting for ACK.
         for i in range(SHORT_RETRY_LIMIT):
-            time.sleep(4)  # Allow reception time for the ACK response.
+            time.sleep(5)  # Allow reception time for the ACK response.
 
             if self._is_acknowledged == "ACK":
                 self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
@@ -739,7 +739,7 @@ class MAC:
 
                 # Adjust the frame parameters for a retransmission.
                 frame_parameters["RETRY"] = 1           # Turn on the retry bit.
-                frame_parameters["IS_UNICAST"] = False  # To avoid another thread waiting for ACK.
+                frame_parameters["WAIT_FOR_ACK"] = False  # To avoid another thread waiting for ACK.
 
                 # Retransmit.
                 self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
