@@ -60,12 +60,12 @@ class Channel:
         Continuously listens for incoming client connections on the server socket.
 
         For each new connection:
-            - Stores the connection in a thread-safe set.
-            - Starts a dedicated daemon thread to handle communication with the client.
+        - Stores the connection in a thread-safe set.
+        - Starts a dedicated daemon thread to handle communication with the client.
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 conn, addr = self.server.accept()
                 log.channel(f"Accepted connection from {addr}")
 
@@ -75,10 +75,9 @@ class Channel:
 
                 # Start new thread to handle the client.
                 threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True).start()
-        except Exception as e:
-            log.error(f"Channel listen error: {e}")
-        finally:
-            self.server.close()
+            except Exception as e:
+                log.error(f"Channel listen error:")
+                log.print_data(data=e, log_level="error")
 
     def handle_client(self, conn, addr):
         """
@@ -99,8 +98,8 @@ class Channel:
         :param addr: The address of the connected client.
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 message = conn.recv(65536)
                 if not message:
                     break
@@ -116,13 +115,9 @@ class Channel:
 
                 # Broadcast the result to all clients.
                 self.broadcast(primitive="RF-SIGNAL", data=self.pass_signal(rf_signal=data))
-        except Exception as e:
-            log.error(f"Error handling client {addr}: {e}")
-        finally:
-            with self.clients_lock:
-                self.clients.discard(conn)
-            conn.close()
-            log.channel(f"Connection with {addr} closed")
+            except Exception as e:
+                log.error(f"Error handling client {addr}:")
+                log.print_data(data=e, log_level="error")
 
     def broadcast(self, primitive, data):
         """
@@ -146,7 +141,8 @@ class Channel:
                 try:
                     conn.sendall(message)
                 except Exception as e:
-                    log.error(f"Failed to send to a client: {e}")
+                    log.error(f"Failed to send to a client:")
+                    log.print_data(data=e, log_level="error")
                     self.clients.discard(conn)
                     conn.close()
 

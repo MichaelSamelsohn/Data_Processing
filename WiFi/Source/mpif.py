@@ -88,14 +88,12 @@ class MPIF:
         :param dst: The destination socket to send data to.
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 data = src.recv(65536)
                 if not data:
                     break
                 dst.sendall(data)
-        except Exception as e:
-            log.error(f"Forwarding error: {e}")
-        finally:
-            src.close()
-            dst.close()
+            except Exception as e:
+                log.error(f"MPIF forwarding error:")
+                log.print_data(data=e, log_level="error")

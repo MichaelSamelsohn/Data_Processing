@@ -130,8 +130,8 @@ class PHY:
         passed to the controller for further handling.
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 message = self._mpif_socket.recv(16384)
                 if message:
                     # Unpacking the message.
@@ -144,10 +144,9 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
-        except Exception as e:
-            log.error(f"({self._identifier}) PHY listen error: {e}")
-        finally:
-            self._mpif_socket.close()
+            except Exception as e:
+                log.error(f"({self._identifier}) PHY listen error:")
+                log.print_data(data=e, log_level="error")
 
     def channel_connection(self, host, port):
         """
@@ -180,8 +179,8 @@ class PHY:
         (time domain PPDU complex values).
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 message = self._channel_socket.recv(65536)
                 if message:
                     # Unpacking the message.
@@ -195,10 +194,9 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
-        except Exception as e:
-            log.error(f"({self._identifier}) PHY listen error: {e}")
-        finally:
-            self._channel_socket.close()
+            except Exception as e:
+                log.error(f"({self._identifier}) PHY listen error:")
+                log.print_data(data=e, log_level="error")
 
     @staticmethod
     def send(socket_connection, primitive, data):

@@ -189,8 +189,8 @@ class MAC:
         passed to the controller for further handling.
         """
 
-        try:
-            while True:
+        while True:
+            try:
                 message = self._mpif_socket.recv(65536)
                 if message:
                     # Unpacking the message.
@@ -203,10 +203,9 @@ class MAC:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
-        except Exception as e:
-            log.error(f"({self._identifier}) MAC listen error: {e}")
-        finally:
-            self._mpif_socket.close()
+            except Exception as e:
+                log.error(f"({self._identifier}) MAC listen error:")
+                log.print_data(data=e, log_level="error")
 
     def transmission_queue(self):
         """

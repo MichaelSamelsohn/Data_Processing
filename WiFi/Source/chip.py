@@ -88,7 +88,7 @@ class CHIP:
             "TYPE": "Data",
             "DIRECTION": "Uplink",  # TODO: This depends on where we are sending.
             "DESTINATION_ADDRESS": self.mac._associated_sta[0],  # TODO: The address should have more meaning.
-            "IS_UNICAST": True
+            "WAIT_FOR_ACK": True
         }
         self.mac._tx_queue.append((frame_parameters, ascii_text))
 
