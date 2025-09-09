@@ -263,8 +263,7 @@ class MAC:
         - "RETRY" (int, optional): 1 if the frame is a retransmission, otherwise absent or 0.
         """
 
-        # Advertisement frames (such as beacons and probe requests) should be with a lower PHY rate so everyone can
-        # read it.
+        # Advertisement frames (beacons and probe requests) should be with a lower PHY rate so everyone can read it.
         if frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request":
             log.debug(f"({self._identifier}) Advertisement frame, selecting lowest PHY rate")
             self._phy_rate = 6
