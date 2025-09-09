@@ -8,11 +8,9 @@ channel = Channel(channel_response=[1], snr_db=25)
 
 # AP - Transmitter.
 ap = CHIP(role='AP', identifier="AP")
-ap.mac.phy_rate = 36
 
 # STA - Receiver.
 sta = CHIP(role='STA', identifier="STA 1")
-sta.mac.phy_rate = 36
 time.sleep(1)
 
 # Sending message.

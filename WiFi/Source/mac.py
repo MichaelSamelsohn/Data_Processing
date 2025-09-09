@@ -91,7 +91,8 @@ class MAC:
 
         self._mpif_socket = None  # Socket connection to MPIF.
 
-        self.phy_rate = 6  # Default value.
+        self._phy_rate = 6       # Default value.
+        self._last_phy_rate = 6  # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
 
         # Relevant for AP.
         self._authenticated_sta = []
@@ -224,16 +225,75 @@ class MAC:
             if self._tx_queue:
                 # There are command(s) in the queue.
                 if self._is_acknowledged == "No ACK required" and not self._is_retry:
-                    transmission_details = self._tx_queue.pop(0)  # Pop first item.
+                    # Pop first item to acquire queued frame.
+                    transmission_details = self._tx_queue.pop(0)
 
+                    # Timing delay to avoid collisions. TODO: Should be enhanced.
                     if not transmission_details[0]["TYPE"] == "ACK":
                         time.sleep(6)  # Allow the transmission to end before initiating another one.
 
+                    # Rate selection.
+                    self.rate_selection(frame_parameters=transmission_details[0])
+
+                    # Start of transmission chain.
                     self.start_transmission_chain(frame_parameters=transmission_details[0],
                                                   data=transmission_details[1])
 
             # Buffer time between consecutive checks.
             time.sleep(0.01)
+
+    def rate_selection(self, frame_parameters: dict):
+        """
+        Selects the appropriate PHY (physical layer) transmission rate based on the type of frame and transmission
+        history.
+
+        The function applies the following logic:
+        - Advertisement frames (Beacons and Probe Requests) and ACK frames are sent
+          at the lowest possible PHY rate (6 Mbps) to ensure broad compatibility and reliability.
+        - For all other frame types:
+            - If the frame is being retried (i.e., frame_parameters["RETRY"] == 1), the PHY rate is decreased to improve
+              reliability, unless it is already at the minimum allowed rate.
+            - If the frame is not a retry and was sent successfully last time, the PHY rate is increased to improve
+              performance, unless it is already at the maximum allowed rate.
+
+        :param frame_parameters: A dictionary containing frame metadata.
+        Expected keys:
+        - "TYPE" (str): The type of the frame, such as "Beacon",
+          "Probe Request", "ACK", etc.
+        - "RETRY" (int, optional): 1 if the frame is a retransmission, otherwise absent or 0.
+        """
+
+        if frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request":
+            log.debug(f"({self._identifier}) Advertisement frame, selecting lowest PHY rate")
+            self._phy_rate = 6
+            return
+
+        """
+        Since ACK is a very short frame (14 bytes) and very important for most frames (acknowledgement), it it important 
+        that it is received correctly, therefore, we maximize its chances by minimizing the PHY rate to the lowest value 
+        possible. 
+        """
+        if frame_parameters["TYPE"] == "ACK":
+            log.debug(f"({self._identifier}) ACK frame, selecting lowest PHY rate")
+            self._phy_rate = 6
+            return
+
+        # Increase/Decrease PHY rate based on last non-ACK, non-advertisement frame.
+        legal_rates = [6, 9, 12, 18, 24, 36, 48, 54]
+        index = legal_rates.index(self._last_phy_rate)
+        try:
+            if frame_parameters["RETRY"] == 1:
+                log.debug(f"({self._identifier}) Retry frame, decreasing PHY rate (if possible)")
+                if index > 0:
+                    self._phy_rate = legal_rates[index - 1]
+                    self._last_phy_rate = legal_rates[index - 1]
+                    return
+        except KeyError:
+            log.debug(f"({self._identifier}) Original frame, increasing PHY rate (if possible)")
+            if index < len(legal_rates) - 1:
+                self._phy_rate = legal_rates[index + 1]
+                self._last_phy_rate = legal_rates[index + 1]
+                return
 
     def beacon_broadcast(self):
         """
@@ -693,6 +753,7 @@ class MAC:
         log.mac(f"({self._identifier}) Data size (in octets) - {len(data)}")
         log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in 
                                                                        frame_parameters['DESTINATION_ADDRESS'])}")
+        log.mac(f"({self._identifier}) PHY RATE - {self._phy_rate}")
 
         log.mac(f"({self._identifier}) Generating MAC header")
         mac_header = self.generate_mac_header(frame_parameters=frame_parameters)
@@ -703,7 +764,7 @@ class MAC:
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         log.mac(f"({self._identifier}) Sending TX vector to PHY")
         self.send(primitive="PHY-TXSTART.request",
-                  data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
+                  data=[self._phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
         # Wait for ACK (if relevant).
         if frame_parameters['WAIT_FOR_ACK']:
