@@ -281,7 +281,7 @@ class MAC:
             return
 
         # Increase/Decrease PHY rate based on last non-ACK, non-advertisement frame.
-        legal_rates = [6, 9, 12, 18, 24, 36, 48, 54]
+        legal_rates = [6, 9, 12, 18, 24, 36, 48, 54]  # TODO: Should be imported from constants.
         index = legal_rates.index(self._last_phy_rate)
         try:
             if frame_parameters["RETRY"] == 1:
