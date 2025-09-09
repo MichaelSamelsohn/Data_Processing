@@ -20,7 +20,7 @@ import time
 
 import numpy as np
 
-from WiFi.Settings.wifi_settings import log, CHANNEL_HOST, CHANNEL_PORT
+from WiFi.Settings.wifi_settings import *
 
 
 class Channel:
@@ -39,7 +39,7 @@ class Channel:
         log.channel("Configuring listening socket for the channel")
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((CHANNEL_HOST, CHANNEL_PORT))
+        self.server.bind((HOST, CHANNEL_PORT))
         self.server.listen()
 
         log.channel("Storing all connections in a thread-safe list")
@@ -53,7 +53,7 @@ class Channel:
         log.channel("Starting listening thread")
         threading.Thread(target=self.listen, daemon=True).start()
 
-        log.channel(f"Server listening on {CHANNEL_HOST}:{CHANNEL_PORT}")
+        log.channel(f"Server listening on {HOST}:{CHANNEL_PORT}")
 
     def listen(self):
         """

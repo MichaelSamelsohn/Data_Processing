@@ -19,7 +19,7 @@ Created by Michael Samelsohn, 19/07/25.
 # Imports #
 import time
 import threading
-from WiFi.Settings.wifi_settings import log, HOST, CHANNEL_HOST, CHANNEL_PORT
+from WiFi.Settings.wifi_settings import *
 from WiFi.Source.mac import MAC
 from WiFi.Source.mpif import MPIF
 from WiFi.Source.phy import PHY
@@ -54,7 +54,7 @@ class CHIP:
             self.phy = PHY()
             self.phy._identifier = self._identifier
             self.phy.mpif_connection(host=HOST, port=self.mpif.port)
-            self.phy.channel_connection(host=CHANNEL_HOST, port=CHANNEL_PORT)
+            self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
             self.mac = MAC(role=self._role)
             self.mac._identifier = self._identifier
             self.mac.mpif_connection(host=HOST, port=self.mpif.port)
