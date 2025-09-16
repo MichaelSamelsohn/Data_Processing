@@ -14,7 +14,7 @@ sta = CHIP(role='STA', identifier="STA 1")
 time.sleep(1)
 
 # Sending message.
-time.sleep(75)
+time.sleep(50)
 text = """Joy, bright spark of divinity,\nDaughter of Elysium,\nFire-insired we trea"""
 ap.send_text(text=text)
 time.sleep(1000)

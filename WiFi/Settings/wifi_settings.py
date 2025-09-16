@@ -32,6 +32,7 @@ CHANNEL_PORT = 65535
 
 # MAC settings #
 
+# TODO: Add reference.
 FRAME_TYPES = {
     # Management #
     "Association Request":             {"TYPE_VALUE": [0, 0], "SUBTYPE_VALUE": [0, 0, 0, 0]},  # Implemented.

@@ -200,24 +200,21 @@ class MAC:
         - "RETRY" (int, optional): 1 if the frame is a retransmission, otherwise absent or 0.
         """
 
-        # Advertisement frames (beacons and probe requests) should be with a lower PHY rate so everyone can read it.
-        if frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request":
-            log.debug(f"({self._identifier}) Advertisement frame, selecting lowest PHY rate")
-            self._phy_rate = 6
-            return
-
         """
+        Advertisement frames (beacons and probe requests) should be with a lower PHY rate so everyone can read it.
+        
         Since ACK is a very short frame (14 bytes) and very important for most frames (acknowledgement), it it important 
         that it is received correctly, therefore, we maximize its chances by minimizing the PHY rate to the lowest value 
         possible. 
         """
-        if frame_parameters["TYPE"] == "ACK":
+        if (frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request" or
+                frame_parameters["TYPE"] == "ACK"):
             log.debug(f"({self._identifier}) ACK frame, selecting lowest PHY rate")
             self._phy_rate = 6
             return
 
         # Increase/Decrease PHY rate based on last non-ACK, non-advertisement frame.
-        legal_rates = [6, 9, 12, 18, 24, 36, 48, 54]  # TODO: Should be imported from constants.
+        legal_rates = list(MODULATION_CODING_SCHEME_PARAMETERS.keys())  # TODO: Relevant only for LEGACY format!
         index = legal_rates.index(self._last_phy_rate)
         try:
             if frame_parameters["RETRY"] == 1:
