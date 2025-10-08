@@ -75,6 +75,8 @@ class Channel:
 
                 # Start new thread to handle the client.
                 threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True).start()
+            except OSError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"Channel listen error:")
                 log.print_data(data=e, log_level="error")
@@ -115,6 +117,8 @@ class Channel:
 
                 # Broadcast the result to all clients.
                 self.broadcast(primitive="RF-SIGNAL", data=self.pass_signal(rf_signal=data))
+            except OSError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"Error handling client {addr}:")
                 log.print_data(data=e, log_level="error")
@@ -183,3 +187,8 @@ class Channel:
 
         log.channel("Sending noisy signal")
         return [complex(round(c.real, 3), round(c.imag, 3)) for c in noisy_rf_signal]
+
+    def shutdown(self):
+        """Channel shutdown (no more traffic allowed)."""
+        log.info("Shutdown of the channel server socket")
+        self.server.close()

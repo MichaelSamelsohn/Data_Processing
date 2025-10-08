@@ -123,3 +123,14 @@ class CHIP:
                 data_list = list(byte_data)
 
         return data_list
+
+    def shutdown(self):
+        """Chip shutdown. Disabling all listening sockets (MAC/PHY/MPIF), and flushing all queued frames."""
+        log.info(f"({self._identifier}) Closing the MAC/PHY sockets")
+        self.mpif.server.close()
+        self.phy._mpif_socket.close()
+        self.phy._channel_socket.close()
+        self.mac._mpif_socket.close()
+
+        # This flag is responsible for flushing all queued frames in the MAC buffer.
+        self.mac._is_shutdown = True

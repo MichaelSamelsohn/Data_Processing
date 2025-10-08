@@ -106,6 +106,8 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
+            except ConnectionError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"({self._identifier}) PHY listen error:")
                 log.print_data(data=e, log_level="error")
@@ -156,6 +158,8 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
+            except ConnectionError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"({self._identifier}) PHY listen error:")
                 log.print_data(data=e, log_level="error")

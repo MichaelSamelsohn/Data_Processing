@@ -41,6 +41,8 @@ class MAC:
         self._associated_ap = None
 
         # Buffers and booleans.
+        self._is_shutdown = False  # Indicator to stop doing generic functions (such as advertisement). Also used for
+        # flushing existing queued frames.
         self._tx_psdu_buffer = None
         self._is_acknowledged = "No ACK required"
         self._is_retry = False
@@ -48,6 +50,7 @@ class MAC:
         log.mac("Activating transmission queue")
         threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
+        self._last_data = None  # For debug purposes.
 
     @staticmethod
     def generate_mac_address() -> list[int]:
@@ -115,8 +118,11 @@ class MAC:
         :param data: The data to be sent along with the primitive. Must be JSON-serializable.
         """
 
-        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-        self._mpif_socket.sendall(message.encode())
+        try:
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+            self._mpif_socket.sendall(message.encode())
+        except OSError:
+            log.warning(f"({self._identifier}) An attempt to send some frame was blocked (due to MPIF shutdown)")
 
     def listen(self):
         """
@@ -141,6 +147,8 @@ class MAC:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
+            except ConnectionError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"({self._identifier}) MAC listen error:")
                 log.print_data(data=e, log_level="error")
@@ -159,6 +167,10 @@ class MAC:
         """
 
         while True:
+            if self._is_shutdown:
+                self._tx_queue = []  # Flush the TX queue.
+                break
+
             if self._tx_queue:
                 # There are command(s) in the queue.
                 if self._is_acknowledged == "No ACK required" and not self._is_retry:
@@ -242,6 +254,9 @@ class MAC:
         log.mac(f"({self._identifier}) Sending beacons to notify STAs")
 
         while True:
+            if self._is_shutdown:
+                break
+
             log.mac(f"({self._identifier}) Sending beacon")
             frame_parameters = {
                 "TYPE": "Beacon",
@@ -665,9 +680,9 @@ class MAC:
                     self._tx_queue.append((frame_parameters, []))
 
                     # Remove MAC header and CRC.
-                    data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
-                    log.info("Received message:")
-                    log.print_data(data.decode('utf-8'), log_level="info")
+                    self._last_data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
+                    log.info(f"({self._identifier}) Received message:")
+                    log.print_data(self._last_data.decode('utf-8'), log_level="info")
 
     def start_transmission_chain(self, frame_parameters: dict, data: list[int]):
         """

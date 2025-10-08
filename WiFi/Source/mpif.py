@@ -94,6 +94,8 @@ class MPIF:
                 if not data:
                     break
                 dst.sendall(data)
+            except ConnectionError:  # In case of shutdown.
+                break
             except Exception as e:
                 log.error(f"MPIF forwarding error:")
                 log.print_data(data=e, log_level="error")
