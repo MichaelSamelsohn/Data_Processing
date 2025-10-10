@@ -1,7 +1,7 @@
 # Imports #
 from typing import Any
 from Image_Processing.Source.Advanced.segmentation import *
-from Settings.settings import *
+from Image_Processing.Settings.image_settings import *
 
 
 def extract_skeleton_parameters(skeleton_image: ndarray) -> (list[(int, int)], list[float]):

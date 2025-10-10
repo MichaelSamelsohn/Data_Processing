@@ -1,8 +1,7 @@
 # Imports #
-import numpy as np
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import directed_hausdorff
-from Settings.settings import *
+from Image_Processing.Settings.image_settings import *
 from scipy.spatial import cKDTree
 
 
