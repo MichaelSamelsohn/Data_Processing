@@ -19,7 +19,7 @@ def test_basic_association():
     4) Shutdown (to avoid unnecessary data leaks to next tests).
     """
 
-    # Step (1) - Set5146990 AP, STA and channel.
+    # Step (1) - Set AP, STA and channel.
     channel = Channel(channel_response=[1], snr_db=25)
     ap = CHIP(role='AP', identifier="AP")
     sta = CHIP(role='STA', identifier="STA 1")
@@ -98,17 +98,16 @@ def test_send_data_no_association():
     channel = Channel(channel_response=[1], snr_db=25)
     with (patch('chip.MAC.beacon_broadcast', return_value=None),
           patch('chip.MAC.scanning', return_value=None)):
-        # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
-        # Mocking association between AP and STA (AP only).
+        # Mocking association between AP and STA (AP side only).
         ap.mac._associated_sta = [sta.mac._mac_address]
 
         # Step (2) - Sending the data message from AP to STA (DL).
         ap.send_text(text=MESSAGE)
 
         # Step (3) - Buffer time to allow for the data to be sent and received.
-        time.sleep(20)
+        time.sleep(60)
 
         # Step (4) - Asserting that the message was discarded at all times.
         try:
