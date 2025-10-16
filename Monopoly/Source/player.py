@@ -1,0 +1,69 @@
+# Imports #
+from abc import abstractmethod
+
+from Monopoly.Settings.monopoly_settings import log
+
+
+class Player:
+    def __init__(self, name):
+        self.name = name
+        self.position = 0
+        self.cash = 1500
+        self.properties = []
+        self.in_jail = False
+        self.post_roll = False
+
+    def status(self):
+        """TODO: Complete the docstring."""
+
+        log.debug("")
+        log.info(f"Position - {self.position}")
+        log.info(f"Cash - {self.cash}")
+        for p in self.properties:
+            p.print_information()
+        log.info(f"In jail - {self.in_jail}")
+        log.info(f"Dice rolled this turn - {self.post_roll}")
+        log.debug("")
+
+
+class Human(Player):
+    def __init__(self, name):
+        super().__init__(name=name)
+
+
+class Bot(Player):
+    def __init__(self, name):
+        super().__init__(name=name)
+
+    @abstractmethod
+    def play_turn_logic(self):
+        pass
+
+    @abstractmethod
+    def buy_property_logic(self):
+        pass
+
+    @abstractmethod
+    def trade_acceptance_logic(self):
+        pass
+
+
+class Dummy(Bot):
+    """Purpose of this bot is to serve as a completely passive playing partner. Useful for debug purposes."""
+    def __init__(self, name):
+        super().__init__(name=name)
+
+    def play_turn_logic(self):
+        """Roll and end the turn."""
+        if not self.post_roll:
+            return "roll"
+        else:
+            return "end"
+
+    def buy_property_logic(self):
+        """Decline to buy all properties."""
+        return "n"
+
+    def trade_acceptance_logic(self):
+        """Decline any trade offer."""
+        return "n"
