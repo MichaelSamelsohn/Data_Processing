@@ -32,7 +32,7 @@ def advance_to_go(player, game):
 
 
 def go_to_jail(player, game):
-    player.position = game.jail_position
+    player.position = JAIL_POSITION
     player.in_jail = True
     print(f"{player.name} goes directly to jail!")
 

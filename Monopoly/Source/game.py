@@ -193,13 +193,13 @@ class Game:
             if space.owner is None:
                 # Space has no owner, provide the player a choice to buy it.
                 if isinstance(player, Human):
-                    decision = input(f"Buy {space.name} for ${space.price}? (y/n): ").strip().lower()
+                    decision = input(f"Buy {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
                 else:  # Bot.
                     decision = player.position
 
                 if decision == 'y':
                     # Player decided to buy the property.
-                    player.cash -= space.price
+                    player.cash -= space.purchase_price
                     space.owner = player
                     player.properties.append(space)
                     log.debug(f"{player.name} bought {space.name}")
@@ -212,14 +212,16 @@ class Game:
                 log.debug(f"{player.name} pays ${rent} rent to {space.owner.name}")
 
         # Handle special spaces.
-        match space.space_type:
+        match space.name:
             case "Go":
                 player.cash += GO_SALARY
                 log.debug(f"{player.name} collects $200 on GO")
-            case "Tax":
-                tax = 200 if "Luxury" in space.name else 100  # TODO: Why?
-                player.cash -= tax
-                log.debug(f"{player.name} pays ${tax} in tax")
+            case "Luxury Tax":
+                player.cash -= 100
+                log.debug(f"{player.name} pays 100$ in luxury tax")
+            case "Income Tax":
+                player.cash -= 200
+                log.debug(f"{player.name} pays 200$ in income tax")
             case "Chance":
                 card = self.chance_deck.draw().apply(player, self)
                 # TODO: Add debug line of which card was selected?
@@ -230,7 +232,7 @@ class Game:
                 log.debug(f"{player.name} goes to jail!")
                 player.position = JAIL_POSITION
                 player.in_jail = True
-            case "Jail":
+            case "Jail / Just Visiting":
                 log.debug(f"{player.name} is just visiting jail")
             case "Free Parking":
                 log.debug(f"{player.name} is resting at Free Parking")
@@ -511,13 +513,13 @@ class Game:
                 if property_to_develop.houses < 4:
                     # Build a house.
                     property_to_develop.houses += 1
-                    player.cash -= property_to_develop.house_price
+                    player.cash -= property_to_develop.house_cost
                     log.debug(f"Built 1 house on {property_to_develop.name} for ${property_to_develop.house_price}")
                 elif property_to_develop.houses == 4:
                     # Build a hotel.
                     property_to_develop.houses = 0
                     property_to_develop.hotel = True
-                    player.cash -= property_to_develop.house_price
+                    player.cash -= property_to_develop.hotel_cost
                     log.debug(f"Built hotel on {property_to_develop.name} for {property_to_develop.house_price}$")
 
     def find_full_sets_owned_by_player(self, player):
@@ -647,33 +649,30 @@ class Game:
         # Present the player with all the relevant properties and let them choose which one to mortgage/redeem.
         log.debug(f"Properties you can {debug_string}:")
         for i, prop in enumerate(relevant_properties, 1):
-            mortgage_value = prop.price // 2
-            cost = mortgage_value if action == "mortgage" else int(mortgage_value * 1.1)
-            log.debug(f"{i}. {prop.name} ({cost}$ cash)")
+            value = prop.mortgage_value if action == "mortgage" else prop.redeem_value
+            log.debug(f"{i}. {prop.name} ({value}$ cash)")
         idx = input(f"Enter property number to {debug_string}: ").strip()
         if idx.isdigit() and 1 <= int(idx) <= len(relevant_properties):
             # User selected a valid choice.
             property_to_handle = relevant_properties[int(idx) - 1]
-            property_to_handle_mortgage_value = property_to_handle.price // 2
 
             if action == "mortgage":
                 # Provide player with mortgage cash and mark the property accordingly.
                 property_to_handle.is_mortgaged = True
-                player.cash += property_to_handle_mortgage_value
-                log.debug(f"{player.name} mortgaged {property_to_handle.name} for {property_to_handle_mortgage_value}$")
+                player.cash += property_to_handle.mortgage_value
+                log.debug(f"{player.name} mortgaged {property_to_handle.name} for {property_to_handle.mortgage_value}$")
             elif action == "redeem":
                 # Check that player has enough cash to redeem the property.
-                property_to_handle_redeem_value = int(property_to_handle_mortgage_value * 1.1)  # 10% interest.
-                if player.cash < property_to_handle_redeem_value:
+                if player.cash < property_to_handle.redeem_value:
                     log.warning(f"Not enough cash to redeem {property_to_handle.name} "
-                                f"({property_to_handle_redeem_value}$ required)")
+                                f"({property_to_handle.redeem_value}$ required)")
                     return
 
                 # Redeem the property and deduct the cash from the player.
-                player.cash -= property_to_handle_redeem_value
+                player.cash -= property_to_handle.redeem_value
                 property_to_handle.is_mortgaged = False
                 log.debug(f"{player.name} redeemed {property_to_handle.name} by paying "
-                          f"{property_to_handle_redeem_value}$")
+                          f"{property_to_handle.redeem_value}$")
         else:
             log.warning("Invalid choice")
 
