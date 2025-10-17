@@ -47,7 +47,9 @@ class Game:
             log.debug(f"{player.name} payed {JAIL_FINE} to get out of jail")
 
             if player.cash < 0:
-                self.raise_emergency_cash()
+                if not self.raise_emergency_cash():
+                    self.handle_bankruptcy(player)
+                    return
 
         # Prompt the player for their input.
         while True:
@@ -69,6 +71,12 @@ class Game:
                         log.warning(f"{player.name} already rolled the dice on this turn")
                     else:
                         self.roll_handler(player)
+
+                        # Check for bankruptcy.
+                        if player.cash < 0:
+                            if not self.raise_emergency_cash():
+                                self.handle_bankruptcy(player)
+                                return
                 case "trade":
                     self.trade_handler(player)
                 case "develop":
@@ -94,14 +102,11 @@ class Game:
                         # Updating the turn number.
                         self.current_turn = (self.current_turn + 1) % len(self.players)
 
-                        break  # Stopping condition.
+                        return  # Turn ends.
 
                 # Unidentified action was prompted.
                 case _:
                     log.warning(f"'{action}' is an unidentified action")
-
-        # If we got to this point, player choose to end their turn.
-        self.play_turn()
 
     # Roll functionality #
 
@@ -141,11 +146,6 @@ class Game:
         self.move_player(player, steps)
         # Handle new position space.
         self.handle_space(player, dice_roll=steps)
-
-        # Check for bankruptcy.
-        if player.cash < 0:
-            log.warning(f"{player.name} is bankrupt!")
-            self.handle_bankruptcy(player)
 
     def move_player(self, player: Player, steps: int):
         """
@@ -286,7 +286,7 @@ class Game:
 
     def raise_emergency_cash(self):
         # TODO: To be implemented.
-        pass  # lead to bankruptcy if no cash left.
+        return True  # lead to bankruptcy if no cash left.
 
     def handle_bankruptcy(self, player: Player):
         """
