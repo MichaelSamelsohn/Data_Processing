@@ -341,8 +341,10 @@ class Game:
             log.warning("Invalid player name")
             return
 
-        initiator_property_offer, initiator_cash_offer = self.make_offer(trade_offer_initiator)
-        recipient_property_offer, recipient_cash_offer = self.make_offer(trade_offer_recipient)
+        initiator_property_offer, initiator_cash_offer, initiator_free_cards_offer = (
+            self.make_offer(trade_offer_initiator))
+        recipient_property_offer, recipient_cash_offer, recipient_free_cards_offer = (
+            self.make_offer(trade_offer_recipient))
 
         log.info("--- TRADE SUMMARY ---")
         log.info(f"{trade_offer_initiator.name} offers to {trade_offer_recipient.name}: "
@@ -361,8 +363,12 @@ class Game:
 
         # Perform trade.
         self.execute_trade(
-            p1=trade_offer_initiator, p1_properties=initiator_property_offer, p1_cash=initiator_cash_offer,
-            p2=trade_offer_recipient, p2_properties=recipient_property_offer,  p2_cash=recipient_cash_offer)
+            # Player 1.
+            p1=trade_offer_initiator, p1_properties=initiator_property_offer,
+            p1_cash=initiator_cash_offer, p1_free_cards=initiator_free_cards_offer,
+            # Player 2.
+            p2=trade_offer_recipient, p2_properties=recipient_property_offer,
+            p2_cash=recipient_cash_offer, p2_free_cards=recipient_free_cards_offer)
         log.success("Trade completed successfully")
 
     @staticmethod
@@ -399,22 +405,37 @@ class Game:
         except ValueError:
             offer_cash = 0
 
-        # TODO: Offer get out of jail free card?
+        # Offer 'Get out of jail free' cards it player has them.
+        offer_free_cards = 0
+        if player.free_cards > 0:
+            try:
+                free_cards = int(input(f"Enter 'Get out of jail free' card(s) to offer "
+                                       f"({player.free_cards} available): "))
+                if 1 <= free_cards <= player.free_cards:
+                    offer_free_cards = free_cards
+                else:
+                    log.warning("Invalid amount")
+                    offer_free_cards = 0
+            except ValueError:
+                offer_free_cards = 0
 
-        return offer_props, offer_cash
+        return offer_props, offer_cash, offer_free_cards
 
     @staticmethod
-    def execute_trade(p1, p2, p1_properties, p2_properties, p1_cash, p2_cash):
+    def execute_trade(p1, p1_properties, p1_cash, p1_free_cards, p2, p2_properties, p2_cash, p2_free_cards):
         """
-        Executes a trade between two players involving properties and cash. This method transfers ownership of the
-        specified properties and adjusts the cash balances of both players according to the trade agreement.
+        Executes a trade between two players involving properties, cash and 'Get out of jail free' cards. This method
+        transfers ownership of the specified properties and adjusts the cash/cards balances of both players according to
+        the trade agreement.
 
         :param p1: The first player involved in the trade.
-        :param p2: The second player involved in the trade.
         :param p1_properties: List of Property objects to transfer from p1 to p2.
-        :param p2_properties: List of Property objects to transfer from p2 to p1.
         :param p1_cash: Amount of cash p1 gives to p2.
+        :param p1_free_cards: Amount of 'Get out of jail free' cards p1 gives to p2.
+        :param p2: The second player involved in the trade.
+        :param p2_properties: List of Property objects to transfer from p2 to p1.
         :param p2_cash: Amount of cash p2 gives to p1.
+        :param p2_free_cards: Amount of 'Get out of jail free' cards p2 gives to p1.
         """
 
         # Transfer properties.
@@ -434,6 +455,13 @@ class Game:
 
         p2.cash -= p2_cash
         p1.cash += p2_cash
+
+        # Transfer 'Get out of jail free' cards.
+        p1.free_cards -= p1_free_cards
+        p2.free_cards += p1_free_cards
+
+        p2.free_cards -= p2_free_cards
+        p1.free_cards += p2_free_cards
 
     # Development functionality #
 
