@@ -104,7 +104,7 @@ class Board:
             RealEstate(name="Connecticut Avenue", position=9, color="Light Blue", purchase_price=120, base_rent=8,
                        one_house_rent=40, two_house_rent=100, three_house_rent=300, four_house_rent=450, hotel_rent=600,
                        house_cost=50, hotel_cost=50),
-            Space(name="Jail / Just Visiting", position=JAIL_POSITION),
+            Space(name="Jail / Just Visiting", position=10),
             RealEstate(name="St. Charles Place", position=11, color="Pink", purchase_price=140, base_rent=10,
                        one_house_rent=50, two_house_rent=150, three_house_rent=450, four_house_rent=625, hotel_rent=750,
                        house_cost=100, hotel_cost=100),

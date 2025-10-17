@@ -137,7 +137,7 @@ class Game:
         if player.consecutive_double_rolls == 3:
             log.warning(f"{player.name} rolled three doubles in a row, goes to jail!")
             player.in_jail = True
-            player.position = JAIL_POSITION
+            player.position = 10  # Jail position on the board.
             player.post_roll = True  # No more rolls allowed for this turn.
             player.consecutive_double_rolls = 0  # Reset the counter.
             return  # No point to continue for all other checks (handled above).
@@ -158,11 +158,11 @@ class Game:
         """
 
         # Update player position.
-        prev_position = player.position  # Save previous position (used for handling 'GO' passage).
+        previous_position = player.position  # Save previous position (used for handling 'GO' passage).
         player.position = (player.position + steps) % 40  # Update player position.
 
         # Handle case where player passes 'GO' space.
-        if player.position < prev_position:
+        if player.position < previous_position:
             log.debug(f"{player.name} passed 'GO' and collects 200$")
             player.cash += GO_SALARY
 
@@ -223,14 +223,12 @@ class Game:
                 player.cash -= 200
                 log.debug(f"{player.name} pays 200$ in income tax")
             case "Chance":
-                card = self.chance_deck.draw().apply(player, self)
-                # TODO: Add debug line of which card was selected?
+                self.chance_deck.draw().apply(player, self)
             case "Community Chest":
-                card = self.community_chest_deck.draw().apply(player, self)
-                # TODO: Add debug line of which card was selected?
+                self.community_chest_deck.draw().apply(player, self)
             case "Go To Jail":
                 log.debug(f"{player.name} goes to jail!")
-                player.position = JAIL_POSITION
+                player.position = 10  # Jail position on the board.
                 player.in_jail = True
             case "Jail / Just Visiting":
                 log.debug(f"{player.name} is just visiting jail")
@@ -270,7 +268,10 @@ class Game:
 
             # Count how many railroads the owner has and multiply the rent accordingly.
             owner = space.owner
-            return 25 * sum(1 for s in self.board.spaces if isinstance(s, Railroad) and s.owner == owner)
+            rent = 25 * sum(1 for s in self.board.spaces if isinstance(s, Railroad) and s.owner == owner)
+            # Check if we got here through a chance card.
+            rent *= 2 if dice_roll is None else 1
+            return rent
 
         # Handle utility property.
         elif isinstance(space, Utility):
@@ -278,11 +279,17 @@ class Game:
             if space.is_mortgaged:
                 return 0
 
+            # Check if we got here through a chance card.
+            if dice_roll is None:
+                log.debug(f"Rolling the dice to determine rent")
+                die1, die2 = random.randint(1, 6), random.randint(1, 6)
+                dice_roll = die1 + die2
+                log.debug(f"Rolled {die1} + {die2} = {dice_roll}")
+                return 10 * dice_roll  # Chance card overrides normal rent rules.
+
             # Utilities rent based on dice roll and how many utilities owned.
             owner = space.owner
             count = sum(1 for s in self.board.spaces if isinstance(s, Utility) and s.owner == owner)
-            if dice_roll is None:  # TODO: Is this necessary?
-                raise ValueError("dice_roll needed for utility rent calculation")
             multiplier = 4 if count == 1 else 10 if count == 2 else 0
             return multiplier * dice_roll
 
