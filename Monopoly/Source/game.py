@@ -604,8 +604,14 @@ class Game:
         # Determine the relevant properties based on the mortgage direction.
         relevant_properties = [space for space in player.properties if
                                (not space.is_mortgaged if action == "mortgage" else space.is_mortgaged)]
+        # If mortgaging, filter real estate properties with houses/hotels (they have to be sold first).
+        if action == "mortgage":
+            for space in relevant_properties:
+                if isinstance(space, RealEstate):
+                    if space.hotel or space.houses > 0:
+                        relevant_properties.remove(space)
 
-        # Make sure there are relevant properties.
+        # Make sure there are relevant properties to mortgage/redeem.
         if not relevant_properties:
             log.debug(f"No properties available to {debug_string}")
             return
@@ -623,11 +629,6 @@ class Game:
             property_to_handle_mortgage_value = property_to_handle.price // 2
 
             if action == "mortgage":
-                # Check that there aren't any houses or a hotel on the property.
-                if property_to_handle.houses > 0 or property_to_handle.hotel:
-                    log.warning("Cannot mortgage properties with houses or hotel")
-                    return
-
                 # Provide player with mortgage cash and mark the property accordingly.
                 property_to_handle.is_mortgaged = True
                 player.cash += property_to_handle_mortgage_value

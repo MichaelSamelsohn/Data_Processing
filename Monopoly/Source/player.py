@@ -24,7 +24,7 @@ class Player:
     def status(self):
         """TODO: Complete the docstring."""
 
-        log.debug("")
+        log.debug("")  # Empty line to start the information print.
 
         # General information.
         log.info(f"Player {self.name} ({self.role})")
@@ -45,7 +45,7 @@ class Player:
         if self.consecutive_double_rolls > 0:
             log.info(f"consecutive doubles rolled {self.consecutive_double_rolls}")
 
-        log.debug("")
+        log.debug("")  # Empty line to end the information print.
 
 
 class Human(Player):
