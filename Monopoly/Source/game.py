@@ -13,7 +13,6 @@ class Game:
 
         self.board = Board()
         self.current_turn = 0  # Index of the current turn player.
-        self.jail_position = 10
         self.chance_deck = create_chance_deck()
         self.community_chest_deck = create_community_chest_deck()
         self.players = players
@@ -30,22 +29,39 @@ class Game:
             * 'trade' - The player initiates a trade with another player.
             * 'develop' - The player attempts to develop properties.
             * 'mortgage' - The player attempts to mortgage/un-mortgage property.
+            * 'pay' (only if the player is in jail) - The player pays the fine to get out of jail.
+            * 'free' (only if the player is in jail and has a 'get out of jail free' card) - Player uses theirs 'get out
+              of jail free' card to get out of jail.
             * 'end' (only if the player has already rolled this turn) - The player ends their turn.
         """
 
         # Identify the player whose turn is current.
         player = self.players[self.current_turn]
 
+        # Check if player is in jail for three turns.
+        if player.turns_in_jail == 3:
+            player.cash -= JAIL_FINE  # Pay the fine.
+            # Reset the jail parameters.
+            player.in_jail = False
+            player.turns_in_jail = 0
+            log.debug(f"{player.name} payed {JAIL_FINE} to get out of jail")
+
+            if player.cash < 0:
+                self.raise_emergency_cash()
+
         # Prompt the player for their input.
         while True:
             if isinstance(player, Human):
+                jail_string = " / pay" + (" / free" if player.free_cards > 0 else "") \
+                    if player.in_jail and not player.post_roll else ""
                 action = input(f"{player.name} ({player.cash}$), Please choose action - status / {"roll / " 
-                               if not player.post_roll else ""}trade / develop / mortgage"
+                               if not player.post_roll else ""}trade / develop / mortgage{jail_string}"
                                f"{" / end" if player.post_roll else ""}: ").strip().lower()
             else:  # Bot.
                 action = player.play_turn_logic()
 
             match action:
+                # Main options.
                 case "status":
                     player.status()
                 case "roll":
@@ -53,24 +69,35 @@ class Game:
                         log.warning(f"{player.name} already rolled the dice on this turn")
                     else:
                         self.roll_handler(player)
-                        player.post_roll = True  # Player has rolled the dice for this turn.
                 case "trade":
                     self.trade_handler(player)
                 case "develop":
                     self.development_handler(player)
                 case "mortgage":
                     self.mortgage_handler(player)
+
+                # Handling jail.
+                case "pay" | "free":
+                    self.jail_handler(player, action=action)
+
+                # Ending the turn.
                 case "end":
                     if not player.post_roll:
                         log.warning(f"{player.name} hasn't rolled their dice this turn")
                     else:
                         log.info(f"{player.name} has ended their turn")
 
-                        self.current_turn = (self.current_turn + 1) % len(self.players)  # Updating the turn number.
                         player.post_roll = False  # Resetting so that next time player can roll the dice on their turn.
+                        # If player in jail, increment their counter.
+                        if player.in_jail:
+                            player.turns_in_jail += 1
+                        # Updating the turn number.
+                        self.current_turn = (self.current_turn + 1) % len(self.players)
 
                         break  # Stopping condition.
-                case _:  # Unidentified action was prompted.
+
+                # Unidentified action was prompted.
+                case _:
                     log.warning(f"'{action}' is an unidentified action")
 
         # If we got to this point, player choose to end their turn.
@@ -83,8 +110,6 @@ class Game:
         Simulates a player's roll by two six-sided dice, updating their position, and handling the outcome of
         the space they land on. The function performs the following steps:
             1. Rolls two dice and calculates the total.
-            - Rolling doubles grants an extra turn.
-            - Rolling doubles three times in a row sends the player to jail.
             2. Moves the player forward by the total rolled steps.
             3. Triggers any effects associated with the new space.
             4. Checks if the player's cash has fallen below zero and handles bankruptcy if so.
@@ -92,39 +117,35 @@ class Game:
         :param player: The player object representing the current player taking their turn.
         """
 
-        doubles_count = 0
+        log.debug(f"{player.name} is rolling the dice")
+        die1, die2 = random.randint(1, 6), random.randint(1, 6)
+        steps = die1 + die2
+        log.debug(f"{player.name} rolled {die1} + {die2} = {steps}")
+        # Check if roll was a double or not.
+        if die1 != die2:
+            player.post_roll = True  # Player has rolled the dice for this turn.
+            player.consecutive_double_rolls = 0
+        else:  # Rolled a double, player deserves another turn.
+            player.consecutive_double_rolls += 1
 
-        while True:
-            log.debug(f"{player.name} is rolling the dice")
-            die1, die2 = random.randint(1, 6), random.randint(1, 6)
-            steps = die1 + die2
-            log.debug(f"{player.name} rolled {die1} + {die2} = {steps}")
+        # Handle case where player rolled three consecutive doubles.
+        if player.consecutive_double_rolls == 3:
+            log.warning(f"{player.name} rolled three doubles in a row, goes to jail!")
+            player.in_jail = True
+            player.position = JAIL_POSITION
+            player.post_roll = True  # No more rolls allowed for this turn.
+            player.consecutive_double_rolls = 0  # Reset the counter.
+            return  # No point to continue for all other checks (handled above).
 
-            # Check if rolled a double.
-            if die1 == die2:
-                doubles_count += 1
-                log.debug(f"{player.name} rolled a double! (consecutive doubles: {doubles_count})")
+        # Update player position.
+        self.move_player(player, steps)
+        # Handle new position space.
+        self.handle_space(player, dice_roll=steps)
 
-            # Check if three doubles in a row were rolled.
-            if doubles_count == 3:
-                log.warning(f"{player.name} rolled three doubles in a row and is going to jail!")
-                player.in_jail = True
-                return  # No more rolls for a jailed player.
-
-            # Update player position.
-            self.move_player(player, steps)
-            # Handle new position space.
-            self.handle_space(player, dice_roll=steps)
-
-            # Check for bankruptcy.
-            if player.cash < 0:
-                log.warning(f"{player.name} is bankrupt!")
-                self.handle_bankruptcy(player)
-                return  # No more rolls for a bankrupt player.
-
-            # If not a double, the turn ends.
-            if die1 != die2:
-                return  # No more rolls for a non-double roll.
+        # Check for bankruptcy.
+        if player.cash < 0:
+            log.warning(f"{player.name} is bankrupt!")
+            self.handle_bankruptcy(player)
 
     def move_player(self, player: Player, steps: int):
         """
@@ -142,7 +163,7 @@ class Game:
 
         # Handle case where player passes 'GO' space.
         if player.position < prev_position:
-            log.debug(f"{player.name} passed 'GO' and collects $200")
+            log.debug(f"{player.name} passed 'GO' and collects 200$")
             player.cash += GO_SALARY
 
         log.debug(f"{player.name} lands on {self.board.get_space(player.position).name}")
@@ -207,7 +228,7 @@ class Game:
                 # TODO: Add debug line of which card was selected?
             case "Go To Jail":
                 log.debug(f"{player.name} goes to jail!")
-                player.position = self.jail_position
+                player.position = JAIL_POSITION
                 player.in_jail = True
             case "Jail":
                 log.debug(f"{player.name} is just visiting jail")
@@ -242,7 +263,7 @@ class Game:
         # Handle railroad property.
         elif isinstance(space, Railroad):
             # Check that property isn't mortgaged.
-            if space.mortgaged:
+            if space.is_mortgaged:
                 return 0
 
             # Count how many railroads the owner has and multiply the rent accordingly.
@@ -252,7 +273,7 @@ class Game:
         # Handle utility property.
         elif isinstance(space, Utility):
             # Check that property isn't mortgaged.
-            if space.mortgaged:
+            if space.is_mortgaged:
                 return 0
 
             # Utilities rent based on dice roll and how many utilities owned.
@@ -262,6 +283,10 @@ class Game:
                 raise ValueError("dice_roll needed for utility rent calculation")
             multiplier = 4 if count == 1 else 10 if count == 2 else 0
             return multiplier * dice_roll
+
+    def raise_emergency_cash(self):
+        # TODO: To be implemented.
+        pass  # lead to bankruptcy if no cash left.
 
     def handle_bankruptcy(self, player: Player):
         """
@@ -622,3 +647,43 @@ class Game:
                           f"{property_to_handle_redeem_value}$")
         else:
             log.warning("Invalid choice")
+
+    # Jail functionality #
+
+    def jail_handler(self, player: Player, action: str):
+        """
+        TODO: Complete the docstring.
+        """
+
+        if action == "pay":
+            # Make sure the player isn't trying to get out of jail after rolling.
+            if player.post_roll:
+                log.warning("Can pay fine to get out of jail only at the start of a turn!")
+                return
+
+            # Make sure the player can afford the fine.
+            if player.cash >= JAIL_FINE:
+                player.cash -= JAIL_FINE  # Pay the fine.
+                # Reset the jail parameters.
+                player.in_jail = False
+                player.turns_in_jail = 0
+                log.debug(f"{player.name} payed {JAIL_FINE} to get out of jail")
+            else:
+                log.warning(f"{player.name} doesn't have enough cash to pay the jail fine")
+
+        elif action == "free":
+            # Make sure the player isn't trying to get out of jail after rolling.
+            if player.post_roll:
+                log.warning("Can use 'get out of jail free' card only at the start of a turn!")
+                return
+            # Make sure player has any 'get out of jail free' card(s).
+            if player.free_cards == 0:
+                log.warning("No free cards")
+                return
+
+            # Free the player from jail.
+            player.free_cards -= 1
+            # Reset the jail parameters.
+            player.in_jail = False
+            player.turns_in_jail = 0
+            # TODO: Put card at the bottom of the deck (which one?).

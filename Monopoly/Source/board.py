@@ -70,7 +70,7 @@ class Board:
         self.spaces.append(Space("Community Chest", 2, "Community Chest"))
         self.spaces.append(Space("Income Tax", 4, "Tax"))
         self.spaces.append(Space("Chance", 7, "Chance"))
-        self.spaces.append(Space("Jail / Just Visiting", 10, "Jail"))
+        self.spaces.append(Space("Jail / Just Visiting", JAIL_POSITION, "Jail"))
         self.spaces.append(Space("Chance", 22, "Chance"))
         self.spaces.append(Space("Community Chest", 17, "Community Chest"))
         self.spaces.append(Space("Free Parking", 20, "Free Parking"))

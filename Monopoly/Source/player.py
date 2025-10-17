@@ -6,11 +6,18 @@ from Monopoly.Settings.monopoly_settings import log
 
 class Player:
     def __init__(self, name):
+        # General attributes.
         self.name = name
         self.position = 0
+        # Assets.
         self.cash = 1500
         self.properties = []
+        # Jail related.
+        self.free_cards = 0
         self.in_jail = False
+        self.turns_in_jail = 0
+        # Dice roll related.
+        self.consecutive_double_rolls = 0
         self.post_roll = False
 
     def status(self):

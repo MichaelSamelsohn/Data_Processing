@@ -37,6 +37,11 @@ def go_to_jail(player, game):
     print(f"{player.name} goes directly to jail!")
 
 
+def get_out_of_jail_free(player, game):
+    player.free_cards += 1
+    log.debug(f"{player.name} got a 'get out of jail free' card")
+
+
 def earn_50(player, game):
     player.cash += 50
     print(f"{player.name} receives $50")

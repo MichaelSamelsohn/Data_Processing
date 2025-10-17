@@ -22,6 +22,8 @@ match verbosity_level:
         log.log_level = 10
 
 GO_SALARY = 200
+JAIL_FINE = 50
+JAIL_POSITION = 10
 
 RAILROADS = [
     ("Reading Railroad", 5),
