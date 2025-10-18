@@ -34,13 +34,13 @@ def advance_to_go(player, game):
 def advance_to_illinois_avenue(player, game):
     # Illinois avenue is at position 24.
     game.move_player(player=player, steps={7: 17, 22: 2, 36: 28}.get(player.position))
-    game.handle_space(player=player, dice_roll=None)
+    game.handle_space(player=player, dice_roll=0)
 
 
 def advance_to_st_charles_place(player, game):
     # St. Charles place is at position 11.
     game.move_player(player=player, steps={7: 4, 22: 29, 36: 15}.get(player.position))
-    game.handle_space(player=player, dice_roll=None)
+    game.handle_space(player=player, dice_roll=0)
 
 
 def advance_to_nearest_utility(player, game):
@@ -100,7 +100,7 @@ def advance_to_reading_railroad(player, game):
 def advance_to_boardwalk(player, game):
     # Boardwalk is at position 39.
     game.move_player(player=player, steps={7: 32, 22: 17, 36: 3}.get(player.position))
-    game.handle_space(player=player, dice_roll=None)
+    game.handle_space(player=player, dice_roll=0)
 
 
 def board_chairman(player, game):

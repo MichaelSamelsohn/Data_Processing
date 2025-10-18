@@ -250,26 +250,34 @@ class Game:
         :return: The amount of rent owed. Returns 0 if the property is mortgaged.
         """
 
+        # Check that property isn't mortgaged.
+        # Note - dice_roll == None only when a chance card sends the player to a utility/railroad with special rent
+        # fee override.
+        if space.is_mortgaged and dice_roll is not None:
+            return 0
+
         # Handle real estate property.
         if isinstance(space, RealEstate):
-            # Check that property isn't mortgaged.
-            if space.is_mortgaged:
-                return 0
-
-            # Handle basic rent, houses and hotel cases.
+            # Handle basic rent, full set rent, houses and hotel cases.
             if space.hotel:
-                return space.base_rent * 5  # TODO: Should be some other calculation.
+                return space.hotel_rent
             elif space.houses > 0:
-                return space.base_rent * (1 + space.houses)  # TODO: Should be some other calculation.
-            else:
+                match space.houses:
+                    case 1:
+                        return space.one_house_rent
+                    case 2:
+                        return space.two_house_rent
+                    case 3:
+                        return space.three_house_rent
+                    case 4:
+                        return space.four_house_rent
+            elif space.color in self.find_full_sets_owned_by_player(space.owner):
+                return 2 * space.base_rent
+            else:  # Owner doesn't own the full set.
                 return space.base_rent
 
         # Handle railroad property.
         elif isinstance(space, Railroad):
-            # Check that property isn't mortgaged.
-            if space.is_mortgaged:
-                return 0
-
             # Count how many railroads the owner has and multiply the rent accordingly.
             owner = space.owner
             rent = 25 * sum(1 for s in self.board.spaces if isinstance(s, Railroad) and s.owner == owner)
@@ -279,10 +287,6 @@ class Game:
 
         # Handle utility property.
         elif isinstance(space, Utility):
-            # Check that property isn't mortgaged.
-            if space.is_mortgaged:
-                return 0
-
             # Check if we got here through a chance card.
             if dice_roll is None:
                 log.info(f"Rolling dice to determine rent")
