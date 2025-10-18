@@ -10,7 +10,7 @@ class Card:
         self.effect = effect
 
     def apply(self, player, game):
-        log.debug(f"Card: {self.description}")
+        log.info(self.description)
         self.effect(player, game)
 
 

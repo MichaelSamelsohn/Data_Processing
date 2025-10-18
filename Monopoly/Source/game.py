@@ -17,7 +17,8 @@ class Game:
         self.community_chest_deck = create_community_chest_deck()
         self.players = players
 
-        log.success("Game initialized")
+        log.info("Game initialized")
+        log.info("")
 
     def play_turn(self):
         """
@@ -44,7 +45,7 @@ class Game:
             # Reset the jail parameters.
             player.in_jail = False
             player.turns_in_jail = 0
-            log.debug(f"{player.name} payed {JAIL_FINE} to get out of jail")
+            log.info(f"{player.name} payed {JAIL_FINE} to get out of jail")
 
             if player.cash < 0:
                 if not self.raise_emergency_cash():
@@ -57,7 +58,7 @@ class Game:
                 jail_string = " / pay" + (" / free" if player.free_cards > 0 else "") \
                     if player.in_jail and not player.post_roll else ""
                 action = input(f"{player.name} ({player.cash}$), Please choose action - status / {"roll / " 
-                               if not player.post_roll else ""}trade / develop / mortgage{jail_string}"
+                               if not player.post_roll else ""}trade / develop / manage{jail_string}"
                                f"{" / end" if player.post_roll else ""}: ").strip().lower()
             else:  # Bot.
                 action = player.play_turn_logic()
@@ -81,8 +82,8 @@ class Game:
                     self.trade_handler(player)
                 case "develop":
                     self.development_handler(player)
-                case "mortgage":
-                    self.mortgage_handler(player)
+                case "manage":
+                    self.management_handler(player)
 
                 # Handling jail.
                 case "pay" | "free":
@@ -122,15 +123,16 @@ class Game:
         :param player: The player object representing the current player taking their turn.
         """
 
-        log.debug(f"{player.name} is rolling the dice")
+        # Roll dice.
         die1, die2 = random.randint(1, 6), random.randint(1, 6)
         steps = die1 + die2
-        log.debug(f"{player.name} rolled {die1} + {die2} = {steps}")
+        log.info(f"{player.name} rolled {die1} + {die2} = {steps}")
         # Check if roll was a double or not.
         if die1 != die2:
             player.post_roll = True  # Player has rolled the dice for this turn.
             player.consecutive_double_rolls = 0
         else:  # Rolled a double, player deserves another turn.
+            log.info(f"Rolled a double, {player.name} gets another roll")
             player.consecutive_double_rolls += 1
 
         # Handle case where player rolled three consecutive doubles.
@@ -163,10 +165,10 @@ class Game:
 
         # Handle case where player passes 'GO' space.
         if player.position < previous_position:
-            log.debug(f"{player.name} passed 'GO' and collects 200$")
+            log.info(f"{player.name} passed 'GO' and collects 200$")
             player.cash += GO_SALARY
 
-        log.debug(f"{player.name} lands on {self.board.get_space(player.position).name}")
+        log.info(f"{player.name} lands on {self.board.get_space(player.position).name}")
 
     def handle_space(self, player: Player, dice_roll=None):
         """
@@ -202,38 +204,40 @@ class Game:
                     player.cash -= space.purchase_price
                     space.owner = player
                     player.properties.append(space)
-                    log.debug(f"{player.name} bought {space.name}")
+                    log.info(f"{player.name} bought {space.name} for {space.purchase_price}")
             elif space.owner != player:
                 # Space has an owner and it is not the current turn player.
                 rent = self.calculate_rent(space, dice_roll)
                 # Transfer rent from current turn player to space owner.
                 player.cash -= rent
                 space.owner.cash += rent
-                log.debug(f"{player.name} pays ${rent} rent to {space.owner.name}")
+                log.info(f"{player.name} pays {rent}$ rent to {space.owner.name}")
 
         # Handle special spaces.
         match space.name:
             case "Go":
+                log.info(f"{player.name} collects $200 on GO")
                 player.cash += GO_SALARY
-                log.debug(f"{player.name} collects $200 on GO")
             case "Luxury Tax":
+                log.info(f"{player.name} pays 100$ in luxury tax")
                 player.cash -= 100
-                log.debug(f"{player.name} pays 100$ in luxury tax")
             case "Income Tax":
+                log.info(f"{player.name} pays 200$ in income tax")
                 player.cash -= 200
-                log.debug(f"{player.name} pays 200$ in income tax")
             case "Chance":
                 self.chance_deck.draw().apply(player, self)
             case "Community Chest":
                 self.community_chest_deck.draw().apply(player, self)
             case "Go To Jail":
-                log.debug(f"{player.name} goes to jail!")
-                player.position = 10  # Jail position on the board.
+                log.info(f"{player.name} goes to jail!")
                 player.in_jail = True
+                player.position = 10  # Jail position on the board.
+                player.post_roll = True  # Player has rolled the dice for this turn and landed in jail.
+                player.consecutive_double_rolls = 0  # Reset the counter.
             case "Jail / Just Visiting":
-                log.debug(f"{player.name} is just visiting jail")
+                log.info(f"{player.name} is just visiting jail")
             case "Free Parking":
-                log.debug(f"{player.name} is resting at Free Parking")
+                log.info(f"{player.name} is resting at free parking")
 
     def calculate_rent(self, space: Space, dice_roll=None):
         """
@@ -281,7 +285,7 @@ class Game:
 
             # Check if we got here through a chance card.
             if dice_roll is None:
-                log.debug(f"Rolling the dice to determine rent")
+                log.info(f"Rolling dice to determine rent")
                 die1, die2 = random.randint(1, 6), random.randint(1, 6)
                 dice_roll = die1 + die2
                 log.debug(f"Rolled {die1} + {die2} = {dice_roll}")
@@ -378,7 +382,7 @@ class Game:
             # Player 2.
             p2=trade_offer_recipient, p2_properties=recipient_property_offer,
             p2_cash=recipient_cash_offer, p2_free_cards=recipient_free_cards_offer)
-        log.success("Trade completed successfully")
+        log.info("Trade completed successfully")
 
     @staticmethod
     def make_offer(player: Player):
@@ -392,7 +396,7 @@ class Game:
         """
 
         # Offer properties.
-        log.debug(f"{player.name}'s properties:")
+        log.info(f"{player.name}'s properties:")
         for i, p in enumerate(player.properties):
             log.debug(f"  [{i}] {p.name}")
         offer_props_selection = input("Enter indices of properties to offer (comma separated): ")
@@ -491,17 +495,17 @@ class Game:
             log.warning(f"{player.name} does not own any full color groups to build houses")
             return
 
-        log.debug(f"{player.name} can build houses/hotels on these color groups: {', '.join(player_owned_full_sets)}")
+        log.info(f"{player.name} can build houses/hotels on these color groups: {', '.join(player_owned_full_sets)}")
 
         for color in player_owned_full_sets:
             # Extract the set of the given color.
             properties_to_develop = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == color]
 
             # Display current houses/hotels on each property.
-            log.debug(f"{color} properties:")
+            log.info(f"{color} properties:")
             for idx, property_to_develop in enumerate(properties_to_develop, 1):
                 status = "Hotel" if property_to_develop.hotel else f"{property_to_develop.houses} houses"
-                log.debug(f"{idx}. {property_to_develop.name}: {status}")
+                log.info(f"{idx}. {property_to_develop.name}: {status}")
 
             while True:
                 choice = input(
@@ -521,13 +525,13 @@ class Game:
                     # Build a house.
                     property_to_develop.houses += 1
                     player.cash -= property_to_develop.house_cost
-                    log.debug(f"Built 1 house on {property_to_develop.name} for ${property_to_develop.house_price}")
+                    log.info(f"Built 1 house on {property_to_develop.name} for ${property_to_develop.house_price}")
                 elif property_to_develop.houses == 4:
                     # Build a hotel.
                     property_to_develop.houses = 0
                     property_to_develop.hotel = True
                     player.cash -= property_to_develop.hotel_cost
-                    log.debug(f"Built hotel on {property_to_develop.name} for {property_to_develop.house_price}$")
+                    log.info(f"Built hotel on {property_to_develop.name} for {property_to_develop.house_price}$")
 
     def find_full_sets_owned_by_player(self, player):
         """
@@ -593,7 +597,7 @@ class Game:
 
     # Mortgage functionality #
 
-    def mortgage_handler(self, player: Player):
+    def management_handler(self, player: Player):
         """
         Handles mortgage-related actions for the given player. This method allows the player to interactively choose one
         of the following actions:
@@ -650,14 +654,14 @@ class Game:
 
         # Make sure there are relevant properties to mortgage/redeem.
         if not relevant_properties:
-            log.debug(f"No properties available to {debug_string}")
+            log.warning(f"No properties available to {debug_string}")
             return
 
         # Present the player with all the relevant properties and let them choose which one to mortgage/redeem.
-        log.debug(f"Properties you can {debug_string}:")
+        log.info(f"Properties you can {debug_string}:")
         for i, prop in enumerate(relevant_properties, 1):
             value = prop.mortgage_value if action == "mortgage" else prop.redeem_value
-            log.debug(f"{i}. {prop.name} ({value}$ cash)")
+            log.info(f"{i}. {prop.name} ({value}$ cash)")
         idx = input(f"Enter property number to {debug_string}: ").strip()
         if idx.isdigit() and 1 <= int(idx) <= len(relevant_properties):
             # User selected a valid choice.
@@ -667,7 +671,7 @@ class Game:
                 # Provide player with mortgage cash and mark the property accordingly.
                 property_to_handle.is_mortgaged = True
                 player.cash += property_to_handle.mortgage_value
-                log.debug(f"{player.name} mortgaged {property_to_handle.name} for {property_to_handle.mortgage_value}$")
+                log.info(f"{player.name} mortgaged {property_to_handle.name} for {property_to_handle.mortgage_value}$")
             elif action == "redeem":
                 # Check that player has enough cash to redeem the property.
                 if player.cash < property_to_handle.redeem_value:
@@ -678,14 +682,15 @@ class Game:
                 # Redeem the property and deduct the cash from the player.
                 player.cash -= property_to_handle.redeem_value
                 property_to_handle.is_mortgaged = False
-                log.debug(f"{player.name} redeemed {property_to_handle.name} by paying "
-                          f"{property_to_handle.redeem_value}$")
+                log.info(f"{player.name} redeemed {property_to_handle.name} by paying "
+                         f"{property_to_handle.redeem_value}$")
         else:
             log.warning("Invalid choice")
 
     # Jail functionality #
 
-    def jail_handler(self, player: Player, action: str):
+    @staticmethod
+    def jail_handler(player: Player, action: str):
         """
         TODO: Complete the docstring.
         """
@@ -702,7 +707,7 @@ class Game:
                 # Reset the jail parameters.
                 player.in_jail = False
                 player.turns_in_jail = 0
-                log.debug(f"{player.name} payed {JAIL_FINE} to get out of jail")
+                log.info(f"{player.name} payed {JAIL_FINE} to get out of jail")
             else:
                 log.warning(f"{player.name} doesn't have enough cash to pay the jail fine")
 

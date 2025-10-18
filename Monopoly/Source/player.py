@@ -24,28 +24,31 @@ class Player:
     def status(self):
         """TODO: Complete the docstring."""
 
-        log.debug("")  # Empty line to start the information print.
+        log.info("")  # Empty line to start the information print.
+        log.info("--- Player status ---")
 
         # General information.
-        log.info(f"Player {self.name} ({self.role})")
+        log.info(f"Name - {self.name} ({self.role})")
         log.info(f"Position - {self.position}")
 
         # Assets information.
         log.info(f"Cash - {self.cash}")
-        for p in self.properties:
-            p.print_information()
+        if self.properties:
+            log.info("Properties owned:")
+            for p in self.properties:
+                p.print_information()
 
         # Jail related information.
-        if self.free_cards > 0:
+        if self.in_jail:
+            log.info(f"In jail - {self.in_jail} (for {self.turns_in_jail} turns)")
             log.info(f"'Get out of jail free' cards owned - {self.free_cards}")
-        log.info(f"In jail - {self.in_jail} {f"(for {self.turns_in_jail} turns)" if self.in_jail else ""}")
 
         # Dice roll information.
         log.info(f"Dice rolled this turn - {self.post_roll}")
         if self.consecutive_double_rolls > 0:
             log.info(f"consecutive doubles rolled {self.consecutive_double_rolls}")
 
-        log.debug("")  # Empty line to end the information print.
+        log.info("")  # Empty line to end the information print.
 
 
 class Human(Player):

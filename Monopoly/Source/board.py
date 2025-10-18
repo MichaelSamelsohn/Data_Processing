@@ -39,17 +39,15 @@ class RealEstate(Space):
         self.hotel_cost = hotel_cost
 
     def print_information(self):
-        if self.is_mortgaged:
-            buildings_string = ", mortgaged"
-        elif self.hotel:
+        if self.hotel:
             buildings_string = ", hotel"
         elif self.houses > 0:  # Houses
             buildings_string = f", houses - {self.houses}"
         else:  # No buildings on the property.
             buildings_string = ""
 
-        log.info(f"{self.name} ({self.color}), position - {self.position}, price - {self.purchase_price}, "
-                 f"base rent - {self.base_rent}{buildings_string}")
+        log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name} ({self.color}), position - {self.position}, "
+                 f"price - {self.purchase_price}, base rent - {self.base_rent}{buildings_string}")
 
 
 class Railroad(Space):
@@ -61,8 +59,8 @@ class Railroad(Space):
         self.is_mortgaged = False
 
     def print_information(self):
-        log.info(f"{self.name}, position - {self.position}, price - {self.purchase_price}"
-                 f"{", mortgaged" if self.is_mortgaged else ""}")
+        log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name}, position - {self.position}, "
+                 f"price - {self.purchase_price}")
 
 
 class Utility(Space):
@@ -74,8 +72,8 @@ class Utility(Space):
         self.is_mortgaged = False
 
     def print_information(self):
-        log.info(f"{self.name}, position - {self.position}, price - {self.purchase_price}"
-                 f"{", mortgaged" if self.is_mortgaged else ""}")
+        log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name}, position - {self.position}, "
+                 f"price - {self.purchase_price}")
 
 
 class Board:
@@ -178,7 +176,7 @@ class Board:
             else:  # Special card.
                 log.debug(f"({space.position}) {space.name}")
 
-        log.success("Game board is ready")
+        log.info("Game board is ready")
 
     def get_space(self, position):
         return self.spaces[position]

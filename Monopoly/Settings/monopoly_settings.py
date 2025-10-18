@@ -3,7 +3,7 @@ from Utilities.logger import Logger
 
 # Logger settings #
 
-verbosity_level = 3  # Setting the verbosity level.
+verbosity_level = 2  # Setting the verbosity level.
 log = Logger()       # Initiating the logger.
 
 # Adding custom levels.
