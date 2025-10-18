@@ -262,15 +262,12 @@ class Game:
             if space.hotel:
                 return space.hotel_rent
             elif space.houses > 0:
-                match space.houses:
-                    case 1:
-                        return space.one_house_rent
-                    case 2:
-                        return space.two_house_rent
-                    case 3:
-                        return space.three_house_rent
-                    case 4:
-                        return space.four_house_rent
+                return {
+                    1: space.one_house_rent,
+                    2: space.two_house_rent,
+                    3: space.three_house_rent,
+                    4: space.four_house_rent,
+                }.get(space.houses)
             elif space.color in self.find_full_sets_owned_by_player(space.owner):
                 return 2 * space.base_rent
             else:  # Owner doesn't own the full set.
