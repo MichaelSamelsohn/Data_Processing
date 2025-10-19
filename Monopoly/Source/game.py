@@ -494,7 +494,17 @@ class Game:
     @staticmethod
     def transfer_spaces(sender: Player, recipient: Player, spaces_to_transfer: list):
         """
-        TODO: Complete the docstring.
+        Transfers ownership of a list of properties from one player to another. For each property being transferred:
+        - Ownership is moved from `sender` to `recipient`.
+        - If the property is mortgaged:
+            - The recipient is prompted to either:
+                - Redeem the mortgage by paying the redeem value, or
+                - Pay a 10% mortgage fee to keep it mortgaged.
+            - If the recipient cannot afford to redeem, they must pay the 10% fee.
+
+        :param sender: The player giving up the properties.
+        :param recipient: The player receiving the properties.
+        :param spaces_to_transfer: A list of Property instances to transfer.
         """
 
         # Calculate cash buffer (to redeem mortgaged properties).
@@ -896,7 +906,15 @@ class Game:
     @staticmethod
     def jail_handler(player: Player, action: str):
         """
-        TODO: Complete the docstring.
+        Handles player actions related to getting out of jail. Options:
+        * "pay" - The player pays a fine and is released from jail. Can only be done before rolling the dice.
+        * "free" - The player can only use a 'Get out of jail free' card (if they have one). Can only be done before
+          rolling the dice.
+
+        :param player: The player who is currently in jail.
+        :param action: The action the player wants to take to get out of jail. Valid values are:
+        - "pay": Pay a fine to get out of jail.
+        - "free": Use a 'get out of jail free' card.
         """
 
         if action == "pay":
