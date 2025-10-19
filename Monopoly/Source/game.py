@@ -826,13 +826,117 @@ class Game:
                       .strip().lower())
             match choice:
                 case "mortgage":
-                    self.property_asset_management(player, action="mortgage")
+                    self.mortgage(player=player)
                 case "redeem":
-                    self.property_asset_management(player, action="redeem")
+                    self.redeem(player=player)
                 case "done":
                     break  # Stopping condition.
                 case _:
                     log.warning(f"'{choice}' is an unidentified action")
+
+    def mortgage(self, player: Player):
+        """
+        Allows a player to mortgage one or more of their eligible properties in exchange for cash. A property is
+        eligible for mortgaging if:
+        - It is owned by the player.
+        - It is not already mortgaged.
+        - If it is a RealEstate property, it must not have any houses or hotels built on it.
+
+        The function presents the player with a list of mortgageable properties and allows them to select one at a time.
+        After each selection, the property is mortgaged (flagged as such), and the mortgage value is added to the
+        player's cash.
+
+        :param player: The player attempting to mortgage properties.
+        """
+
+        # Find any spaces the player owns that are not mortgaged and don't have houses or hotels on them.
+        spaces_to_mortgage = []
+        for space in player.properties:
+            if not space.is_mortgaged:
+                # Space is not mortgaged.
+                if not isinstance(space, RealEstate):
+                    # Either railroad or utility.
+                    spaces_to_mortgage.append(space)
+                elif space.houses == 0 and not space.hotel:
+                    # Real estate space with no houses or hotels.
+                    spaces_to_mortgage.append(space)
+        # Make sure there are any spaces to mortgage.
+        if not spaces_to_mortgage:
+            log.warning(f"No properties available to mortgage")
+            return
+
+        # Present the player with all the relevant spaces to mortgage.
+        log.info(f"Properties you can mortgage:")
+        for i, prop in enumerate(spaces_to_mortgage, 1):
+            log.info(f"{i}. {prop.name} ({prop.mortgage_value}$ cash)")
+
+        # Player to choose which space to mortgage.
+        while True:
+            choice = input(f"Enter space number to mortgage ('end' to finish): ").strip().lower()
+
+            if choice == "end":
+                return
+            else:
+                if not choice.isdigit() or not (1 <= int(choice) <= len(spaces_to_mortgage)):
+                    log.warning("Invalid choice, try again")
+                    continue
+
+            # Got to this point, choice is a valid number.
+
+            # Mortgage space.
+            space_to_mortgage = spaces_to_mortgage[int(choice) - 1]
+            space_to_mortgage.is_mortgaged = True
+            player.cash += space_to_mortgage.mortgage_value
+            log.info(f"{player.name} mortgaged {space_to_mortgage.name} for {space_to_mortgage.mortgage_value}$")
+
+            # Recursive call to make sure all checks are valid and there are still spaces to potentially mortgage.
+            self.mortgage(player=player)
+
+    def redeem(self, player: Player):
+        """
+        Allows the player to redeem (unmortgage) eligible properties. This method checks all properties owned by the
+        given player and presents a list of mortgaged properties that the player can afford to redeem based on their
+        current cash. The player is prompted to select which property to redeem by entering its number. After each
+        redemption, the method recursively calls itself to allow the player to continue redeeming additional properties
+        if they wish.
+
+        :paam player: The player attempting to redeem mortgaged properties.
+        """
+
+        # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
+        spaces_to_redeem = [space for space in player.properties if space.is_mortgaged and
+                            player.cash > space.redeem_value]
+        # Make sure there are spaces to redeem.
+        if not spaces_to_redeem:
+            log.warning(f"No spaces available to redeem")
+            return
+
+        # Present the player with all the relevant spaces to redeem.
+        log.info(f"Properties you can redeem:")
+        for i, prop in enumerate(spaces_to_redeem, 1):
+            log.info(f"{i}. {prop.name} ({prop.redeem_value}$ cash)")
+
+        # Player to choose which space to redeem.
+        while True:
+            choice = input(f"Enter space number to redeem ('end' to finish): ").strip().lower()
+
+            if choice == "end":
+                return
+            else:
+                if not choice.isdigit() or not (1 <= int(choice) <= len(spaces_to_redeem)):
+                    log.warning("Invalid choice, try again")
+                    continue
+
+            # Got to this point, choice is a valid number.
+
+            # Redeem space.
+            space_to_redeem = spaces_to_redeem[int(choice) - 1]
+            space_to_redeem.is_mortgaged = False
+            player.cash -= space_to_redeem.redeem_value
+            log.info(f"{player.name} redeemed {space_to_redeem.name} for {space_to_redeem.redeem_value}$")
+
+            # Recursive call to make sure all checks are valid and there are still spaces to potentially mortgage.
+            self.redeem(player=player)
 
     @staticmethod
     def property_asset_management(player: Player, action: str):
