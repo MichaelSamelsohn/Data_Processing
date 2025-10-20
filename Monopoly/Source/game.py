@@ -200,7 +200,7 @@ class Game:
                     if isinstance(player, Human):
                         decision = input(f"Purchase {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
                     else:  # Bot.
-                        decision = player.position
+                        decision = player.buy_space_logic()
 
                     if decision == "y":
                         # Player decided to buy the property.
@@ -331,7 +331,10 @@ class Game:
                     # Current player has enough cash to make a higher bid.
                     while True:
                         # Allow player to make a new bid.
-                        new_bid = input(f"{player}, offer new bid: ")
+                        if isinstance(player, Human):
+                            new_bid = input(f"{player}, offer new bid: ")
+                        else:  # Bot.
+                            new_bid = player.auction_logic()
 
                         if new_bid.isdigit() and latest_bid < int(new_bid):
                             # Check that new bid is within the player ability to pay.
@@ -540,24 +543,30 @@ class Game:
         log.info(f"{trade_offer_initiator.name} wants from {trade_offer_recipient.name}: "
                  f"{[p.name for p in recipient_space_offer]} + {recipient_cash_offer}$")
 
-        # Recipient to confirm trade offer.
-        if isinstance(trade_offer_recipient, Human):
-            confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
-        else:  # Bot.
-            confirm = trade_offer_recipient.trade_acceptance_logic()
-        if confirm.lower() != 'y':
-            log.warning("Trade declined")
-            return
+        while True:
+            # Recipient to confirm trade offer.
+            if isinstance(trade_offer_recipient, Human):
+                confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
+            else:  # Bot.
+                confirm = trade_offer_recipient.trade_acceptance_logic()
 
-        # Perform trade.
-        self.execute_trade(
-            # Player 1.
-            player1=trade_offer_initiator, player1_spaces=initiator_space_offer,
-            player1_cash=initiator_cash_offer, player1_free_cards=initiator_free_cards_offer,
-            # Player 2.
-            player2=trade_offer_recipient, player2_spaces=recipient_space_offer,
-            player2_cash=recipient_cash_offer, player2_free_cards=recipient_free_cards_offer)
-        log.info("Trade completed successfully")
+            match confirm:
+                case "y":
+                    # Perform trade.
+                    self.execute_trade(
+                        # Player 1.
+                        player1=trade_offer_initiator, player1_spaces=initiator_space_offer,
+                        player1_cash=initiator_cash_offer, player1_free_cards=initiator_free_cards_offer,
+                        # Player 2.
+                        player2=trade_offer_recipient, player2_spaces=recipient_space_offer,
+                        player2_cash=recipient_cash_offer, player2_free_cards=recipient_free_cards_offer)
+                    log.info("Trade completed successfully")
+                    return
+                case "n":
+                    log.warning("Trade declined")
+                    return
+                case _:
+                    log.warning("Invalid choice")
 
     @staticmethod
     def make_offer(player: Player):
@@ -679,7 +688,11 @@ class Game:
             # Recipient to choose between redeeming or paying mortgage fee for mortgaged properties.
             if prop.is_mortgaged:
                 if prop.redeem_value < recipient_cash_buffer:
-                    action = input("Redeem property or pay mortgage fee (10%): ")
+                    if isinstance(recipient, Human):
+                        action = input("Redeem property or pay mortgage fee (10%): ")
+                    else:  # Bot.
+                        action = recipient.redeem_logic()
+
                     while True:
                         match action:
                             case "y":
@@ -710,8 +723,12 @@ class Game:
         """
 
         while True:
-            choice = (input(f"{player.name} ({player.cash}$), Please choose action 'build', 'sell', or 'end': ")
-                      .strip().lower())
+            if isinstance(player, Human):
+                choice = (input(f"{player.name} ({player.cash}$), Please choose action 'build', 'sell', or 'end': ")
+                          .strip().lower())
+            else:  # Bot.
+                choice = player.development_logic()
+
             match choice:
                 case "build":
                     self.build(player)
@@ -763,7 +780,10 @@ class Game:
                 return
 
             # Player to choose monopoly to build on.
-            choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+            if isinstance(player, Human):
+                choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+            else:  # Bot.
+                choice = player.monopoly_build_logic()
 
             if choice == "end":
                 return
@@ -790,7 +810,11 @@ class Game:
 
             while True:
                 # Player to choose which space to build houses/hotels in.
-                choice = input(f"Enter space number to build house/hotel ('end' to finish building): ").strip().lower()
+                if isinstance(player, Human):
+                    choice = (input(f"Enter space number to build house/hotel ('end' to finish building): ").
+                              strip().lower())
+                else:  # Bot.
+                    choice = player.build_logic()
 
                 if choice == "end":
                     return
@@ -855,7 +879,10 @@ class Game:
                 return
 
             # Player to choose monopoly to sell houses/hotels.
-            choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+            if isinstance(player, Human):
+                choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+            else:  # Bot.
+                choice = player.monopoly_sell_logic()
 
             if choice == "end":
                 return
@@ -881,7 +908,11 @@ class Game:
 
             while True:
                 # Player to choose which space to sell houses/hotels in.
-                choice = input(f"Enter space number to sell house/hotel ('end' to finish selling): ").strip().lower()
+                if isinstance(player, Human):
+                    choice = (input(f"Enter space number to sell house/hotel ('end' to finish selling): ").
+                              strip().lower())
+                else:  # Bot.
+                    player.sell_logic()
 
                 if choice == "end":
                     return
@@ -944,8 +975,12 @@ class Game:
         """
 
         while True:
-            choice = (input(f"{player.name} ({player.cash}$), Please choose action 'mortgage', 'redeem', or 'done': ")
-                      .strip().lower())
+            if isinstance(player, Human):
+                choice = (input(f"{player.name} ({player.cash}$), Please choose action 'mortgage', 'redeem', "
+                                f"or 'done': ").strip().lower())
+            else:  # Bot.
+                choice = player.management_logic()
+
             match choice:
                 case "mortgage":
                     self.mortgage(player=player)
@@ -995,7 +1030,10 @@ class Game:
                 log.info(f"{i}. {prop.name} ({prop.mortgage_value}$ cash)")
 
             # Player to choose which space to mortgage.
-            choice = input(f"Enter space number to mortgage ('end' to finish): ").strip().lower()
+            if isinstance(player, Human):
+                choice = input(f"Enter space number to mortgage ('end' to finish): ").strip().lower()
+            else:  # Bot.
+                choice = player.mortgage_logic()
 
             if choice == "end":
                 return
@@ -1039,7 +1077,10 @@ class Game:
                 log.info(f"{i}. {prop.name} ({prop.redeem_value}$ cash)")
 
             # Player to choose which space to redeem.
-            choice = input(f"Enter space number to redeem ('end' to finish): ").strip().lower()
+            if isinstance(player, Human):
+                choice = input(f"Enter space number to redeem ('end' to finish): ").strip().lower()
+            else:  # Bot.
+                choice = player.redeem_logic()
 
             if choice == "end":
                 return

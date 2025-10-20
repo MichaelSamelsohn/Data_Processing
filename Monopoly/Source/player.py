@@ -66,7 +66,15 @@ class Bot(Player):
         pass
 
     @abstractmethod
-    def buy_property_logic(self):
+    def buy_space_logic(self):
+        pass
+
+    @abstractmethod
+    def auction_logic(self):
+        pass
+
+    @abstractmethod
+    def raise_cash_logic(self):
         pass
 
     @abstractmethod
@@ -74,7 +82,35 @@ class Bot(Player):
         pass
 
     @abstractmethod
-    def raise_cash_logic(self):
+    def development_logic(self):
+        pass
+
+    @abstractmethod
+    def monopoly_build_logic(self):
+        pass
+
+    @abstractmethod
+    def build_logic(self):
+        pass
+
+    @abstractmethod
+    def monopoly_sell_logic(self):
+        pass
+
+    @abstractmethod
+    def sell_logic(self):
+        pass
+
+    @abstractmethod
+    def management_logic(self):
+        pass
+
+    @abstractmethod
+    def mortgage_logic(self):
+        pass
+
+    @abstractmethod
+    def redeem_logic(self):
         pass
 
 
@@ -90,13 +126,50 @@ class Dummy(Bot):
         else:
             return "end"
 
-    def buy_property_logic(self):
-        """Decline to buy all properties."""
+    def buy_space_logic(self):
+        """Never buy any space."""
         return "n"
 
-    def trade_acceptance_logic(self):
-        """Decline any trade offer."""
-        return "y"
+    def auction_logic(self):
+        """Never bid at an auction."""
+        return "pass"
 
     def raise_cash_logic(self):
+        """Automate cash raising."""
         return "automate"
+
+    def trade_acceptance_logic(self):
+        """Accept all deals."""
+        return "y"
+
+    def development_logic(self):
+        """Dummy bot can never get to develop, no point to implement logic."""
+        pass
+
+    def monopoly_build_logic(self):
+        """Dummy bot can never get to build, no point to implement logic."""
+        pass
+
+    def build_logic(self):
+        """Dummy bot can never get to build, no point to implement logic."""
+        pass
+
+    def monopoly_sell_logic(self):
+        """Dummy bot can never get to sell, no point to implement logic."""
+        pass
+
+    def sell_logic(self):
+        """Dummy bot can never get to sell, no point to implement logic."""
+        pass
+
+    def management_logic(self):
+        """Dummy bot can never get to management, no point to implement logic."""
+        pass
+
+    def mortgage_logic(self):
+        """Dummy bot can never get to mortgage, no point to implement logic."""
+        pass
+
+    def redeem_logic(self):
+        """Never redeem a space."""
+        return "n"
