@@ -574,33 +574,33 @@ class Game:
         :param player: The player attempting to build houses or hotels.
         """
 
-        # Find all monopolies owned by player (only these can have houses/hotels built on).
-        player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
-        # Check player has any monopolies.
-        if not player_owned_monopoly_colors:
-            log.warning(f"{player.name} does not own any monopoly to build on")
-            return
-        # Filter monopolies which have all hotels already built (nothing left to build) or building cost is higher than
-        # the cash a player owns.
-        valid_player_owned_monopoly_colors = []
-        for monopoly_color in player_owned_monopoly_colors:
-            monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == monopoly_color]
-            # Check that the player has enough cash to build.
-            # Since all spaces in the same monopoly have the same building cost, all we need is to check the first one.
-            if monopoly_spaces[0].building_cost > player.cash:
-                continue
-
-            # Check that not all spaces in a monopoly have a hotel.
-            for space in monopoly_spaces:
-                if not space.hotel:
-                    # Found a space with no hotel.
-                    valid_player_owned_monopoly_colors.append(monopoly_color)
-                    break
-        if not valid_player_owned_monopoly_colors:
-            log.warning("No valid monopolies to build on")
-            return
-
         while True:
+            # Find all monopolies owned by player (only these can have houses/hotels built on).
+            player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
+            # Check player has any monopolies.
+            if not player_owned_monopoly_colors:
+                log.warning(f"{player.name} does not own any monopoly to build on")
+                return
+            # Filter monopolies which have all hotels already built (nothing left to build) or building cost is higher than
+            # the cash a player owns.
+            valid_player_owned_monopoly_colors = []
+            for monopoly_color in player_owned_monopoly_colors:
+                monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == monopoly_color]
+                # Check that the player has enough cash to build.
+                # Since all spaces in the same monopoly have the same building cost, all we need is to check the first one.
+                if monopoly_spaces[0].building_cost > player.cash:
+                    continue
+
+                # Check that not all spaces in a monopoly have a hotel.
+                for space in monopoly_spaces:
+                    if not space.hotel:
+                        # Found a space with no hotel.
+                        valid_player_owned_monopoly_colors.append(monopoly_color)
+                        break
+            if not valid_player_owned_monopoly_colors:
+                log.warning("No valid monopolies to build on")
+                return
+
             # Player to choose monopoly to build on.
             choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
 
@@ -627,32 +627,31 @@ class Game:
                 status = "Hotel" if space.hotel else f"{space.houses} houses"
                 log.info(f"{idx}. {space.name}: {status}")
 
-            # Player to choose which space to build houses/hotels in.
-            choice = input(f"Enter space number to build house/hotel ('end' to finish building): ").strip().lower()
+            while True:
+                # Player to choose which space to build houses/hotels in.
+                choice = input(f"Enter space number to build house/hotel ('end' to finish building): ").strip().lower()
 
-            if choice == "end":
-                return
-            else:
-                if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
-                    log.warning("Invalid choice, try again")
-                    continue
+                if choice == "end":
+                    return
+                else:
+                    if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
+                        log.warning("Invalid choice, try again")
+                        continue
 
-            # Got to this point, choice is a valid index number.
+                # Got to this point, choice is a valid index number.
 
-            # Build building.
-            space = valid_monopoly_spaces[int(choice) - 1]
-            if space.houses == 4:
-                # Building hotel.
-                space.houses = 0
-                space.hotel = True
-            else:
-                # Building house.
-                space.houses += 1
-            # Deduct building cost from player.
-            player.cash -= space.building_cost
-
-            # Recursive call to make sure all checks are valid and there are still houses/hotel to potentially build.
-            self.build(player=player)
+                # Build building.
+                space = valid_monopoly_spaces[int(choice) - 1]
+                if space.houses == 4:
+                    # Building hotel.
+                    space.houses = 0
+                    space.hotel = True
+                else:
+                    # Building house.
+                    space.houses += 1
+                # Deduct building cost from player.
+                player.cash -= space.building_cost
+                break  # Stop current loop to make sure all validity checks are performed.
 
     def sell(self, player: Player):
         """
@@ -674,26 +673,26 @@ class Game:
         :param player: The player attempting to sell houses or hotels.
         """
 
-        # Find all monopoly colors owned by the player, only these can have houses/hotels to sell.
-        player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
-        # Check that player has any monopolies.
-        if not player_owned_monopoly_colors:
-            log.warning(f"{player.name} does not own any full color monopoly (no houses/hotels to sell)")
-            return
-        # Filter monopolies that don't have a single house/hotel.
-        valid_player_owned_monopoly_colors = []
-        for color in player_owned_monopoly_colors:
-            # Find all spaces that belong to current monopoly.
-            monopoly = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == color]
-            # Check if there is any house/hotel in the current monopoly.
-            if [s for s in monopoly if s.houses > 0 or s.hotel]:
-                valid_player_owned_monopoly_colors.append(color)
-        # Check that player has any monopolies with houses/hotel.
-        if not valid_player_owned_monopoly_colors:
-            log.warning(f"{player.name} does not own any houses/hotels to sell")
-            return
-
         while True:
+            # Find all monopoly colors owned by the player, only these can have houses/hotels to sell.
+            player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
+            # Check that player has any monopolies.
+            if not player_owned_monopoly_colors:
+                log.warning(f"{player.name} does not own any full color monopoly (no houses/hotels to sell)")
+                return
+            # Filter monopolies that don't have a single house/hotel.
+            valid_player_owned_monopoly_colors = []
+            for color in player_owned_monopoly_colors:
+                # Find all spaces that belong to current monopoly.
+                monopoly = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == color]
+                # Check if there is any house/hotel in the current monopoly.
+                if [s for s in monopoly if s.houses > 0 or s.hotel]:
+                    valid_player_owned_monopoly_colors.append(color)
+            # Check that player has any monopolies with houses/hotel.
+            if not valid_player_owned_monopoly_colors:
+                log.warning(f"{player.name} does not own any houses/hotels to sell")
+                return
+
             # Player to choose monopoly to sell houses/hotels.
             choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
 
@@ -719,32 +718,31 @@ class Game:
                 status = "Hotel" if space.hotel else f"{space.houses} houses"
                 log.info(f"{idx}. {space.name}: {status}")
 
-            # Player to choose which space to sell houses/hotels in.
-            choice = input(f"Enter space number to sell house/hotel ('end' to finish selling): ").strip().lower()
+            while True:
+                # Player to choose which space to sell houses/hotels in.
+                choice = input(f"Enter space number to sell house/hotel ('end' to finish selling): ").strip().lower()
 
-            if choice == "end":
-                return
-            else:
-                if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
-                    log.warning("Invalid choice, try again")
-                    continue
+                if choice == "end":
+                    return
+                else:
+                    if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
+                        log.warning("Invalid choice, try again")
+                        continue
 
-            # Got to this point, choice is a valid number.
+                # Got to this point, choice is a valid number.
 
-            # Sell building.
-            space = valid_monopoly_spaces[int(choice) - 1]
-            if space.hotel:
-                # Selling hotel.
-                space.hotel = False
-                space.houses = 4
-            else:
-                # Selling house.
-                space.houses -= 1
-            # Compensate player.
-            player.cash += space.building_sell
-
-            # Recursive call to make sure all checks are valid and there are still houses/hotel to potentially sell.
-            self.sell(player=player)
+                # Sell building.
+                space = valid_monopoly_spaces[int(choice) - 1]
+                if space.hotel:
+                    # Selling hotel.
+                    space.hotel = False
+                    space.houses = 4
+                else:
+                    # Selling house.
+                    space.houses -= 1
+                # Compensate player.
+                player.cash += space.building_sell
+                break  # Stop current loop to make sure all validity checks are performed.
 
     def find_monopolies_owned_by_player(self, player):
         """
@@ -770,43 +768,6 @@ class Game:
                 player_owned_full_sets.append(color)
 
         return player_owned_full_sets
-
-    @staticmethod
-    def check_development_possibility(player: Player, properties_to_develop, choice):
-        """
-        Determines whether a player can develop a selected property by building a house or hotel. This method checks the
-        following conditions:
-        - The selected property does not already have a hotel.
-        - Houses are built evenly across the color group (cannot build more than one house above the property with the
-          fewest houses).
-        - The player has enough cash to afford the development.
-
-        :param player: The player attempting to build on the property.
-        :param properties_to_develop: The list of properties within the same color group that can be developed.
-        :param choice: The index (1-based) of the property in the list that the player wants to develop.
-
-        :return: True if the property can be developed under the current rules and player's resources, False otherwise.
-        """
-
-        property_to_develop = properties_to_develop[int(choice) - 1]
-
-        # Check if building hotel on a property that already has a hotel.
-        if property_to_develop.hotel:
-            log.warning(f"{property_to_develop.name} already has a hotel")
-            return False
-
-        # Check that houses are built evenly.
-        min_houses = min(p.houses for p in properties_to_develop)
-        if property_to_develop.houses > min_houses:
-            log.warning("You must build houses evenly across properties")
-            return False
-
-        # Check that player has enough cash to build house/hotel.
-        if player.cash < property_to_develop.house_price:
-            log.warning(f"Not enough cash to build house ({property_to_develop.house_price}$)")
-            return False
-
-        return True
 
     # Mortgage functionality #
 
@@ -849,29 +810,29 @@ class Game:
         :param player: The player attempting to mortgage properties.
         """
 
-        # Find any spaces the player owns that are not mortgaged and don't have houses or hotels on them.
-        spaces_to_mortgage = []
-        for space in player.properties:
-            if not space.is_mortgaged:
-                # Space is not mortgaged.
-                if not isinstance(space, RealEstate):
-                    # Either railroad or utility.
-                    spaces_to_mortgage.append(space)
-                elif space.houses == 0 and not space.hotel:
-                    # Real estate space with no houses or hotels.
-                    spaces_to_mortgage.append(space)
-        # Make sure there are any spaces to mortgage.
-        if not spaces_to_mortgage:
-            log.warning(f"No properties available to mortgage")
-            return
-
-        # Present the player with all the relevant spaces to mortgage.
-        log.info(f"Properties you can mortgage:")
-        for i, prop in enumerate(spaces_to_mortgage, 1):
-            log.info(f"{i}. {prop.name} ({prop.mortgage_value}$ cash)")
-
-        # Player to choose which space to mortgage.
         while True:
+            # Find any spaces the player owns that are not mortgaged and don't have houses or hotels on them.
+            spaces_to_mortgage = []
+            for space in player.properties:
+                if not space.is_mortgaged:
+                    # Space is not mortgaged.
+                    if not isinstance(space, RealEstate):
+                        # Either railroad or utility.
+                        spaces_to_mortgage.append(space)
+                    elif space.houses == 0 and not space.hotel:
+                        # Real estate space with no houses or hotels.
+                        spaces_to_mortgage.append(space)
+            # Make sure there are any spaces to mortgage.
+            if not spaces_to_mortgage:
+                log.warning(f"No properties available to mortgage")
+                return
+
+            # Present the player with all the relevant spaces to mortgage.
+            log.info(f"Properties you can mortgage:")
+            for i, prop in enumerate(spaces_to_mortgage, 1):
+                log.info(f"{i}. {prop.name} ({prop.mortgage_value}$ cash)")
+
+            # Player to choose which space to mortgage.
             choice = input(f"Enter space number to mortgage ('end' to finish): ").strip().lower()
 
             if choice == "end":
@@ -889,9 +850,6 @@ class Game:
             player.cash += space_to_mortgage.mortgage_value
             log.info(f"{player.name} mortgaged {space_to_mortgage.name} for {space_to_mortgage.mortgage_value}$")
 
-            # Recursive call to make sure all checks are valid and there are still spaces to potentially mortgage.
-            self.mortgage(player=player)
-
     def redeem(self, player: Player):
         """
         Allows the player to redeem (unmortgage) eligible properties. This method checks all properties owned by the
@@ -903,21 +861,21 @@ class Game:
         :paam player: The player attempting to redeem mortgaged properties.
         """
 
-        # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
-        spaces_to_redeem = [space for space in player.properties if space.is_mortgaged and
-                            player.cash > space.redeem_value]
-        # Make sure there are spaces to redeem.
-        if not spaces_to_redeem:
-            log.warning(f"No spaces available to redeem")
-            return
-
-        # Present the player with all the relevant spaces to redeem.
-        log.info(f"Properties you can redeem:")
-        for i, prop in enumerate(spaces_to_redeem, 1):
-            log.info(f"{i}. {prop.name} ({prop.redeem_value}$ cash)")
-
-        # Player to choose which space to redeem.
         while True:
+            # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
+            spaces_to_redeem = [space for space in player.properties if space.is_mortgaged and
+                                player.cash > space.redeem_value]
+            # Make sure there are spaces to redeem.
+            if not spaces_to_redeem:
+                log.warning(f"No spaces available to redeem")
+                return
+
+            # Present the player with all the relevant spaces to redeem.
+            log.info(f"Properties you can redeem:")
+            for i, prop in enumerate(spaces_to_redeem, 1):
+                log.info(f"{i}. {prop.name} ({prop.redeem_value}$ cash)")
+
+            # Player to choose which space to redeem.
             choice = input(f"Enter space number to redeem ('end' to finish): ").strip().lower()
 
             if choice == "end":
@@ -934,76 +892,6 @@ class Game:
             space_to_redeem.is_mortgaged = False
             player.cash -= space_to_redeem.redeem_value
             log.info(f"{player.name} redeemed {space_to_redeem.name} for {space_to_redeem.redeem_value}$")
-
-            # Recursive call to make sure all checks are valid and there are still spaces to potentially mortgage.
-            self.redeem(player=player)
-
-    @staticmethod
-    def property_asset_management(player: Player, action: str):
-        # TODO: Separate this function to mortgage and redeem.
-        """
-        Allows a player to either mortgage or redeem one of their properties based on the given action. Behavior:
-        - If action is "mortgage":
-            - Lists all unmortgaged properties owned by the player.
-            - Allows the player to select one to mortgage (only if it has no houses or hotels).
-            - Adds half the property's value to the player's cash and marks the property as mortgaged.
-
-        - If action is "redeem":
-            - Lists all mortgaged properties owned by the player.
-            - Allows the player to select one to redeem.
-            - Deducts the mortgage value plus 10% interest from the player's cash and marks the property as unmortgaged.
-
-        :param player: The player object whose properties will be considered.
-        :param action: Either "mortgage" or "redeem". Determines whether the player is attempting to mortgage an
-        unmortgaged property or redeem a mortgaged one.
-        """
-
-        debug_string = "mortgage" if action == "mortgage" else "redeem"
-
-        # Determine the relevant properties based on the mortgage direction.
-        relevant_properties = [space for space in player.properties if
-                               (not space.is_mortgaged if action == "mortgage" else space.is_mortgaged)]
-        # If mortgaging, filter real estate properties with houses/hotels (they have to be sold first).
-        if action == "mortgage":
-            for space in relevant_properties:
-                if isinstance(space, RealEstate):
-                    if space.hotel or space.houses > 0:
-                        relevant_properties.remove(space)
-
-        # Make sure there are relevant properties to mortgage/redeem.
-        if not relevant_properties:
-            log.warning(f"No properties available to {debug_string}")
-            return
-
-        # Present the player with all the relevant properties and let them choose which one to mortgage/redeem.
-        log.info(f"Properties you can {debug_string}:")
-        for i, prop in enumerate(relevant_properties, 1):
-            value = prop.mortgage_value if action == "mortgage" else prop.redeem_value
-            log.info(f"{i}. {prop.name} ({value}$ cash)")
-        idx = input(f"Enter property number to {debug_string}: ").strip()
-        if idx.isdigit() and 1 <= int(idx) <= len(relevant_properties):
-            # User selected a valid choice.
-            property_to_handle = relevant_properties[int(idx) - 1]
-
-            if action == "mortgage":
-                # Provide player with mortgage cash and mark the property accordingly.
-                property_to_handle.is_mortgaged = True
-                player.cash += property_to_handle.mortgage_value
-                log.info(f"{player.name} mortgaged {property_to_handle.name} for {property_to_handle.mortgage_value}$")
-            elif action == "redeem":
-                # Check that player has enough cash to redeem the property.
-                if player.cash < property_to_handle.redeem_value:
-                    log.warning(f"Not enough cash to redeem {property_to_handle.name} "
-                                f"({property_to_handle.redeem_value}$ required)")
-                    return
-
-                # Redeem the property and deduct the cash from the player.
-                player.cash -= property_to_handle.redeem_value
-                property_to_handle.is_mortgaged = False
-                log.info(f"{player.name} redeemed {property_to_handle.name} by paying "
-                         f"{property_to_handle.redeem_value}$")
-        else:
-            log.warning("Invalid choice")
 
     # Jail functionality #
 
