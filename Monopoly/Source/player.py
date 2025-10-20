@@ -10,9 +10,10 @@ class Player:
         self.name = name
         self.role = role
         self.position = 0
+        self.is_bankrupt = False
         # Assets.
         self.cash = 1500
-        self.properties = []
+        self.spaces = []
         # Jail related.
         self.free_cards = 0
         self.in_jail = False
@@ -33,9 +34,9 @@ class Player:
 
         # Assets information.
         log.info(f"Cash - {self.cash}")
-        if self.properties:
+        if self.spaces:
             log.info("Properties owned:")
-            for p in self.properties:
+            for p in self.spaces:
                 p.print_information()
 
         # Jail related information.
@@ -72,6 +73,10 @@ class Bot(Player):
     def trade_acceptance_logic(self):
         pass
 
+    @abstractmethod
+    def raise_cash_logic(self):
+        pass
+
 
 class Dummy(Bot):
     """Purpose of this bot is to serve as a completely passive playing partner. Useful for debug purposes."""
@@ -92,3 +97,6 @@ class Dummy(Bot):
     def trade_acceptance_logic(self):
         """Decline any trade offer."""
         return "y"
+
+    def raise_cash_logic(self):
+        return "automate"

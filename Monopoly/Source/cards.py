@@ -79,7 +79,7 @@ def go_to_jail(player, game):
 
 def general_repairs(player, game):
     repairs_cost = 0
-    for space in player.properties:
+    for space in player.spaces:
         if isinstance(space, RealEstate):
             repairs_cost += space.houses * 25 + (100 if space.hotel else 0)
 
@@ -189,7 +189,7 @@ def consultancy_fee(player, game):
 
 def street_repairs(player, game):
     repairs_cost = 0
-    for space in player.properties:
+    for space in player.spaces:
         if isinstance(space, RealEstate):
             repairs_cost += space.houses * 40 + (115 if space.hotel else 0)
 

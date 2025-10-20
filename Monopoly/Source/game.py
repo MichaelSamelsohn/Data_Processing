@@ -41,16 +41,13 @@ class Game:
 
         # Check if player is in jail for three turns.
         if player.turns_in_jail == 3:
-            player.cash -= JAIL_FINE  # Pay the fine.
+            self.pay_debt(debtor=player, debt=JAIL_FINE)
+            if player.is_bankrupt:
+                self.bankruptcy_handler(player=player)
             # Reset the jail parameters.
             player.in_jail = False
             player.turns_in_jail = 0
             log.info(f"{player.name} payed {JAIL_FINE} to get out of jail")
-
-            if player.cash < 0:
-                if not self.raise_emergency_cash():
-                    self.handle_bankruptcy(player)
-                    return
 
         # Prompt the player for their input.
         while True:
@@ -72,12 +69,10 @@ class Game:
                         log.warning(f"{player.name} already rolled the dice on this turn")
                     else:
                         self.roll_handler(player)
-
-                        # Check for bankruptcy.
-                        if player.cash < 0:
-                            if not self.raise_emergency_cash():
-                                self.handle_bankruptcy(player)
-                                return
+                        # Check if player became bankrupt after the roll.
+                        if player.is_bankrupt:
+                            self.bankruptcy_handler(player=player)
+                            return  # Turn ends for bankrupt player.
                 case "trade":
                     self.trade_handler(player)
                 case "develop":
@@ -194,9 +189,16 @@ class Game:
         if isinstance(space, RealEstate) or isinstance(space, Railroad) or isinstance(space, Utility):
             while True:
                 if space.owner is None:
-                    # Space has no owner, provide the player a choice to buy it.
+                    # Space has no owner.
+
+                    # Check if player has enough money to buy space.
+                    if player.cash < space.purchase_price:
+                        # Player can't afford the purchasing price, going to auction it.
+                        self.auction(space=space)
+                        break
+
                     if isinstance(player, Human):
-                        decision = input(f"Buy {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
+                        decision = input(f"Purchase {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
                     else:  # Bot.
                         decision = player.position
 
@@ -204,7 +206,7 @@ class Game:
                         # Player decided to buy the property.
                         player.cash -= space.purchase_price
                         space.owner = player
-                        player.properties.append(space)
+                        player.spaces.append(space)
                         log.info(f"{player.name} bought {space.name} for {space.purchase_price}")
                         break
                     elif decision == "n":
@@ -216,10 +218,7 @@ class Game:
                 else:
                     # Space has an owner and it is not the current turn player.
                     rent = self.calculate_rent(space, dice_roll)
-                    # Transfer rent from current turn player to space owner.
-                    player.cash -= rent
-                    space.owner.cash += rent
-                    log.info(f"{player.name} pays {rent}$ rent to {space.owner.name}")
+                    self.pay_debt(debtor=player, debt=rent, creditor=space.owner)
 
         # Handle special spaces.
         match space.name:
@@ -228,10 +227,10 @@ class Game:
                 player.cash += GO_SALARY
             case "Luxury Tax":
                 log.info(f"{player.name} pays 100$ in luxury tax")
-                player.cash -= 100
+                self.pay_debt(debtor=player, debt=100)
             case "Income Tax":
                 log.info(f"{player.name} pays 200$ in income tax")
-                player.cash -= 200
+                self.pay_debt(debtor=player, debt=200)
             case "Chance":
                 self.chance_deck.draw().apply(player, self)
             case "Community Chest":
@@ -362,15 +361,93 @@ class Game:
                         # Relevant for rest of the auction - Check if all players (except last bidder) held no bids.
                         log.info(f"{auction_winner} won the auction!")
                         space.owner = auction_winner
-                        auction_winner.properties.append(space)
+                        auction_winner.spaces.append(space)
                         auction_winner.cash -= latest_bid
                         return  # Auction ended.
 
-    def raise_emergency_cash(self):
-        # TODO: To be implemented.
-        return True  # lead to bankruptcy if no cash left.
+    def pay_debt(self, debtor: Player, debt: int, creditor=None):
+        """
+        TODO: Complete the docstring.
+        """
 
-    def handle_bankruptcy(self, player: Player):
+        # Check if the debtor has cash to pay the debt immediately.
+        if debtor.cash > debt:
+            debtor.cash -= debt
+            if creditor:
+                # Creditor gets their due.
+                creditor.cash += debt
+
+        else:
+            # Player lacks the necessary cash to pay the debt directly.
+
+            # Asses how much cash can the player raise in total.
+            total_cash = 0
+            for space in debtor.spaces:
+                # Add mortgage value.
+                total_cash += space.mortgage_value
+                # Add house/hotel sell values (if space has any).
+                if isinstance(space, RealEstate):
+                    total_cash += (space.houses + (1 if space.hotel else 0)) * space.building_sell
+
+            if total_cash < debt:
+                # Player can't repay his debt.
+
+                # Selling/mortgaging everything the player owns.
+                for space in debtor.spaces:
+                    space.is_mortgaged = True if creditor else False  # Bank immediately auctions unmortgaged spaces.
+                    space.hotel = False
+                    space.houses = 0
+
+                # Non-bank creditor gets all assets.
+                if creditor:
+                    # Transfer cash.
+                    creditor.cash += total_cash
+                    # Transfer 'Get out of jail free' cards.
+                    creditor.free_cards += debtor.free_cards
+                    # Transfer all (mortgaged) spaces.
+                    self.transfer_spaces(sender=debtor, recipient=creditor, spaces_to_transfer=debtor.spaces)
+                else:
+                    # Bank is the creditor. Auction all spaces (unmortgaged).
+                    for space in debtor.spaces:
+                        space.owner = None
+                        self.auction(space=space)
+
+                # Declaring bankruptcy.
+                debtor.spaces = []
+                debtor.cash = 0
+                debtor.free_cards = 0
+                debtor.is_bankrupt = True
+
+            else:
+                log.warning(f"{debtor} lacks cash to pay debt, will have to sell or mortgage")
+
+                while True:
+                    # Let the player choose the cash raising method.
+                    if isinstance(debtor, Human):
+                        choice = input("Choose one of the following: sell / mortgage / automate: ")
+                    else:  # Bot.
+                        choice = debtor.raise_cash_logic()
+
+                    match choice:
+                        case "sell":
+                            self.sell(player=debtor)
+                        case "mortgage":
+                            self.mortgage(player=debtor)
+                        case "automate":
+                            pass  # TODO: To be implemented.
+                        case _:
+                            log.warning("Invalid choice")
+                            continue
+
+                    # Check if player raised enough to pay debt.
+                    if debtor.cash > debt:
+                        debtor.cash -= debt
+                        if creditor:
+                            # Creditor gets their due.
+                            creditor.cash += debt
+                        return  # Debtor paid their debt.
+
+    def bankruptcy_handler(self, player: Player):
         """
         Handles the removal of a player from the game due to bankruptcy. This method performs the following actions:
         - Releases all properties owned by the bankrupt player.
@@ -380,11 +457,6 @@ class Game:
 
         :param player:The player who has gone bankrupt and is to be removed from the game.
         """
-
-        # Release owned properties.
-        for prop in player.properties:
-            prop.owner = None
-        player.properties.clear()
 
         # Remove player from game.
         self.players.remove(player)
@@ -481,12 +553,12 @@ class Game:
 
         # Offer properties.
         log.info(f"{player.name}'s properties:")
-        for i, p in enumerate(player.properties):
+        for i, p in enumerate(player.spaces):
             log.debug(f"  [{i}] {p.name}")
         offer_spaces_selection = input("Enter indices of properties to offer (comma separated): ")
         try:
             indices = [int(i.strip()) for i in offer_spaces_selection.split(",") if i.strip()]
-            offer_spaces = [player.properties[i] for i in indices if 0 <= i < len(player.properties)]
+            offer_spaces = [player.spaces[i] for i in indices if 0 <= i < len(player.spaces)]
         except Exception:
             log.warning("Invalid selection")
             offer_spaces = []
@@ -581,9 +653,9 @@ class Game:
 
         # Transfer properties from sender to recipient.
         for prop in spaces_to_transfer:
-            sender.properties.remove(prop)
+            sender.spaces.remove(prop)
             prop.owner = recipient
-            recipient.properties.append(prop)
+            recipient.spaces.append(prop)
 
             # Recipient to choose between redeeming or paying mortgage fee for mortgaged properties.
             if prop.is_mortgaged:
@@ -825,7 +897,7 @@ class Game:
         """
 
         # Find all unique real estate property colors a player owns.
-        player_owned_colors = set(p.color for p in player.properties if isinstance(p, RealEstate))
+        player_owned_colors = set(p.color for p in player.spaces if isinstance(p, RealEstate))
         player_owned_full_sets = []
         for color in player_owned_colors:
             # Find the color set properties.
@@ -881,7 +953,7 @@ class Game:
         while True:
             # Find any spaces the player owns that are not mortgaged and don't have houses or hotels on them.
             spaces_to_mortgage = []
-            for space in player.properties:
+            for space in player.spaces:
                 if not space.is_mortgaged:
                     # Space is not mortgaged.
                     if not isinstance(space, RealEstate):
@@ -931,7 +1003,7 @@ class Game:
 
         while True:
             # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
-            spaces_to_redeem = [space for space in player.properties if space.is_mortgaged and
+            spaces_to_redeem = [space for space in player.spaces if space.is_mortgaged and
                                 player.cash > space.redeem_value]
             # Make sure there are spaces to redeem.
             if not spaces_to_redeem:
