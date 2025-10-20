@@ -740,13 +740,15 @@ class Game:
             if not player_owned_monopoly_colors:
                 log.warning(f"{player.name} does not own any monopoly to build on")
                 return
-            # Filter monopolies which have all hotels already built (nothing left to build) or building cost is higher than
-            # the cash a player owns.
+            # Filter monopolies which have all hotels already built (nothing left to build) or building cost is higher
+            # than the cash a player owns.
             valid_player_owned_monopoly_colors = []
             for monopoly_color in player_owned_monopoly_colors:
-                monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == monopoly_color]
+                monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate)
+                                   and s.color == monopoly_color]
                 # Check that the player has enough cash to build.
-                # Since all spaces in the same monopoly have the same building cost, all we need is to check the first one.
+                # Since all spaces in the same monopoly have the same building cost, all we need is to check the first
+                # one.
                 if monopoly_spaces[0].building_cost > player.cash:
                     continue
 
@@ -954,7 +956,8 @@ class Game:
                 case _:
                     log.warning(f"'{choice}' is an unidentified action")
 
-    def mortgage(self, player: Player):
+    @staticmethod
+    def mortgage(player: Player):
         """
         Allows a player to mortgage one or more of their eligible properties in exchange for cash. A property is
         eligible for mortgaging if:
@@ -1009,7 +1012,8 @@ class Game:
             player.cash += space_to_mortgage.mortgage_value
             log.info(f"{player.name} mortgaged {space_to_mortgage.name} for {space_to_mortgage.mortgage_value}$")
 
-    def redeem(self, player: Player):
+    @staticmethod
+    def redeem(player: Player):
         """
         Allows the player to redeem (unmortgage) eligible properties. This method checks all properties owned by the
         given player and presents a list of mortgaged properties that the player can afford to redeem based on their
@@ -1017,7 +1021,7 @@ class Game:
         redemption, the method recursively calls itself to allow the player to continue redeeming additional properties
         if they wish.
 
-        :paam player: The player attempting to redeem mortgaged properties.
+        :param player: The player attempting to redeem mortgaged properties.
         """
 
         while True:
