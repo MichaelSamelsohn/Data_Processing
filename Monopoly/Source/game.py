@@ -332,13 +332,13 @@ class Game:
                     while True:
                         # Allow player to make a new bid.
                         if isinstance(player, Human):
-                            new_bid = input(f"{player}, offer new bid: ")
+                            new_bid = input(f"{player.name}, offer new bid: ")
                         else:  # Bot.
                             new_bid = player.auction_logic()
 
                         if new_bid.isdigit() and latest_bid < int(new_bid):
                             # Check that new bid is within the player ability to pay.
-                            if new_bid > player.cash:
+                            if int(new_bid) > player.cash:
                                 log.warning("New bid is higher than player can pay")
                             else:
                                 # Valid bid was made.
@@ -356,13 +356,13 @@ class Game:
 
                 # Check for auction end.
                 match no_bid_counter:
-                    case len(self.players):
+                    case _ if no_bid_counter == len(self.players):
                         # Relevant for first round only - Check if first round held no bids.
                         log.warning("No player made a bid, property returns to bank ownership")
                         return  # Auction ended without a winner.
                     case _ if no_bid_counter == len(self.players) - 1:
                         # Relevant for rest of the auction - Check if all players (except last bidder) held no bids.
-                        log.info(f"{auction_winner} won the auction!")
+                        log.info(f"{auction_winner.name} won the auction!")
                         space.owner = auction_winner
                         auction_winner.spaces.append(space)
                         auction_winner.cash -= latest_bid
