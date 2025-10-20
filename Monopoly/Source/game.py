@@ -192,26 +192,34 @@ class Game:
 
         # Handle non-special spaces - Property, railroad and utility.
         if isinstance(space, RealEstate) or isinstance(space, Railroad) or isinstance(space, Utility):
-            if space.owner is None:
-                # Space has no owner, provide the player a choice to buy it.
-                if isinstance(player, Human):
-                    decision = input(f"Buy {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
-                else:  # Bot.
-                    decision = player.position
+            while True:
+                if space.owner is None:
+                    # Space has no owner, provide the player a choice to buy it.
+                    if isinstance(player, Human):
+                        decision = input(f"Buy {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
+                    else:  # Bot.
+                        decision = player.position
 
-                if decision == 'y':
-                    # Player decided to buy the property.
-                    player.cash -= space.purchase_price
-                    space.owner = player
-                    player.properties.append(space)
-                    log.info(f"{player.name} bought {space.name} for {space.purchase_price}")
-            elif space.owner != player:
-                # Space has an owner and it is not the current turn player.
-                rent = self.calculate_rent(space, dice_roll)
-                # Transfer rent from current turn player to space owner.
-                player.cash -= rent
-                space.owner.cash += rent
-                log.info(f"{player.name} pays {rent}$ rent to {space.owner.name}")
+                    if decision == "y":
+                        # Player decided to buy the property.
+                        player.cash -= space.purchase_price
+                        space.owner = player
+                        player.properties.append(space)
+                        log.info(f"{player.name} bought {space.name} for {space.purchase_price}")
+                        break
+                    elif decision == "n":
+                        self.auction(space=space)
+                        break
+                    else:
+                        log.warning("Invalid choice, please choose again")
+                        continue
+                else:
+                    # Space has an owner and it is not the current turn player.
+                    rent = self.calculate_rent(space, dice_roll)
+                    # Transfer rent from current turn player to space owner.
+                    player.cash -= rent
+                    space.owner.cash += rent
+                    log.info(f"{player.name} pays {rent}$ rent to {space.owner.name}")
 
         # Handle special spaces.
         match space.name:
@@ -297,6 +305,66 @@ class Game:
             count = sum(1 for s in self.board.spaces if isinstance(s, Utility) and s.owner == owner)
             multiplier = 4 if count == 1 else 10 if count == 2 else 0
             return multiplier * dice_roll
+
+    def auction(self, space: Space):
+        """
+        Conducts an auction for a property space among all players. Each player is prompted in turn to place a bid
+        higher than the current highest bid or to pass. The auction starts with a default minimum bid of 10. If a player
+        places a valid bid (numeric and greater than the current highest), they become the current highest bidder. If
+        all players pass in the first round, the property remains unsold. The auction ends when all players except the
+        latest bidder have passed in a single round.
+
+        :param space: The property space being auctioned.
+        """
+
+        latest_bid = 10
+        auction_winner = None
+        no_bid_counter = 0
+
+        while True:
+            # Bidding round of all active players.
+            for player in self.players:
+                # Check that current player can even participate in the bidding (has enough cash).
+                if player.cash < latest_bid:
+                    log.info(f"{player.name} passed this round since bid is higher than cash balance")
+                    no_bid_counter += 1
+                else:
+                    # Current player has enough cash to make a higher bid.
+                    while True:
+                        # Allow player to make a new bid.
+                        new_bid = input(f"{player}, offer new bid: ")
+
+                        if new_bid.isdigit() and latest_bid < int(new_bid):
+                            # Check that new bid is within the player ability to pay.
+                            if new_bid > player.cash:
+                                log.warning("New bid is higher than player can pay")
+                            else:
+                                # Valid bid was made.
+                                latest_bid = int(new_bid)
+                                auction_winner = player
+                                no_bid_counter = 0
+                                break
+                        elif new_bid.isdigit() and latest_bid >= int(new_bid):
+                            # Invalid bid was made.
+                            log.warning(f"New bid, {new_bid}, is equal or smaller then latest bid, {latest_bid}")
+                        elif not new_bid.isdigit():
+                            # Player passes current bidding round.
+                            no_bid_counter += 1
+                            break
+
+                # Check for auction end.
+                match no_bid_counter:
+                    case len(self.players):
+                        # Relevant for first round only - Check if first round held no bids.
+                        log.warning("No player made a bid, property returns to bank ownership")
+                        return  # Auction ended without a winner.
+                    case _ if no_bid_counter == len(self.players) - 1:
+                        # Relevant for rest of the auction - Check if all players (except last bidder) held no bids.
+                        log.info(f"{auction_winner} won the auction!")
+                        space.owner = auction_winner
+                        auction_winner.properties.append(space)
+                        auction_winner.cash -= latest_bid
+                        return  # Auction ended.
 
     def raise_emergency_cash(self):
         # TODO: To be implemented.
