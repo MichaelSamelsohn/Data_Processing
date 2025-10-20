@@ -367,7 +367,26 @@ class Game:
 
     def pay_debt(self, debtor: Player, debt: int, creditor=None):
         """
-        TODO: Complete the docstring.
+        Attempts to settle a debt for a given player. The method handles both direct cash payments and asset liquidation
+        when necessary.
+
+        If the debtor has enough cash to cover the debt, the amount is directly deducted from their cash and optionally
+        added to the creditor’s balance.
+
+        If the debtor lacks sufficient cash:
+        - The method evaluates if the debtor can raise enough by selling or
+          mortgaging their assets (properties, houses, hotels).
+        - If they cannot raise enough, they are declared bankrupt:
+            - If a creditor is specified, their assets (spaces and free cards)
+              are transferred to the creditor.
+            - If no creditor is specified (i.e., the bank), properties are
+              unmortgaged and sent to auction.
+        - If they can raise enough, the player is prompted (or automated, for bots)
+          to sell or mortgage assets until they can pay the debt.
+
+        :param debtor: The player who owes the debt.
+        :param debt: The amount the debtor must pay.
+        :param creditor: The recipient of the payment. If None, the bank is considered the creditor.
         """
 
         # Check if the debtor has cash to pay the debt immediately.
