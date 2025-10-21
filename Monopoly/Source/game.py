@@ -2,6 +2,7 @@
 import random
 
 from Monopoly.Settings.monopoly_settings import *
+from Monopoly.Source.Bots.dummy import Dummy
 from Monopoly.Source.board import RealEstate, Board, Railroad, Utility, Space
 from Monopoly.Source.cards import create_chance_deck, create_community_chest_deck
 from Monopoly.Source.player import Player, Human
@@ -405,8 +406,9 @@ class Game:
             # Asses how much cash can the player raise in total.
             total_cash = 0
             for space in debtor.spaces:
-                # Add mortgage value.
-                total_cash += space.mortgage_value
+                # Add mortgage value (if not already mortgaged).
+                if not space.is_mortgaged:
+                    total_cash += space.mortgage_value
                 # Add house/hotel sell values (if space has any).
                 if isinstance(space, RealEstate):
                     total_cash += (space.houses + (1 if space.hotel else 0)) * space.building_sell
@@ -446,7 +448,7 @@ class Game:
                 while True:
                     # Let the player choose the cash raising method.
                     if isinstance(debtor, Human):
-                        choice = input("Choose one of the following: sell / mortgage / automate: ")
+                        choice = input("Choose one of the following: sell / mortgage: ")
                     else:  # Bot.
                         choice = debtor.raise_cash_logic()
 
@@ -456,7 +458,22 @@ class Game:
                         case "mortgage":
                             self.mortgage(player=debtor)
                         case "automate":
-                            pass  # TODO: To be implemented.
+                            # Relevant only for dummy bot.
+                            if not isinstance(debtor, Dummy):
+                                log.warning("This option can only be used by dummy bots!")
+                                continue
+
+                            # Dummy bot logic doesn't allow to have houses, only spaces (unmortgaged or mortgaged via
+                            # trade).
+                            for space in debtor.spaces:
+                                if not space.is_mortgaged:
+                                    # Mortgage space.
+                                    debtor.cash += space.mortgage_value
+                                    space.is_mortgaged = True
+
+                                # Check if enough cash was raised.
+                                if debtor.cash > debt:
+                                    break
                         case _:
                             log.warning("Invalid choice")
                             continue
