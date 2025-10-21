@@ -33,7 +33,7 @@ class Player:
         log.info(f"Position - {self.position}")
 
         # Assets information.
-        log.info(f"Cash - {self.cash}")
+        log.info(f"Cash - {self.cash}$")
         if self.spaces:
             log.info("Properties owned:")
             for p in self.spaces:

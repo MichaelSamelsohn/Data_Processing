@@ -176,15 +176,15 @@ def life_insurance_matures(player, game):
 
 
 def hospital_fees(player, game):
-    player.chas -= 100
+    player.cash -= 100
 
 
 def school_fees(player, game):
-    player.chas -= 150
+    player.cash -= 150
 
 
 def consultancy_fee(player, game):
-    player.chas -= 25
+    player.cash -= 25
 
 
 def street_repairs(player, game):
@@ -197,7 +197,7 @@ def street_repairs(player, game):
 
 
 def beauty_contest(player, game):
-    player.chas += 10
+    player.cash += 10
 
 
 def create_community_chest_deck():

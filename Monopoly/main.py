@@ -1,10 +1,14 @@
 # Imports #
+import time
+
+from Monopoly.Source.Bots.easy import Easy
 from Monopoly.Source.Bots.dummy import Dummy
+from Monopoly.Source.Bots.easy import Easy
 from Monopoly.Source.game import Game
-from Monopoly.Source.player import Human
 
 if __name__ == "__main__":
-    game = Game([Human(name="Michael"), Dummy("Bob")])
-    for _ in range(10):
+    game = Game([Easy(name="Alice"), Dummy(name="Bob")])
+    for _ in range(100):
         game.play_turn()
+        time.sleep(1)
 
