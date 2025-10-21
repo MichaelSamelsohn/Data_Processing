@@ -13,11 +13,11 @@ class Bot(Player):
         pass
 
     @abstractmethod
-    def buy_space_logic(self):
+    def buy_space_logic(self, space):
         pass
 
     @abstractmethod
-    def auction_logic(self):
+    def auction_logic(self, space, latest_bid):
         pass
 
     @abstractmethod
