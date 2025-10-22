@@ -59,7 +59,7 @@ class Game:
                                if not player.post_roll else ""}trade / develop / manage{jail_string}"
                                f"{" / end" if player.post_roll else ""}: ").strip().lower()
             else:  # Bot.
-                action = player.play_turn_logic()
+                action = player.play_turn_logic(board=self.board, players=self.players)
 
             match action:
                 # Main options.
@@ -286,9 +286,9 @@ class Game:
                     3: space.three_house_rent,
                     4: space.four_house_rent,
                 }.get(space.houses)
-            elif space.color in self.find_monopolies_owned_by_player(space.owner):
+            elif is_monopoly_owned_by_player(player=space.owner, color=space.color, board=self.board):
                 return 2 * space.base_rent
-            else:  # Owner doesn't own the full set.
+            else:  # Owner doesn't own the monopoly.
                 return space.base_rent
 
         # Handle railroad property.
@@ -786,83 +786,52 @@ class Game:
         :param player: The player attempting to build houses or hotels.
         """
 
+        # Find all player owned valid spaces with option to build on.
+        valid_spaces_to_build_on = find_valid_spaces_to_build_on(player=player, board=self.board)
+        if not valid_spaces_to_build_on:
+            log.warning(f"{player.name} has no spaces to build on")
+            return
+
         while True:
-            # Find all monopolies owned by player (only these can have houses/hotels built on).
-            player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
-            # Check player has any monopolies.
-            if not player_owned_monopoly_colors:
-                log.warning(f"{player.name} does not own any monopoly to build on")
-                return
-            # Filter monopolies which have all hotels already built (nothing left to build) or building cost is higher
-            # than the cash a player owns.
-            valid_player_owned_monopoly_colors = []
-            for monopoly_color in player_owned_monopoly_colors:
-                monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate)
-                                   and s.color == monopoly_color]
-                # Check that the player has enough cash to build.
-                # Since all spaces in the same monopoly have the same building cost, all we need is to check the first
-                # one.
-                if monopoly_spaces[0].building_cost > player.cash:
-                    continue
-
-                # Check that not all spaces in a monopoly have a hotel.
-                for space in monopoly_spaces:
-                    if not space.hotel:
-                        # Found a space with no hotel.
-                        valid_player_owned_monopoly_colors.append(monopoly_color)
-                        break
-            if not valid_player_owned_monopoly_colors:
-                log.warning("No valid monopolies to build on")
-                return
-
-            # Player to choose monopoly to build on.
+            # Player to choose valid monopoly.
             if isinstance(player, Human):
-                choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+                # Present human player with all valid options.
+                log.info(f"Monopolies to choose from - {valid_spaces_to_build_on.keys()}")
+
+                choice = input(f"Enter monopoly color to build on ('end' to finish building): ").strip().lower()
+                if choice == "end":
+                    return
             else:  # Bot.
                 choice = player.monopoly_build_logic()
 
-            if choice == "end":
-                return
-            else:
-                if not choice.isdigit() or not (1 <= int(choice) <= len(valid_player_owned_monopoly_colors)):
-                    log.warning("Invalid choice, try again")
-                    continue
+            if choice not in valid_spaces_to_build_on.keys():
+                log.warning("Invalid choice, try again")
+                continue
 
-            # Got to this point, choice is a valid index number.
-
-            # Find all spaces that belong to selected monopoly.
-            monopoly_color = valid_player_owned_monopoly_colors[int(choice) - 1]
-            monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == monopoly_color]
-            # Filter the spaces that can build houses/hotel according to the 'Even build/sell' rule.
-            min_houses = min(space.houses for space in monopoly_spaces if not space.hotel)
-            valid_monopoly_spaces = [space for space in monopoly_spaces if not space.hotel
-                                     and space.houses == min_houses]
-
-            # Display current houses/hotels on each space on the selected monopoly.
-            log.info(f"{monopoly_color} monopoly spaces (with an option to build house/hotel):")
-            for idx, space in enumerate(valid_monopoly_spaces, 1):
-                status = "Hotel" if space.hotel else f"{space.houses} houses"
-                log.info(f"{idx}. {space.name}: {status}")
+            # Got to this point, choice is a valid monopoly color.
+            selected_spaces_to_build_on = valid_spaces_to_build_on[choice]
 
             while True:
-                # Player to choose which space to build houses/hotels in.
+                # Player to choose which space to build house/hotel in.
                 if isinstance(player, Human):
-                    choice = (input(f"Enter space number to build house/hotel ('end' to finish building): ").
+                    # Present human player with all valid options.
+                    log.print_data(data=selected_spaces_to_build_on, log_level="info")
+
+                    choice = (input(f"Enter space index to build house/hotel ('end' to finish building): ").
                               strip().lower())
+                    if choice == "end":
+                        return
                 else:  # Bot.
                     choice = player.build_logic()
 
-                if choice == "end":
-                    return
-                else:
-                    if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
-                        log.warning("Invalid choice, try again")
-                        continue
+                if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_build_on) - 1):
+                    log.warning("Invalid choice, try again")
+                    continue
 
                 # Got to this point, choice is a valid index number.
+                space = selected_spaces_to_build_on[int(choice)]
 
                 # Build building.
-                space = valid_monopoly_spaces[int(choice) - 1]
                 if space.houses == 4:
                     # Building hotel.
                     space.houses = 0
@@ -872,7 +841,7 @@ class Game:
                     space.houses += 1
                 # Deduct building cost from player.
                 player.cash -= space.building_cost
-                break  # Stop current loop to make sure all validity checks are performed.
+                return
 
     def sell(self, player: Player):
         """
@@ -894,73 +863,52 @@ class Game:
         :param player: The player attempting to sell houses or hotels.
         """
 
-        while True:
-            # Find all monopoly colors owned by the player, only these can have houses/hotels to sell.
-            player_owned_monopoly_colors = self.find_monopolies_owned_by_player(player)
-            # Check that player has any monopolies.
-            if not player_owned_monopoly_colors:
-                log.warning(f"{player.name} does not own any full color monopoly (no houses/hotels to sell)")
-                return
-            # Filter monopolies that don't have a single house/hotel.
-            valid_player_owned_monopoly_colors = []
-            for color in player_owned_monopoly_colors:
-                # Find all spaces that belong to current monopoly.
-                monopoly = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == color]
-                # Check if there is any house/hotel in the current monopoly.
-                if [s for s in monopoly if s.houses > 0 or s.hotel]:
-                    valid_player_owned_monopoly_colors.append(color)
-            # Check that player has any monopolies with houses/hotel.
-            if not valid_player_owned_monopoly_colors:
-                log.warning(f"{player.name} does not own any houses/hotels to sell")
-                return
+        # Find all player owned valid spaces with option to sell from.
+        valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=player, board=self.board)
+        if not valid_spaces_to_sell_from:
+            log.warning(f"{player.name} does not own any spaces with houses/hotels to sell")
+            return
 
+        while True:
             # Player to choose monopoly to sell houses/hotels.
             if isinstance(player, Human):
-                choice = input(f"Enter monopoly number to build on ('end' to finish selling): ").strip().lower()
+                # Present human player with all valid options.
+                log.info(f"Monopolies to choose from - {valid_spaces_to_sell_from.keys()}")
+
+                choice = input(f"Enter monopoly number to sell from on ('end' to finish selling): ").strip().lower()
+                if choice == "end":
+                    return
             else:  # Bot.
                 choice = player.monopoly_sell_logic()
 
-            if choice == "end":
-                return
-            else:
-                if not choice.isdigit() or not (1 <= int(choice) <= len(valid_player_owned_monopoly_colors)):
-                    log.warning("Invalid choice, try again")
-                    continue
+            if choice not in valid_spaces_to_sell_from.keys():
+                log.warning("Invalid choice, try again")
+                continue
 
-            # Got to this point, choice is a valid index number.
-
-            # Find all spaces that belong to selected monopoly.
-            monopoly_color = valid_player_owned_monopoly_colors[int(choice) - 1]
-            monopoly_spaces = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == monopoly_color]
-            # Filter the spaces that can sell houses/hotel according to the 'Even build/sell' rule.
-            max_houses = max(space.houses for space in monopoly_spaces)
-            valid_monopoly_spaces = [space for space in monopoly_spaces if space.hotel or space.houses == max_houses]
-
-            # Display current houses/hotels on each space on the selected monopoly.
-            log.info(f"{monopoly_color} monopoly spaces (with an option to sell house/hotel):")
-            for idx, space in enumerate(valid_monopoly_spaces, 1):
-                status = "Hotel" if space.hotel else f"{space.houses} houses"
-                log.info(f"{idx}. {space.name}: {status}")
+            # Got to this point, choice is a valid monopoly color.
+            selected_spaces_to_sell_from = valid_spaces_to_sell_from[choice]
 
             while True:
                 # Player to choose which space to sell houses/hotels in.
                 if isinstance(player, Human):
+                    # Present human player with all valid options.
+                    log.print_data(data=selected_spaces_to_sell_from, log_level="info")
+
                     choice = (input(f"Enter space number to sell house/hotel ('end' to finish selling): ").
                               strip().lower())
+                    if choice == "end":
+                        return
                 else:  # Bot.
                     player.sell_logic()
 
-                if choice == "end":
-                    return
-                else:
-                    if not choice.isdigit() or not (1 <= int(choice) <= len(valid_monopoly_spaces)):
-                        log.warning("Invalid choice, try again")
-                        continue
+                if not choice.isdigit() or not (1 <= int(choice) <= len(selected_spaces_to_sell_from)):
+                    log.warning("Invalid choice, try again")
+                    continue
 
                 # Got to this point, choice is a valid number.
+                space = selected_spaces_to_sell_from[int(choice)]
 
                 # Sell building.
-                space = valid_monopoly_spaces[int(choice) - 1]
                 if space.hotel:
                     # Selling hotel.
                     space.hotel = False
@@ -970,32 +918,7 @@ class Game:
                     space.houses -= 1
                 # Compensate player.
                 player.cash += space.building_sell
-                break  # Stop current loop to make sure all validity checks are performed.
-
-    def find_monopolies_owned_by_player(self, player):
-        """
-        Returns a list of property color sets for which the given player owns all associated properties. This function
-        identifies full color groups (monopolies) the player owns, which typically makes those properties eligible for
-        development (e.g., building houses or hotels).
-
-        :param player: The player whose property ownership is being evaluated.
-
-        :return: A list of color names (strings) representing the full sets (e.g., 'blue', 'red') the player owns
-        completely.
-        """
-
-        # Find all unique real estate property colors a player owns.
-        player_owned_colors = set(p.color for p in player.spaces if isinstance(p, RealEstate))
-        player_owned_full_sets = []
-        for color in player_owned_colors:
-            # Find the color set properties.
-            color_full_set = [s for s in self.board.spaces if isinstance(s, RealEstate) and s.color == color]
-            # Check that all color set properties are owned by the player.
-            if all(p.owner == player for p in color_full_set):
-                # Add color set as an option for development.
-                player_owned_full_sets.append(color)
-
-        return player_owned_full_sets
+                return
 
     # Mortgage functionality #
 
@@ -1181,3 +1104,104 @@ class Game:
             player.in_jail = False
             player.turns_in_jail = 0
             # TODO: Put card at the bottom of the deck (which one?).
+
+
+def find_valid_spaces_to_build_on(player, board: Board):
+    """
+    Determines valid real estate spaces where the given player can build houses or hotels, based on the game's building
+    rules. A space is considered valid for building if all the following conditions are met:
+    1. The player owns all properties of the same color group (i.e., has a monopoly).
+    2. The space does not already have a hotel built.
+    3. The space follows the 'even build/sell' rule (i.e., player must build evenly across the monopoly).
+    4. The player has enough cash to afford the building cost for that space.
+
+    :param player: The player object, which contains owned spaces and current cash.
+    :param board: The game board object, which contains all spaces on the board.
+
+    :return: A dictionary where each key is a color group (str or enum) and each value is a list of RealEstate spaces
+    (objects) that are valid to build on. Only color groups with at least one valid space to build on are included.
+    """
+
+    # Dictionary used to mark available spaces to build on for the current player.
+    valid_spaces_to_build_on = {}
+
+    # Find all colors spaces a player owns.
+    colors = set(space.color for space in player.spaces if isinstance(space, RealEstate))
+
+    # Find all valid spaces that follow the criteria for building.
+    for color in colors:
+        # Find all spaces of the current monopoly color.
+        monopoly_spaces = [space for space in board.spaces if isinstance(space, RealEstate) and space.color == color]
+
+        # Criteria (1) - Check that all spaces in the monopoly are owned by the player.
+        if all(p.owner == player for p in monopoly_spaces):
+            # Found a monopoly owned by the player.
+
+            # Criteria (2)+(3) - Find spaces which don't have hotels and comply with the 'Even build/sell' rule.
+            min_houses = min(space.houses for space in monopoly_spaces if not space.hotel)
+            even_build_monopoly_spaces = [space for space in monopoly_spaces if not space.hotel
+                                          and space.houses == min_houses]
+
+            # Criteria (4) - Find spaces that player can afford the build cost.
+            valid_spaces_to_build_on[color] = [space for space in even_build_monopoly_spaces
+                                               if player.cash > space.building_cost]
+
+    # Filter any monopolies which have no available spaces to build on.
+    return {k: v for k, v in valid_spaces_to_build_on.items() if v != []}
+
+
+def find_valid_spaces_to_sell_from(player, board: Board):
+    """
+    Determines valid real estate spaces where the given player can sell houses or hotels, based on the game's selling
+    rules. A space is considered valid for selling buildings if all the following conditions are met:
+    1. The player owns all properties of the same color group (i.e., has a monopoly).
+    2. The space follows the 'even build/sell' rule (i.e., player must build evenly across the monopoly).
+    3. The space has at least one house to sell.
+
+    :param player: The player object, which contains owned spaces and current cash.
+    :param board: The game board object, which contains all spaces on the board.
+
+    :return: A dictionary where each key is a color group (str or enum) and each value is a list of RealEstate spaces
+    (objects) that are valid to sell from. Only color groups with at least one valid space to sell from are included.
+    """
+
+    # Dictionary used to mark available spaces to sell from for the current player.
+    valid_spaces_to_sell_from = {}
+
+    # Find all colors spaces a player owns.
+    colors = set(space.color for space in player.spaces if isinstance(space, RealEstate))
+
+    # Find all valid spaces that follow the criteria for selling.
+    for color in colors:
+        # Find all spaces of the current monopoly color.
+        monopoly_spaces = [space for space in board.spaces if isinstance(space, RealEstate) and space.color == color]
+
+        # Criteria (1) - Check that all spaces in the monopoly are owned by the player.
+        if all(p.owner == player for p in monopoly_spaces):
+            # Found a monopoly owned by the player.
+
+            # Criteria (2) - Find spaces that comply with the 'Even build/sell' rule.
+            max_houses = max(space.houses for space in monopoly_spaces)
+            even_sell_monopoly_spaces = [space for space in monopoly_spaces if space.hotel
+                                         or space.houses == max_houses]
+
+            # Criteria (3) - Check that space has any building to sell.
+            valid_spaces_to_sell_from[color] = [space for space in even_sell_monopoly_spaces if space.houses > 0]
+
+    # Filter any monopolies which have no available spaces to build on.
+    return {k: v for k, v in valid_spaces_to_sell_from.items() if v != []}
+
+
+def is_monopoly_owned_by_player(player, color: str, board: Board):
+    """
+    Checks whether the specified player owns all spaces of a given color monopoly on the board.
+
+    :param player: The player object to check ownership against.
+    :param color: The color group (e.g., "blue", "red") to check for monopoly.
+    :param board: The game board containing all property spaces.
+
+    :return: True if the player owns all properties in the specified color group, False otherwise.
+    """
+
+    monopoly = [s for s in board.spaces if isinstance(s, RealEstate) and s.color == color]
+    return True if all(space.owner == player for space in monopoly) else False

@@ -1,4 +1,5 @@
 # Imports #
+from Monopoly.Settings.monopoly_settings import log
 from Monopoly.Source.Bots.bot import Bot
 
 
@@ -7,11 +8,10 @@ class Easy(Bot):
     def __init__(self, name):
         super().__init__(name=name, role="Easy bot")
 
-        self.safe_buffer = 500       # This buffer is defined for purchasing houses/hotels.
-        self.emergency_buffer = 200  # This emergency buffer is used to pay fines and rent.
+        self.safety_buffer = 500       # This buffer is defined for purchasing houses/hotels.
+        self.emergency_buffer = 200    # This emergency buffer is used to pay fines and rent.
 
-    def play_turn_logic(self):
-        """Roll and end the turn."""
+    def play_turn_logic(self, board, players):
         if not self.post_roll:
             return "roll"
         else:
@@ -19,9 +19,15 @@ class Easy(Bot):
 
     def buy_space_logic(self, space):
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
-        if self.cash - space.purchase_price < self.safe_buffer:
+        balance_after_purchase = self.cash - space.purchase_price
+
+        if balance_after_purchase < self.safety_buffer:
+            log.logic(f"{self.name} - Will not buy space due to breach of safety buffer "
+                      f"(cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
             return "n"
         else:
+            log.logic(f"{self.name} - Buying space without breaching safety buffer "
+                      f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
             return "y"
 
     def auction_logic(self, space, latest_bid):
@@ -29,16 +35,24 @@ class Easy(Bot):
         The auction logic is based on three principals:
         1) Bid increments are fixed at 30$.
         2) Bid value doesn't exceed space purchase value.
-        3) Bid value doesn't breach 500$ buffer in the cash balance.
+        3) Bid value doesn't breach safety buffer in the cash balance.
         """
 
         potential_bid = latest_bid + 30  # Principal (1).
 
-        # Principals (2)+(3).
-        if (potential_bid > space.purchase_price) or (self.cash - potential_bid < self.safe_buffer):
+        # Principal (2) - Check that bid value doesn't exceed space purchase value.
+        if potential_bid > space.purchase_price:
+            log.logic(f"{self.name} - Pass this round as new potential bid ({potential_bid}$) "
+                      f"will be greater than space purchase price ({space.purchase_price}$)")
+            return "pass"
+        # Principal (3) - Check that bid value doesn't breach safety buffer.
+        elif self.cash - potential_bid < self.safety_buffer:
+            log.logic(f"{self.name} - Pass this round as new potential bid ({potential_bid}$) will breach safety "
+                      f"buffer (cash balance after purchase, {self.cash - potential_bid}$ < {self.safety_buffer}$")
             return "pass"
         else:
-            # Can afford bid increment.
+            log.logic(f"{self.name} - Making a new bid (fixed increment of 30$ to {potential_bid}$) that is less than "
+                      f"purchase value and doesn't breach safety buffer")
             return str(potential_bid)
 
     def raise_cash_logic(self):

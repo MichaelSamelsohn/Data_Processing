@@ -1,4 +1,5 @@
 # Imports #
+from Monopoly.Settings.monopoly_settings import log
 from Monopoly.Source.Bots.bot import Bot
 
 
@@ -7,7 +8,7 @@ class Dummy(Bot):
     def __init__(self, name):
         super().__init__(name=name, role="Dummy bot")
 
-    def play_turn_logic(self):
+    def play_turn_logic(self, board, players):
         """Roll and end the turn."""
         if not self.post_roll:
             return "roll"
@@ -16,10 +17,12 @@ class Dummy(Bot):
 
     def buy_space_logic(self, space):
         """Never buy any space."""
+        log.logic(f"{self.name} - Never buy a space")
         return "n"
 
     def auction_logic(self, space, latest_bid):
         """Never bid at an auction."""
+        log.logic(f"{self.name} - Never bidding at an auction")
         return "pass"
 
     def raise_cash_logic(self):
@@ -28,6 +31,7 @@ class Dummy(Bot):
 
     def trade_acceptance_logic(self):
         """Accept all deals."""
+        log.logic(f"{self.name} - Accepting all trade offers")
         return "y"
 
     def development_logic(self):
@@ -60,4 +64,5 @@ class Dummy(Bot):
 
     def redeem_logic(self):
         """Never redeem a space."""
+        log.logic(f"{self.name} - Never redeeming a space")
         return "n"

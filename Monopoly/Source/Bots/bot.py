@@ -9,7 +9,7 @@ class Bot(Player):
         super().__init__(name=name, role=role)
 
     @abstractmethod
-    def play_turn_logic(self):
+    def play_turn_logic(self, board, players):
         pass
 
     @abstractmethod
