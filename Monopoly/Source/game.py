@@ -1140,7 +1140,7 @@ def find_valid_spaces_to_build_on(player, board: Board):
         monopoly_spaces = [space for space in board.spaces if isinstance(space, RealEstate) and space.color == color]
 
         # Criteria (1) - Check that all spaces in the monopoly are owned by the player.
-        if all(p.owner == player for p in monopoly_spaces):
+        if all(space.owner == player and not space.is_mortgaged for space in monopoly_spaces):
             # Found a monopoly owned by the player.
 
             # Criteria (2)+(3) - Find spaces which don't have hotels and comply with the 'Even build/sell' rule.
