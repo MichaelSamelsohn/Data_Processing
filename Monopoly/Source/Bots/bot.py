@@ -25,7 +25,9 @@ class Bot(Player):
         pass
 
     @abstractmethod
-    def trade_acceptance_logic(self):
+    def trade_acceptance_logic(self, trade_offer_initiator,
+                               initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
+                               recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
         pass
 
     @abstractmethod

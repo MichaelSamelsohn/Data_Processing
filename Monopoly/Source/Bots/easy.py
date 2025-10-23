@@ -1,7 +1,7 @@
 # Imports #
 import random
 
-from Monopoly.Settings.monopoly_settings import log
+from Monopoly.Settings.monopoly_settings import *
 from Monopoly.Source.Bots.bot import Bot
 from Monopoly.Source.game import find_valid_spaces_to_build_on
 
@@ -30,13 +30,12 @@ class Easy(Bot):
                     cash_needed = []  # To track the cash lacking to develop in case we can't develop anything.
                     for monopoly in valid_spaces_to_build_on:
                         # Check if we have enough cash to build without dropping below emergency buffer.
-                        if self.cash - valid_spaces_to_build_on[monopoly][0].building_cost > self.emergency_buffer:
+                        build_cost = valid_spaces_to_build_on[monopoly][0].building_cost
+                        if self.cash - build_cost > self.emergency_buffer:
                             # Developing monopoly.
-                            log.logic(f"{self.name} - Developing a monopoly "
-                                      f"(cost - {valid_spaces_to_build_on[monopoly][0].building_cost}$) "
+                            log.logic(f"{self.name} - Developing a monopoly (cost - {build_cost}$) "
                                       f"without breaching emergency buffer (cash balance after purchase, "
-                                      f"{self.cash}$ - {valid_spaces_to_build_on[monopoly][0].building_cost}$ "
-                                      f"> {self.emergency_buffer}$)")
+                                      f"{self.cash}$ - {build_cost}$ > {self.emergency_buffer}$)")
 
                             # Not much thought over monopoly selection - First found that we are able to develop.
                             self.monopoly_build = monopoly
@@ -47,7 +46,7 @@ class Easy(Bot):
                             return "develop"
                         else:
                             # Lacking the cash to develop.
-                            cash_needed.append(self.emergency_buffer - (self.cash - monopoly[0].building_cost))
+                            cash_needed.append(self.emergency_buffer - (self.cash - build_cost))
 
                     # Check if we lack the cash to develop.
                     if not self.monopoly_build and not self.space_build:
@@ -106,9 +105,51 @@ class Easy(Bot):
         """Automate cash raising."""
         return "automate"
 
-    def trade_acceptance_logic(self):
-        """Accept all deals."""
-        return "y"
+    def trade_acceptance_logic(self, trade_offer_initiator,
+                               initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
+                               recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
+        """
+        The following trade logic principals are applied:
+        1) We don't care who is the trade offer initiator.
+        2) Accept trade offer if value is what we get is higher than what we give.
+
+        Trade offer evaluation:
+        * Cash.
+        * Spaces - Either 10% mortgage value fee if mortgaged else purchase price.
+        * 'Get out of jail free' cards - Evaluated the same as paying a jail fine.
+        """
+
+        # Evaluate the offer value.
+        offer_value = self.trade_offer_evaluation(
+            spaces=initiator_space_offer, cash=initiator_cash_offer, free_cards=initiator_free_cards_offer)
+
+        # Evaluate the return value.
+        return_value = self.trade_offer_evaluation(
+            spaces=recipient_space_offer, cash=recipient_cash_offer, free_cards=recipient_free_cards_offer)
+
+        # If we get more than we give accept, decline otherwise.
+        if offer_value > return_value:
+            log.logic(f"{self.name} - Accepting trade because offer value, {offer_value}$, "
+                      f"is higher than return value, {return_value}$")
+            return "y"
+        else:
+            log.logic(f"{self.name} - Declining trade because offer value, {offer_value}$, "
+                      f"is lower than return value, {return_value}$")
+            return "n"
+
+    @staticmethod
+    def trade_evaluation(spaces: list, cash: int, free_cards: int):
+        # Add offer cash value.
+        offer_value = cash
+
+        # Add spaces value.
+        for space in spaces:
+            offer_value += space.purchase_price if not space.is_mortgaged else (0.1 * space.mortgage_value)
+
+        # Add 'Get out of jail free' cards - Values as a jail fine.
+        offer_value += JAIL_FINE * free_cards
+
+        return offer_value
 
     def development_logic(self):
         """Dummy bot can never get to develop, no point to implement logic."""

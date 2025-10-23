@@ -1,5 +1,4 @@
 # Imports #
-import logging
 import random
 
 from Monopoly.Settings.monopoly_settings import *
@@ -585,7 +584,11 @@ class Game:
             if isinstance(trade_offer_recipient, Human):
                 confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
             else:  # Bot.
-                confirm = trade_offer_recipient.trade_acceptance_logic()
+                confirm = trade_offer_recipient.trade_acceptance_logic(
+                    trade_offer_initiator,
+                    initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
+                    recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer
+                )
 
             match confirm:
                 case "y":
@@ -1208,4 +1211,3 @@ def is_monopoly_owned_by_player(player, color: str, board: Board):
 
     monopoly = [s for s in board.spaces if isinstance(s, RealEstate) and s.color == color]
     return True if all(space.owner == player for space in monopoly) else False
-

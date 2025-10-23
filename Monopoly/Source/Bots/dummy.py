@@ -29,7 +29,9 @@ class Dummy(Bot):
         """Automate cash raising."""
         return "automate"
 
-    def trade_acceptance_logic(self):
+    def trade_acceptance_logic(self, trade_offer_initiator,
+                               initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
+                               recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
         """Accept all deals."""
         log.logic(f"{self.name} - Accepting all trade offers")
         return "y"
