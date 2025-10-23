@@ -33,19 +33,19 @@ class Bot(Player):
         pass
 
     @abstractmethod
-    def monopoly_build_logic(self):
+    def monopoly_build_selection_logic(self):
         pass
 
     @abstractmethod
-    def build_logic(self):
+    def space_build_selection_logic(self):
         pass
 
     @abstractmethod
-    def monopoly_sell_logic(self):
+    def monopoly_sell_selection_logic(self):
         pass
 
     @abstractmethod
-    def sell_logic(self):
+    def space_sell_selection_logic(self):
         pass
 
     @abstractmethod

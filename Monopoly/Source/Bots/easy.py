@@ -1,6 +1,9 @@
 # Imports #
+import random
+
 from Monopoly.Settings.monopoly_settings import log
 from Monopoly.Source.Bots.bot import Bot
+from Monopoly.Source.game import find_valid_spaces_to_build_on
 
 
 class Easy(Bot):
@@ -8,13 +11,57 @@ class Easy(Bot):
     def __init__(self, name):
         super().__init__(name=name, role="Easy bot")
 
+        # Cash buffers.
         self.safety_buffer = 500       # This buffer is defined for purchasing houses/hotels.
         self.emergency_buffer = 200    # This emergency buffer is used to pay fines and rent.
 
+        # Build.
+        self.monopoly_build = None
+        self.space_build = None
+        self.house_built_this_turn = False
+        self.current_development_action = None
+
     def play_turn_logic(self, board, players):
+        if self.cash > self.emergency_buffer:
+            # We have enough cash, consider building a house/hotel (one per turn).
+            if not self.house_built_this_turn:
+                valid_spaces_to_build_on = find_valid_spaces_to_build_on(player=self, board=board)
+                if valid_spaces_to_build_on:
+                    cash_needed = []  # To track the cash lacking to develop in case we can't develop anything.
+                    for monopoly in valid_spaces_to_build_on:
+                        # Check if we have enough cash to build without dropping below emergency buffer.
+                        if self.cash - valid_spaces_to_build_on[monopoly][0].building_cost > self.emergency_buffer:
+                            # Developing monopoly.
+                            log.logic(f"{self.name} - Developing a monopoly "
+                                      f"(cost - {valid_spaces_to_build_on[monopoly][0].building_cost}$) "
+                                      f"without breaching emergency buffer (cash balance after purchase, "
+                                      f"{self.cash}$ - {valid_spaces_to_build_on[monopoly][0].building_cost}$ "
+                                      f"> {self.emergency_buffer}$)")
+
+                            # Not much thought over monopoly selection - First found that we are able to develop.
+                            self.monopoly_build = monopoly
+                            # Not much thought over space selection - Select a random space.
+                            self.space_build = random.randint(0, len(valid_spaces_to_build_on[monopoly]) - 1)
+                            self.house_built_this_turn = True
+                            self.current_development_action = "build"
+                            return "develop"
+                        else:
+                            # Lacking the cash to develop.
+                            cash_needed.append(self.emergency_buffer - (self.cash - monopoly[0].building_cost))
+
+                    # Check if we lack the cash to develop.
+                    if not self.monopoly_build and not self.space_build:
+                        log.logic(f"{self.name} - Unable to develop an owned monopoly due to lack of cash, need at "
+                                  f"least {min(cash_needed)}$ to develop without breaching emergency buffer")
+
         if not self.post_roll:
             return "roll"
         else:
+            # Reset build values.
+            self.monopoly_build = None
+            self.space_build = None
+            self.house_built_this_turn = False
+            self.current_development_action = None
             return "end"
 
     def buy_space_logic(self, space):
@@ -22,11 +69,11 @@ class Easy(Bot):
         balance_after_purchase = self.cash - space.purchase_price
 
         if balance_after_purchase < self.safety_buffer:
-            log.logic(f"{self.name} - Will not buy space due to breach of safety buffer "
-                      f"(cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
+            log.logic(f"{self.name} - Will not buy space (price - {space.purchase_price}$) due to breach of safety "
+                      f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
             return "n"
         else:
-            log.logic(f"{self.name} - Buying space without breaching safety buffer "
+            log.logic(f"{self.name} - Buying space (price - {space.purchase_price}$) without breaching safety buffer "
                       f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
             return "y"
 
@@ -65,21 +112,21 @@ class Easy(Bot):
 
     def development_logic(self):
         """Dummy bot can never get to develop, no point to implement logic."""
-        pass
+        return self.current_development_action
 
-    def monopoly_build_logic(self):
+    def monopoly_build_selection_logic(self):
         """Dummy bot can never get to build, no point to implement logic."""
-        pass
+        return self.monopoly_build
 
-    def build_logic(self):
+    def space_build_selection_logic(self):
         """Dummy bot can never get to build, no point to implement logic."""
-        pass
+        return str(self.space_build)
 
-    def monopoly_sell_logic(self):
+    def monopoly_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
         pass
 
-    def sell_logic(self):
+    def space_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
         pass
 

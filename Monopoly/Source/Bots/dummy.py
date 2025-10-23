@@ -38,19 +38,19 @@ class Dummy(Bot):
         """Dummy bot can never get to develop, no point to implement logic."""
         pass
 
-    def monopoly_build_logic(self):
+    def monopoly_build_selection_logic(self):
         """Dummy bot can never get to build, no point to implement logic."""
         pass
 
-    def build_logic(self):
+    def space_build_selection_logic(self):
         """Dummy bot can never get to build, no point to implement logic."""
         pass
 
-    def monopoly_sell_logic(self):
+    def monopoly_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
         pass
 
-    def sell_logic(self):
+    def space_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
         pass
 

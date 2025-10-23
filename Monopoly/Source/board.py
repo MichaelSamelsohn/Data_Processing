@@ -43,7 +43,7 @@ class RealEstate(Space):
             buildings_string = ", hotel"
         elif self.houses > 0:  # Houses
             buildings_string = f", houses - {self.houses}"
-        else:  # No buildings on the property.
+        else:  # No buildings on the space.
             buildings_string = ""
 
         log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name} ({self.color}), position - {self.position}, "

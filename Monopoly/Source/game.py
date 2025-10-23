@@ -1,4 +1,5 @@
 # Imports #
+import logging
 import random
 
 from Monopoly.Settings.monopoly_settings import *
@@ -768,10 +769,12 @@ class Game:
             match choice:
                 case "build":
                     self.build(player)
+                    return
                 case "sell":
                     self.sell(player)
+                    return
                 case "end":
-                    break  # Stopping condition.
+                    return
                 case _:
                     log.warning(f"'{choice}' is an unidentified action")
 
@@ -802,7 +805,7 @@ class Game:
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.monopoly_build_logic()
+                choice = player.monopoly_build_selection_logic()
 
             if choice not in valid_spaces_to_build_on.keys():
                 log.warning("Invalid choice, try again")
@@ -822,7 +825,7 @@ class Game:
                     if choice == "end":
                         return
                 else:  # Bot.
-                    choice = player.build_logic()
+                    choice = player.space_build_selection_logic()
 
                 if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_build_on) - 1):
                     log.warning("Invalid choice, try again")
@@ -879,7 +882,7 @@ class Game:
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.monopoly_sell_logic()
+                choice = player.monopoly_sell_selection_logic()
 
             if choice not in valid_spaces_to_sell_from.keys():
                 log.warning("Invalid choice, try again")
@@ -899,7 +902,7 @@ class Game:
                     if choice == "end":
                         return
                 else:  # Bot.
-                    player.sell_logic()
+                    player.space_sell_selection_logic()
 
                 if not choice.isdigit() or not (1 <= int(choice) <= len(selected_spaces_to_sell_from)):
                     log.warning("Invalid choice, try again")
@@ -1205,3 +1208,4 @@ def is_monopoly_owned_by_player(player, color: str, board: Board):
 
     monopoly = [s for s in board.spaces if isinstance(s, RealEstate) and s.color == color]
     return True if all(space.owner == player for space in monopoly) else False
+
