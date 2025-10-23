@@ -3,7 +3,7 @@ import random
 
 from Monopoly.Settings.monopoly_settings import *
 from Monopoly.Source.Bots.bot import Bot
-from Monopoly.Source.game import find_valid_spaces_to_build_on
+from Monopoly.Source.game import *
 
 
 class Easy(Bot):
@@ -12,17 +12,26 @@ class Easy(Bot):
         super().__init__(name=name, role="Easy bot")
 
         # Cash buffers.
-        self.safety_buffer = 500       # This buffer is defined for purchasing houses/hotels.
-        self.emergency_buffer = 200    # This emergency buffer is used to pay fines and rent.
+        self.safety_buffer = 500          # This buffer is defined for purchasing houses/hotels.
+        self.emergency_buffer = 200       # This emergency buffer is used to pay fines and rent.
+        self.is_emergency_freeze = False  # If emergency buffer was breached this turn (to avoid spending cash).
 
-        # Build.
+        # Action parameters.
+        self.current_development_action = None
+
+        # Build parameters.
         self.monopoly_build = None
         self.space_build = None
         self.house_built_this_turn = False
-        self.current_development_action = None
+
+        # Sell parameters.
+        self.monopoly_sell = None
+        self.space_sell = None
+
+    # Main logic #
 
     def play_turn_logic(self, board, players):
-        if self.cash > self.emergency_buffer:
+        if self.cash >= self.emergency_buffer and not self.is_emergency_freeze:
             # We have enough cash, consider building a house/hotel (one per turn).
             if not self.house_built_this_turn:
                 valid_spaces_to_build_on = find_valid_spaces_to_build_on(player=self, board=board)
@@ -32,8 +41,8 @@ class Easy(Bot):
                         # Check if we have enough cash to build without dropping below emergency buffer.
                         build_cost = valid_spaces_to_build_on[monopoly][0].building_cost
                         if self.cash - build_cost > self.emergency_buffer:
-                            # Developing monopoly.
-                            log.logic(f"{self.name} - Developing a monopoly (cost - {build_cost}$) "
+                            # Developing (buying house/hotel) monopoly.
+                            log.logic(f"{self.name} - Buying a building (cost - {build_cost}$) to gain higher rent, "
                                       f"without breaching emergency buffer (cash balance after purchase, "
                                       f"{self.cash}$ - {build_cost}$ > {self.emergency_buffer}$)")
 
@@ -52,16 +61,59 @@ class Easy(Bot):
                     if not self.monopoly_build and not self.space_build:
                         log.logic(f"{self.name} - Unable to develop an owned monopoly due to lack of cash, need at "
                                   f"least {min(cash_needed)}$ to develop without breaching emergency buffer")
+                else:
+                    # No valid spaces to build on.
+                    pass # TODO: redeem logic to acquire a monopoly (to later build houses).
 
+        elif self.cash > self.emergency_buffer and self.is_emergency_freeze:
+            log.logic(f"{self.name} - Since emergency buffer was breached this turn, avoid active spending")
+
+        else:
+            # Emergency buffer is breached, self.cash < self.emergency_buffer.
+            self.is_emergency_freeze = True
+
+            # Check if there are houses to sell.
+            valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
+            if valid_spaces_to_sell_from:
+                for monopoly in valid_spaces_to_sell_from:
+                    # Developing (selling house/hotel) monopoly.
+                    log.logic(f"{self.name} - Selling a building to reach emergency buffer - {self.emergency_buffer}$ "
+                              f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
+
+                    # Not much thought over monopoly selection - First found that we are able to develop.
+                    self.monopoly_sell = monopoly
+                    # Not much thought over space selection - Select a random space.
+                    self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
+                    self.current_development_action = "sell"
+                    return "develop"
+
+            else:
+                # No valid spaces to sell from.
+                pass  # TODO: mortgage logic to raise cash for maintaining emergency buffer.
+
+        # Got to this point -> No active action required.
         if not self.post_roll:
             return "roll"
         else:
-            # Reset build values.
+            # Reset cash values.
+            self.is_emergency_freeze = False
+
+            # Reset action parameters.
+            self.current_development_action = None
+
+            # Reset build parameters.
             self.monopoly_build = None
             self.space_build = None
             self.house_built_this_turn = False
-            self.current_development_action = None
+
+            # Reset sell parameters.
+            self.monopoly_sell = None
+            self.space_sell = None
+
+            # End the turn.
             return "end"
+
+    # Passive #
 
     def buy_space_logic(self, space):
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
@@ -105,6 +157,8 @@ class Easy(Bot):
         """Automate cash raising."""
         return "automate"
 
+    # Trade #
+
     def trade_acceptance_logic(self, trade_offer_initiator,
                                initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
@@ -128,7 +182,7 @@ class Easy(Bot):
             spaces=recipient_space_offer, cash=recipient_cash_offer, free_cards=recipient_free_cards_offer)
 
         # If we get more than we give accept, decline otherwise.
-        if offer_value > return_value:
+        if offer_value >= return_value:
             log.logic(f"{self.name} - Accepting trade because offer value, {offer_value}$, "
                       f"is higher than return value, {return_value}$")
             return "y"
@@ -151,6 +205,8 @@ class Easy(Bot):
 
         return offer_value
 
+    # Development #
+
     def development_logic(self):
         """Dummy bot can never get to develop, no point to implement logic."""
         return self.current_development_action
@@ -165,11 +221,13 @@ class Easy(Bot):
 
     def monopoly_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
-        pass
+        return self.monopoly_sell
 
     def space_sell_selection_logic(self):
         """Dummy bot can never get to sell, no point to implement logic."""
-        pass
+        return str(self.space_sell)
+
+    # Management #
 
     def management_logic(self):
         """Dummy bot can never get to management, no point to implement logic."""
