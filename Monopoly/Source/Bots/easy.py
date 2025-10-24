@@ -89,7 +89,7 @@ class Easy(Bot):
                             self.space_redeem = random.randint(0, len(valid_spaces_to_redeem) - 1)
                             self.is_active_action_taken = True
                             self.management_action = "redeem"
-                            return "management"
+                            return "manage"
                         else:
                             # Lacking the cash to develop.
                             cash_needed.append(self.emergency_buffer - (self.cash - space.redeem_value))
@@ -139,7 +139,7 @@ class Easy(Bot):
                     # Not much thought over space selection - Select a random space.
                     self.space_mortgage = random.randint(0, len(valid_spaces_to_mortgage) - 1)
                     self.management_action = "mortgage"
-                    return "management"
+                    return "manage"
 
         # Got to this point -> No active action possible/required.
         if not self.post_roll:
