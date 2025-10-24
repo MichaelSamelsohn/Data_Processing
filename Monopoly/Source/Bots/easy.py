@@ -17,7 +17,8 @@ class Easy(Bot):
         self.is_emergency_freeze = False  # If emergency buffer was breached this turn (to avoid spending cash).
 
         # Action parameters.
-        self.current_development_action = None
+        self.development_action = None
+        self.management_action = None
 
         # Build parameters.
         self.monopoly_build = None
@@ -42,8 +43,8 @@ class Easy(Bot):
                         build_cost = valid_spaces_to_build_on[monopoly][0].building_cost
                         if self.cash - build_cost > self.emergency_buffer:
                             # Developing (buying house/hotel) monopoly.
-                            log.logic(f"{self.name} - Buying a building (cost - {build_cost}$) to gain higher rent, "
-                                      f"without breaching emergency buffer (cash balance after purchase, "
+                            log.logic(f"{self.name} - Buying a building (cost - {build_cost}$) to gain higher "
+                                      f"rent, without breaching emergency buffer (cash balance after purchase, "
                                       f"{self.cash}$ - {build_cost}$ > {self.emergency_buffer}$)")
 
                             # Not much thought over monopoly selection - First found that we are able to develop.
@@ -51,7 +52,7 @@ class Easy(Bot):
                             # Not much thought over space selection - Select a random space.
                             self.space_build = random.randint(0, len(valid_spaces_to_build_on[monopoly]) - 1)
                             self.house_built_this_turn = True
-                            self.current_development_action = "build"
+                            self.development_action = "build"
                             return "develop"
                         else:
                             # Lacking the cash to develop.
@@ -70,26 +71,34 @@ class Easy(Bot):
 
         else:
             # Emergency buffer is breached, self.cash < self.emergency_buffer.
+            log.logic(f"{self.name} - Emergency buffer ({self.emergency_buffer}$) breached, trying to raise cash")
             self.is_emergency_freeze = True
 
-            # Check if there are houses to sell.
-            valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
-            if valid_spaces_to_sell_from:
-                for monopoly in valid_spaces_to_sell_from:
-                    # Developing (selling house/hotel) monopoly.
-                    log.logic(f"{self.name} - Selling a building to reach emergency buffer - {self.emergency_buffer}$ "
-                              f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
-
-                    # Not much thought over monopoly selection - First found that we are able to develop.
-                    self.monopoly_sell = monopoly
-                    # Not much thought over space selection - Select a random space.
-                    self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
-                    self.current_development_action = "sell"
-                    return "develop"
-
+            # Check if there are any non-mortgaged spaces left.
+            if all(space.is_mortgaged for space in self.spaces):
+                log.logic(f"{self.name} - No houses to sell or spaces to mortgage, cannot raise cash")
             else:
-                # No valid spaces to sell from.
-                pass  # TODO: mortgage logic to raise cash for maintaining emergency buffer.
+                # At least a space to mortgage.
+
+                # Check if there are houses to sell.
+                valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
+                if valid_spaces_to_sell_from:
+                    for monopoly in valid_spaces_to_sell_from:
+                        # Developing (selling house/hotel) monopoly.
+                        log.logic(f"{self.name} - Selling a building to reach emergency buffer - {self.emergency_buffer}$ "
+                                  f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
+
+                        # Not much thought over monopoly selection - First found that we are able to develop.
+                        self.monopoly_sell = monopoly
+                        # Not much thought over space selection - Select a random space.
+                        self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
+                        self.development_action = "sell"
+                        return "develop"
+
+                else:
+                    # No valid spaces to sell from, we can only mortgage.
+
+                    pass  # TODO: mortgage logic to raise cash for maintaining emergency buffer.
 
         # Got to this point -> No active action required.
         if not self.post_roll:
@@ -99,7 +108,7 @@ class Easy(Bot):
             self.is_emergency_freeze = False
 
             # Reset action parameters.
-            self.current_development_action = None
+            self.development_action = None
 
             # Reset build parameters.
             self.monopoly_build = None
@@ -209,7 +218,7 @@ class Easy(Bot):
 
     def development_logic(self):
         """Dummy bot can never get to develop, no point to implement logic."""
-        return self.current_development_action
+        return self.development_action
 
     def monopoly_build_selection_logic(self):
         """Dummy bot can never get to build, no point to implement logic."""
