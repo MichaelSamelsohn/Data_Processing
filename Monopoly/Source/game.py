@@ -453,6 +453,7 @@ class Game:
                         self.auction(space=space)
 
                 # Declaring bankruptcy.
+                log.warning(f"{debtor.name} is unable to pay debt, declared bankrupt!")
                 debtor.spaces = []
                 debtor.cash = 0
                 debtor.free_cards = 0
@@ -728,7 +729,7 @@ class Game:
                     if isinstance(recipient, Human):
                         action = input("Redeem property or pay mortgage fee (10%): ")
                     else:  # Bot.
-                        action = recipient.redeem_logic()
+                        action = recipient.post_trade_redeem_logic()
 
                     while True:
                         match action:
@@ -898,9 +899,9 @@ class Game:
                     if choice == "end":
                         return
                 else:  # Bot.
-                    player.space_sell_selection_logic()
+                    choice = player.space_sell_selection_logic()
 
-                if not choice.isdigit() or not (1 <= int(choice) <= len(selected_spaces_to_sell_from)):
+                if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_sell_from)):
                     log.warning("Invalid choice, try again")
                     continue
 
@@ -1010,40 +1011,38 @@ class Game:
         :param player: The player attempting to redeem mortgaged properties.
         """
 
+        # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
+        valid_spaces_to_redeem = find_valid_spaces_to_redeem(player=player)
+        # Make sure there are spaces to redeem.
+        if not valid_spaces_to_redeem:
+            log.warning(f"No spaces available to redeem")
+            return
+
+        # Present player with all valid options.
+        log.info("Spaces to redeem:")
+        log.info(valid_spaces_to_redeem)
+
         while True:
-            # Find any spaces the player owns that are mortgaged and player has enough cash to redeem.
-            spaces_to_redeem = [space for space in player.spaces if space.is_mortgaged and
-                                player.cash > space.redeem_value]
-            # Make sure there are spaces to redeem.
-            if not spaces_to_redeem:
-                log.warning(f"No spaces available to redeem")
-                return
-
-            # Present the player with all the relevant spaces to redeem.
-            log.info(f"Properties you can redeem:")
-            for i, prop in enumerate(spaces_to_redeem, 1):
-                log.info(f"{i}. {prop.name} ({prop.redeem_value}$ cash)")
-
             # Player to choose which space to redeem.
             if isinstance(player, Human):
                 choice = input(f"Enter space number to redeem ('end' to finish): ").strip().lower()
+                if choice == "end":
+                    return
             else:  # Bot.
                 choice = player.redeem_logic()
 
-            if choice == "end":
-                return
-            else:
-                if not choice.isdigit() or not (1 <= int(choice) <= len(spaces_to_redeem)):
-                    log.warning("Invalid choice, try again")
-                    continue
+            if not choice.isdigit() or not (0 <= int(choice) <= len(valid_spaces_to_redeem) - 1):
+                log.warning("Invalid choice, try again")
+                continue
 
             # Got to this point, choice is a valid number.
 
             # Redeem space.
-            space_to_redeem = spaces_to_redeem[int(choice) - 1]
+            space_to_redeem = valid_spaces_to_redeem[int(choice)]
             space_to_redeem.is_mortgaged = False
             player.cash -= space_to_redeem.redeem_value
             log.info(f"{player.name} redeemed {space_to_redeem.name} for {space_to_redeem.redeem_value}$")
+            return
 
     # Jail functionality #
 

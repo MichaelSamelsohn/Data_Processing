@@ -10,6 +10,7 @@ class Dummy(Bot):
 
     def play_turn_logic(self, board, players):
         """Roll and end the turn."""
+
         if not self.post_roll:
             return "roll"
         else:
@@ -35,6 +36,10 @@ class Dummy(Bot):
         """Accept all deals."""
         log.logic(f"{self.name} - Accepting all trade offers")
         return "y"
+
+    def post_trade_redeem_logic(self):
+        log.logic(f"{self.name} - Never redeeming a space post trade")
+        return "n"
 
     def development_logic(self):
         """Dummy bot can never get to develop, no point to implement logic."""
@@ -65,6 +70,5 @@ class Dummy(Bot):
         pass
 
     def redeem_logic(self):
-        """Never redeem a space."""
-        log.logic(f"{self.name} - Never redeeming a space")
-        return "n"
+        """Dummy bot can never get to redeem, no point to implement logic."""
+        pass

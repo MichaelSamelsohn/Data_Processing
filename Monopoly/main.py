@@ -1,6 +1,8 @@
 # Imports #
+import logging
 import time
 
+from Monopoly.Settings.monopoly_settings import log
 from Monopoly.Source.Bots.easy import Easy
 from Monopoly.Source.Bots.dummy import Dummy
 from Monopoly.Source.Bots.easy import Easy
@@ -8,7 +10,11 @@ from Monopoly.Source.game import Game
 
 if __name__ == "__main__":
     game = Game([Easy(name="Alice"), Dummy(name="Bob")])
-    for _ in range(500):
+    for turn in range(500):
+        log.info("")
+        log.info(f"--- Turn #{turn + 1} ---")
+        log.info("")
+
         game.play_turn()
-        time.sleep(1)
+        # time.sleep(1)
 

@@ -31,6 +31,10 @@ class Bot(Player):
         pass
 
     @abstractmethod
+    def post_trade_redeem_logic(self):
+        pass
+
+    @abstractmethod
     def development_logic(self):
         pass
 
