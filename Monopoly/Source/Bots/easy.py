@@ -1,12 +1,11 @@
 # Imports #
-import random
 
-from Monopoly.Settings.monopoly_settings import *
-from Monopoly.Source.Bots.bot import Bot
-from Monopoly.Source.game import *
+from Monopoly.Source.Game.Functionality.development import find_valid_spaces_to_build_on, find_valid_spaces_to_sell_from
+from Monopoly.Source.Game.Functionality.management import find_valid_spaces_to_redeem, find_valid_spaces_to_mortgage
+from Monopoly.Source.Game.game import *
 
 
-class Easy(Bot):
+class Easy(Player):
     """Purpose of this bot is to serve as an amateurish playing partner."""
     def __init__(self, name):
         super().__init__(name=name, role="Easy bot")

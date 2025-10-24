@@ -1,7 +1,7 @@
 import random
 
 from Monopoly.Settings.monopoly_settings import *
-from Monopoly.Source.board import RealEstate
+from Monopoly.Source.Game.board import RealEstate
 
 
 class Card:

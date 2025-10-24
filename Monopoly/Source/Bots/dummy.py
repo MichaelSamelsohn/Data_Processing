@@ -1,9 +1,9 @@
 # Imports #
 from Monopoly.Settings.monopoly_settings import log
-from Monopoly.Source.Bots.bot import Bot
+from Monopoly.Source.Game.player import Player
 
 
-class Dummy(Bot):
+class Dummy(Player):
     """Purpose of this bot is to serve as a completely passive playing partner. Useful for debug purposes."""
     def __init__(self, name):
         super().__init__(name=name, role="Dummy bot")
