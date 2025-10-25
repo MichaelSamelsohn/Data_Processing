@@ -1,7 +1,10 @@
 # Imports #
 from abc import abstractmethod, ABC
 
+from itertools import groupby
+
 from Monopoly.Settings.monopoly_settings import log
+from Monopoly.Source.Game.board import RealEstate, Utility, Railroad
 
 
 class Player:
@@ -23,7 +26,22 @@ class Player:
         self.post_roll = False
 
     def status(self):
-        """TODO: Complete the docstring."""
+        """
+        Print detailed information about the player's current status. This method logs the player's current state,
+        including their general information, financial standing, owned properties, and special conditions such as being
+        in jail or having rolled doubles. The information is formatted for readability and intended primarily for
+        debugging or game state inspection.
+
+        The following details are printed:
+        - Player name and role.
+        - Current position on the board.
+        - Available cash balance.
+        - List of owned real estate spaces (grouped and sorted by monopoly).
+        - List of owned utilities.
+        - List of owned railroads.
+        - Jail-related status, including turns in jail and "Get Out of Jail Free" cards.
+        - Dice roll information for the current turn, including the number of consecutive doubles rolled.
+        """
 
         log.info("")  # Empty line to start the information print.
         log.info("--- Player status ---")
@@ -32,12 +50,25 @@ class Player:
         log.info(f"Name - {self.name} ({self.role})")
         log.info(f"Position - {self.position}")
 
-        # Assets information.
+        # Cash.
         log.info(f"Cash - {self.cash}$")
-        if self.spaces:
-            log.info("Properties owned:")
-            for p in self.spaces:
-                p.print_information()
+        # Owned spaces.
+        streets = [space for space in self.spaces if isinstance(space, RealEstate)]
+        streets.sort(key=lambda x: x.color)
+        if streets:
+            log.info("Streets owned:")
+            for space in streets:
+                space.print_information()
+        utilities = [space for space in self.spaces if isinstance(space, Utility)]
+        if utilities:
+            log.info("Utilities owned:")
+            for space in utilities:
+                space.print_information()
+        railroads = [space for space in self.spaces if isinstance(space, Railroad)]
+        if railroads:
+            log.info("Railroads owned:")
+            for space in railroads:
+                space.print_information()
 
         # Jail related information.
         if self.in_jail:

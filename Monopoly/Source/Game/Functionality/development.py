@@ -55,7 +55,9 @@ def build(player: Player, board: Board):
 
     # Present player with all valid options.
     log.info("Spaces to buy on:")
-    log.print_data(data=valid_spaces_to_build_on, log_level="info")
+    for monopoly in valid_spaces_to_build_on:
+        log.info(f"{monopoly} (build cost, {valid_spaces_to_build_on[monopoly][0].building_cost}) "
+                 f"- {[space.name for space in valid_spaces_to_build_on[monopoly]]}")
 
     while True:
         # Player to choose valid monopoly.

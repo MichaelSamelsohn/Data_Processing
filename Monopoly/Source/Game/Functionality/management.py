@@ -1,6 +1,6 @@
 # Imports #
 from Monopoly.Settings.monopoly_settings import log
-from Monopoly.Source.Game.board import RealEstate, Board
+from Monopoly.Source.Game.board import RealEstate
 from Monopoly.Source.Game.player import Player, Human
 
 
@@ -25,10 +25,12 @@ def management_handler(player: Player):
         match choice:
             case "mortgage":
                 mortgage(player=player)
+                return
             case "redeem":
                 redeem(player=player)
+                return
             case "done":
-                break  # Stopping condition.
+                return
             case _:
                 log.warning(f"'{choice}' is an unidentified action")
 
@@ -57,7 +59,7 @@ def mortgage(player: Player):
 
     # Present player with all valid options.
     log.info("Spaces to mortgage:")
-    log.info(valid_spaces_to_mortgage)
+    log.info([f"{space.name} (mortgage value - {space.mortgage_value})" for space in valid_spaces_to_mortgage])
 
     while True:
         # Player to choose which space to mortgage.

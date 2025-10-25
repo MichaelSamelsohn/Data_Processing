@@ -40,14 +40,21 @@ class RealEstate(Space):
 
     def print_information(self):
         if self.hotel:
-            buildings_string = ", hotel"
-        elif self.houses > 0:  # Houses
-            buildings_string = f", houses - {self.houses}"
+            buildings_string = f"hotel, rent - {self.hotel_rent}"
+        elif self.houses > 0:  # Houses.
+            rent = {
+                    1: self.one_house_rent,
+                    2: self.two_house_rent,
+                    3: self.three_house_rent,
+                    4: self.four_house_rent,
+                }.get(self.houses)
+            buildings_string = f"houses - {self.houses}, rent - {rent}"
         else:  # No buildings on the space.
-            buildings_string = ""
+            # TODO: Need to present the double rent if monopoly is owned.
+            buildings_string = f"rent - {self.base_rent}"
 
         log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name} ({self.color}), position - {self.position}, "
-                 f"price - {self.purchase_price}, base rent - {self.base_rent}{buildings_string}")
+                 f"price - {self.purchase_price}, {buildings_string}")
 
 
 class Railroad(Space):
