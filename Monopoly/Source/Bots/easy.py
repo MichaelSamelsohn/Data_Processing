@@ -14,6 +14,7 @@ class Easy(Player):
         # Action parameters.
         self.development_action = None
         self.management_action = None
+        self.jail_action = None
         self.is_active_action_taken = False
         self.is_emergency_freeze = False
 
@@ -34,6 +35,27 @@ class Easy(Player):
     # Main logic #
 
     def play_turn_logic(self, board, players):
+        # Check if we are in jail (before rolling the dice).
+        if self.in_jail and not self.post_roll:
+            # We are in jail. Trying to get as soon as possible.
+
+            # Primary option - Use a 'Get out of jail free' card.
+            if self.free_cards > 0:
+                log.logic(f"{self.name} - Using a 'Get out of jail free' card to get out of jail")
+                self.jail_action = "free"
+                return "jail"
+
+            # Secondary option - Pay to get out of jail.
+            if self.cash - JAIL_FINE > self.emergency_buffer:
+                log.logic(f"{self.name} - Paying jail fine ({JAIL_FINE}$) without breaching emergency buffer "
+                          f"(cash balance after fine - {self.cash}$ - {JAIL_FINE}$ > {self.emergency_buffer})")
+                self.jail_action = "pay"
+                return "jail"
+
+            # Got to this point, unable to free ourselves from jail this turn. Will try our luck with rolling a double.
+            log.logic("Unable to forcibly get out of jail, will try rolling a double")
+
+        # Check if we are able to make an active cash spending action.
         if self.cash >= self.emergency_buffer and not self.is_emergency_freeze:
             # We have enough cash, consider building a house/hotel (one per turn).
             if not self.is_active_action_taken:
@@ -141,13 +163,12 @@ class Easy(Player):
         if not self.post_roll:
             return "roll"
         else:
-            # Reset cash values.
-            self.is_emergency_freeze = False
-
             # Reset action parameters.
             self.development_action = None
             self.management_action = None
+            self.jail_action = None
             self.is_active_action_taken = False
+            self.is_emergency_freeze = False
 
             # Reset build parameters.
             self.monopoly_build = None
@@ -290,3 +311,8 @@ class Easy(Player):
     def redeem_logic(self):
         """Never redeem a space."""
         return str(self.space_redeem)
+
+    # Jail #
+
+    def jail_logic(self):
+        return self.jail_action

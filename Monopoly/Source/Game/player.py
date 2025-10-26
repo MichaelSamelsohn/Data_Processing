@@ -140,6 +140,10 @@ class Player:
     def redeem_logic(self):
         pass
 
+    @abstractmethod
+    def jail_logic(self):
+        pass
+
 
 class Human(Player, ABC):
     def __init__(self, name):

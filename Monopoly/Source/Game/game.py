@@ -54,10 +54,9 @@ class Game:
         # Prompt the player for their input.
         while True:
             if isinstance(player, Human):
-                jail_string = " / pay" + (" / free" if player.free_cards > 0 else "") \
-                    if player.in_jail and not player.post_roll else ""
                 action = input(f"{player.name} ({player.cash}$), Please choose action - status / {"roll / " 
-                               if not player.post_roll else ""}trade / develop / manage{jail_string}"
+                               if not player.post_roll else ""}trade / develop / manage"
+                               f"{" / jail" if player.in_jail and not player.post_roll else ""}"
                                f"{" / end" if player.post_roll else ""}: ").strip().lower()
             else:  # Bot.
                 action = player.play_turn_logic(board=self.board, players=self.players)
@@ -70,21 +69,21 @@ class Game:
                     if player.post_roll:
                         log.warning(f"{player.name} already rolled the dice on this turn")
                     else:
-                        self.roll_handler(player)
+                        self.roll_handler(player=player)
                         # Check if player became bankrupt after the roll.
                         if player.is_bankrupt:
                             self.bankruptcy_handler(player=player)
                             return  # Turn ends for bankrupt player.
                 case "trade":
-                    trade_handler(player, self.players)
+                    trade_handler(trade_offer_initiator=player, players=self.players)
                 case "develop":
-                    development_handler(player, self.board)
+                    development_handler(player=player, board=self.board)
                 case "manage":
-                    management_handler(player)
+                    management_handler(player=player)
 
                 # Handling jail.
-                case "pay" | "free":
-                    jail_handler(player, action=action)
+                case "jail":
+                    jail_handler(player=player)
 
                 # Ending the turn.
                 case "end":
@@ -129,9 +128,26 @@ class Game:
         if die1 != die2:
             player.post_roll = True  # Player has rolled the dice for this turn.
             player.consecutive_double_rolls = 0
-        else:  # Rolled a double, player deserves another turn.
-            log.info(f"Rolled a double, {player.name} gets another roll")
-            player.consecutive_double_rolls += 1
+
+            # Check if player is in jail.
+            if player.in_jail:
+                # Player didn't roll double, stays in jail, no move allowed.
+                log.info(f"{player.name} didn't roll a double, remains in jail")
+                return  # Player remains in jail.
+        else:
+            # Rolled a double.
+
+            # Check if player is in jail.
+            if player.in_jail:
+                # Player gets out of jail, but doesn't get another turn.
+                log.info(f"{player.name} rolled a double, gets out of jail")
+                player.in_jail = False
+                player.post_roll = True  # No more rolls allowed for this turn (regardless of double).
+                player.consecutive_double_rolls = 0  # Reset the counter.
+            else:
+                # Player not in jail, deserves another turn.
+                log.info(f"Rolled a double, {player.name} gets another roll")
+                player.consecutive_double_rolls += 1
 
         # Handle case where player rolled three consecutive doubles.
         if player.consecutive_double_rolls == 3:

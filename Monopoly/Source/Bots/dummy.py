@@ -1,5 +1,5 @@
 # Imports #
-from Monopoly.Settings.monopoly_settings import log
+from Monopoly.Settings.monopoly_settings import log, JAIL_FINE
 from Monopoly.Source.Game.player import Player
 
 
@@ -8,12 +8,37 @@ class Dummy(Player):
     def __init__(self, name):
         super().__init__(name=name, role="Dummy bot")
 
+        # Action parameters.
+        self.jail_action = None
+
     def play_turn_logic(self, board, players):
         """Roll and end the turn."""
+
+        # Check if we are in jail (before rolling the dice).
+        if self.in_jail and not self.post_roll:
+            # We are in jail. Trying to get as soon as possible.
+
+            # Primary option - Use a 'Get out of jail free' card.
+            if self.free_cards > 0:
+                log.logic(f"{self.name} - Using a 'Get out of jail free' card to get out of jail")
+                self.jail_action = "free"
+                return "jail"
+
+            # Secondary option - Pay to get out of jail.
+            if self.cash > JAIL_FINE:
+                log.logic(f"{self.name} - Paying jail fine ({JAIL_FINE}$)")
+                self.jail_action = "pay"
+                return "jail"
+
+            # Got to this point, unable to free ourselves from jail this turn. Will try our luck with rolling a double.
+            log.logic(f"{self.name} - Unable to forcibly get out of jail, will try rolling a double")
 
         if not self.post_roll:
             return "roll"
         else:
+            # Reset action parameters.
+            self.jail_action = None
+
             return "end"
 
     def buy_space_logic(self, space):
@@ -72,3 +97,7 @@ class Dummy(Player):
     def redeem_logic(self):
         """Dummy bot can never get to redeem, no point to implement logic."""
         pass
+
+    def jail_logic(self):
+        """"""
+        return self.jail_action
