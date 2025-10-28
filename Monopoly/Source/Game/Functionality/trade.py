@@ -159,6 +159,9 @@ def make_offer(trade_master: Player, trade_partner: Player):
             offer_spaces_selection = input("Enter indices of properties to offer (comma separated): ")
         else:  # Bot.
             offer_spaces_selection = trade_master.trade_spaces_logic()
+            # Differentiate between space offer for the initiator/recipient.
+            offer_spaces_selection = offer_spaces_selection["initiator"] if trade_partner == trade_master \
+                else offer_spaces_selection["recipient"]
         try:
             indices = [int(i.strip()) for i in offer_spaces_selection.split(",") if i.strip()]
             offer_spaces = [valid_spaces_to_trade[i] for i in indices if 0 <= i < len(valid_spaces_to_trade)]
@@ -176,6 +179,8 @@ def make_offer(trade_master: Player, trade_partner: Player):
             offer_cash = input("Enter cash to offer (in $): ")
         else:  # Bot.
             offer_cash = trade_master.trade_cash_logic()
+            # Differentiate between cash offer for the initiator/recipient.
+            offer_cash = offer_cash["initiator"] if trade_partner == trade_master else offer_cash["recipient"]
 
         if not offer_cash.isdigit() or not (0 <= int(offer_cash) <= trade_partner.cash):
             log.warning("Invalid amount")
@@ -198,6 +203,9 @@ def make_offer(trade_master: Player, trade_partner: Player):
                 offer_free_cards = input("Enter 'Get out of jail free' card(s) to offer: ")
             else:  # Bot.
                 offer_free_cards = trade_master.trade_cards_logic()
+                # Differentiate between cash offer for the initiator/recipient.
+                offer_free_cards = offer_free_cards["initiator"] if trade_partner == trade_master \
+                    else offer_free_cards["recipient"]
 
             if not offer_free_cards.isdigit() or not (0 <= offer_free_cards <= trade_partner.free_cards):
                 log.warning("Invalid amount")
