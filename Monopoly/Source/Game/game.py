@@ -345,7 +345,7 @@ class Game:
         """
 
         log.info("")  # Empty line to start the auction print.
-        log.info("~~~ Auction ~~~")
+        log.info("~~~ AUCTION ~~~")
         log.info(f"Auction is held for {space.name} with initial bid of 10$")
 
         latest_bid = 10
