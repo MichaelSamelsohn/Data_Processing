@@ -99,6 +99,22 @@ class Player:
         pass
 
     @abstractmethod
+    def trade_partner_logic(self):
+        pass
+
+    @abstractmethod
+    def trade_spaces_logic(self):
+        pass
+
+    @abstractmethod
+    def trade_cash_logic(self):
+        pass
+
+    @abstractmethod
+    def trade_cards_logic(self):
+        pass
+
+    @abstractmethod
     def trade_acceptance_logic(self, trade_offer_initiator,
                                initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):

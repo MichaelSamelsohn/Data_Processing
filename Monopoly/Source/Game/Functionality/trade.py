@@ -38,9 +38,9 @@ def trade_handler(trade_offer_initiator: Player, players: list):
             if trade_offer_recipient_name == "end":
                 return
         else:  # Bot.
-            trade_offer_recipient_name = trade_offer_initiator.trade_partner_selection_logic()
+            trade_offer_recipient_name = trade_offer_initiator.trade_partner_logic()
         trade_offer_recipient = next((player for player in players if player.name == trade_offer_recipient_name),
-                                     None)
+                                     trade_offer_initiator)
         # Make sure the recipient exists and is not the same player as the initiator.
         if trade_offer_recipient_name == trade_offer_initiator.name or trade_offer_recipient is None:
             log.warning(f"Either {trade_offer_recipient_name} doesn't exist or is the initiator")

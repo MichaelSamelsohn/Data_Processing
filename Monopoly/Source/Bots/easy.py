@@ -233,6 +233,18 @@ class Easy(Player):
 
     # Trade #
 
+    def trade_partner_logic(self):
+        pass  # TODO: To be implemented.
+
+    def trade_spaces_logic(self):
+        pass  # TODO: To be implemented.
+
+    def trade_cash_logic(self):
+        pass  # TODO: To be implemented.
+
+    def trade_cards_logic(self):
+        pass  # TODO: To be implemented.
+
     def trade_acceptance_logic(self, trade_offer_initiator,
                                initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
