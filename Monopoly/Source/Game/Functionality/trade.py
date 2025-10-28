@@ -53,21 +53,14 @@ def trade_handler(trade_offer_initiator: Player, players: list):
         recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer = (
             make_offer(trade_master=trade_offer_initiator, trade_partner=trade_offer_recipient))
 
-        # Check that initiator of the trade doesn't become bankrupt after it.
-        initiator_cash_after_trade = trade_offer_initiator.cash - initiator_cash_offer + recipient_cash_offer
-        initiator_mortgage_fee = sum([0.1 * space.mortgage_value for space in recipient_space_offer
-                                      if space.is_mortgaged])
-        if initiator_cash_after_trade - initiator_mortgage_fee < 0:
-            log.warning(f"Bank declined trade offer as it will put the {trade_offer_initiator.name} in bankruptcy")
-            return
-        # Check that recipient of the trade doesn't become bankrupt after it.
-        recipient_cash_after_trade = trade_offer_recipient.cash - recipient_cash_offer + initiator_cash_offer
-        recipient_mortgage_fee = sum([0.1 * space.mortgage_value for space in initiator_space_offer
-                                      if space.is_mortgaged])
-        if recipient_cash_after_trade - recipient_mortgage_fee < 0:
-            log.warning(f"Bank declined trade offer as it will put the {trade_offer_recipient.name} in bankruptcy")
-            return
+        # Check that trade is legal (no side goes bankrupt due to it).
+        if not is_trade_legal(trade_offer_initiator=trade_offer_initiator, initiator_cash_offer=initiator_cash_offer,
+                              initiator_space_offer=initiator_space_offer,
+                              trade_offer_recipient=trade_offer_recipient, recipient_cash_offer=recipient_cash_offer,
+                              recipient_space_offer=recipient_space_offer):
+            return  # Trade was declined by the bank.
 
+        # Present the trade summary.
         log.info("--- TRADE SUMMARY ---")
         # Initiator -> Recipient.
         log.info(f"{trade_offer_initiator.name} gives to {trade_offer_recipient.name}:")
@@ -118,10 +111,10 @@ def trade_handler(trade_offer_initiator: Player, players: list):
                         player2_cash=recipient_cash_offer, player2_free_cards=recipient_free_cards_offer)
 
                     log.info("Trade completed successfully")
-                    return
+                    return  # Both sides agree, trade ends.
                 case "n":
                     log.warning(f"Trade declined by {trade_offer_recipient.name}")
-                    return
+                    return  # Recipient rejects the deal.
                 case _:
                     log.warning("Invalid choice")
                     continue
@@ -335,3 +328,42 @@ def find_valid_spaces_to_trade(player: Player):
             valid_spaces_to_trade.append(space)
 
     return valid_spaces_to_trade
+
+
+def is_trade_legal(trade_offer_initiator: Player, initiator_cash_offer: int, initiator_space_offer: list,
+                   trade_offer_recipient: Player, recipient_cash_offer: int, recipient_space_offer: list):
+    """
+    Determines whether a proposed property trade between two players is legal, meaning that neither player will go
+    bankrupt as a result of the transaction. The function checks that after the exchange of properties and cash offers:
+    - The initiator still has non-negative cash, accounting for any mortgage fees on properties received.
+    - The recipient also has non-negative cash, accounting for mortgage fees on properties received.
+    - If either player would be bankrupt after paying the 10% mortgage activation fee (if applicable), the trade is
+      deemed illegal.
+
+    :param trade_offer_initiator: The player initiating the trade.
+    :param initiator_cash_offer: Amount of cash offered by the initiator to the recipient.
+    :param initiator_space_offer: List of space objects the initiator is offering to trade.
+    :param trade_offer_recipient: The player receiving the trade offer.
+    :param recipient_cash_offer: Amount of cash offered by the recipient to the initiator.
+    :param recipient_space_offer: List of space objects the recipient is offering to trade.
+
+    :return: True if the trade is legal (no player goes bankrupt after the trade), False otherwise.
+    """
+
+    # Check that initiator of the trade doesn't become bankrupt after it.
+    initiator_cash_after_trade = trade_offer_initiator.cash - initiator_cash_offer + recipient_cash_offer
+    initiator_mortgage_fee = sum([0.1 * space.mortgage_value for space in recipient_space_offer
+                                  if space.is_mortgaged])
+    if initiator_cash_after_trade - initiator_mortgage_fee < 0:
+        log.warning(f"Bank declined trade offer as it will put the {trade_offer_initiator.name} in bankruptcy")
+        return False
+    # Check that recipient of the trade doesn't become bankrupt after it.
+    recipient_cash_after_trade = trade_offer_recipient.cash - recipient_cash_offer + initiator_cash_offer
+    recipient_mortgage_fee = sum([0.1 * space.mortgage_value for space in initiator_space_offer
+                                  if space.is_mortgaged])
+    if recipient_cash_after_trade - recipient_mortgage_fee < 0:
+        log.warning(f"Bank declined trade offer as it will put the {trade_offer_recipient.name} in bankruptcy")
+        return False
+
+    # Got to this point, the trade is legal.
+    return True
