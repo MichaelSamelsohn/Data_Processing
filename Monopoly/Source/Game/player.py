@@ -54,7 +54,7 @@ class Player:
         log.info(f"Cash - {self.cash}$")
         # Owned spaces.
         streets = [space for space in self.spaces if isinstance(space, RealEstate)]
-        streets.sort(key=lambda x: x.color)
+        streets.sort(key=lambda x: x.position)
         if streets:
             log.info("Streets owned:")
             for space in streets:

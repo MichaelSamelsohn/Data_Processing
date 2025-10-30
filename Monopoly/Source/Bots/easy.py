@@ -1,4 +1,5 @@
 # Imports #
+from collections import Counter
 from Monopoly.Source.Game.game import *
 
 
@@ -17,6 +18,12 @@ class Easy(Player):
         self.jail_action = None
         self.is_active_action_taken = False
         self.is_emergency_freeze = False
+        self.is_trade_attempted = False
+
+        # Trade parameters.
+        self.trade_partner = None
+        self.trade_cash = None
+        self.trade_spaces = None
 
         # Build parameters.
         self.monopoly_build = None
@@ -37,7 +44,11 @@ class Easy(Player):
     def play_turn_logic(self, board, players):
         # Check if we are in jail (before rolling the dice).
         if self.in_jail and not self.post_roll:
-            # We are in jail. Trying to get as soon as possible.
+            # We are in jail and haven't rolled the dice yet (turn start).
+
+            # JAIL #
+
+            log.logic(f"{self.name} - In jail, trying to get as soon as possible")
 
             # Primary option - Use a 'Get out of jail free' card.
             if self.free_cards > 0:
@@ -61,7 +72,9 @@ class Easy(Player):
             if not self.is_active_action_taken:
                 # Able to perform an active cash spending action - buy/redeem.
 
-                # DEVELOPMENT - Buying house/hotel.
+                # DEVELOPMENT - BUYING HOUSE/HOTEL #
+
+                # Find valid spaces to build on.
                 valid_spaces_to_build_on = find_valid_spaces_to_build_on(player=self, board=board)
                 if valid_spaces_to_build_on:
                     cash_needed = []  # To track the cash lacking to buy, in case we can't buy anything.
@@ -91,7 +104,9 @@ class Easy(Player):
 
                 # Got to this point, no valid spaces to build on.
 
-                # MANAGEMENT - Redemption.
+                # MANAGEMENT - REDEMPTION #
+
+                # Find valid spaces to redeem.
                 valid_spaces_to_redeem = find_valid_spaces_to_redeem(player=self)
                 if valid_spaces_to_redeem:
                     cash_needed = []  # To track the cash lacking to redeem, in case we can't redeem anything.
@@ -117,6 +132,69 @@ class Easy(Player):
                         log.logic(f"{self.name} - Unable to redeem an owned space due to lack of cash, need at "
                                   f"least {min(cash_needed)}$ to redeem without breaching emergency buffer")
 
+                # Got to this point, no valid spaces to redeem.
+
+                # TRADE #
+
+                # Check that we haven't tried to trade this turn.
+                if not self.is_trade_attempted:
+
+                    # Find monopolies that are "missing" one space to completion.
+                    monopoly_count = dict(Counter([space.color for space in self.spaces
+                                                   if isinstance(space, RealEstate)]))
+                    monopoly_count_difference = {k: MONOPOLY_COUNT.get(k, 0) - monopoly_count.get(k, 0)
+                                                 for k in MONOPOLY_COUNT.keys() | monopoly_count.keys()}
+                    close_monopolies = [key for key, value in monopoly_count_difference.items() if value == 1]
+
+                    # Check if there are possible monopolies to complete.
+                    if close_monopolies:
+                        missing_spaces = []
+                        # Scan all players and compile a dictionary of all "missing" spaces.
+                        for player in players:
+                            if player == self:
+                                continue  # We cannot trade with ourselves.
+
+                            # Find valid spaces to trade for the current player.
+                            # Note - It is important that we use this function, to have the exact indices presented in
+                            # the trade function.
+                            valid_spaces_to_trade = find_valid_spaces_to_trade(player=player)
+                            for space in valid_spaces_to_trade:
+                                # Check if space is a "missing" space.
+                                if space.color in close_monopolies:
+                                    """
+                                    Check that we can afford the space according to the following criteria:
+                                    1) If the space is not mortgaged, original purchase price.
+                                    2) If the space is mortgaged, 5% mortgage fee + 50% of original purchase price.
+                                    Note - We evaluate 55% of the purchase price in case of a mortgage, but the offer 
+                                    will be for 50% only! (the 5% is used to pay the mortgage fee, as we never redeem 
+                                    post trade).
+                                    """
+                                    space_trade_value = space.purchase_price if not space.is_mortgaged \
+                                        else 0.55 * space.purchase_price
+                                    if self.cash - space_trade_value > self.emergency_buffer:
+                                        missing_spaces.append([
+                                            player.name,                                          # Name of the player.
+                                            valid_spaces_to_trade.index(space),                   # Index of the space.
+                                            space_trade_value - (0 if not space.is_mortgaged      # Cash offer.
+                                                                 else 0.05 * space.purchase_price)])
+
+                        # Check that any "missing" spaces exist that can be traded.
+                        if missing_spaces:
+                            # Offer to trade space for cash.
+
+                            # Not much thought over space selection - Select a random space.
+                            space_to_trade = random.choice(missing_spaces)
+                            self.trade_partner = space_to_trade[0]
+                            self.trade_spaces = {"initiator": "", "recipient": space_to_trade[1]}
+                            self.trade_cash = {"initiator": str(space_to_trade[2]), "recipient": str(0)}
+                            self.is_active_action_taken = True
+                            self.is_trade_attempted = True
+                            log.logic(f"{self.name} - Offering to trade space for cash ({space_to_trade[2]}$) to "
+                                      f"complete a monopoly, without breaching emergency buffer "
+                                      f"(cash balance after purchase, "
+                                      f"{self.cash}$ - {space_to_trade[2]}$ > {self.emergency_buffer}$)")
+                            return "trade"
+
         elif self.cash > self.emergency_buffer and self.is_emergency_freeze:
             # Unable to perform an active cash spending action - buy/redeem.
             log.logic(f"{self.name} - Since emergency buffer was breached this turn, avoid active spending")
@@ -132,7 +210,9 @@ class Easy(Player):
             else:
                 # At least a space to mortgage.
 
-                # DEVELOPMENT - Selling house/hotel.
+                # DEVELOPMENT - SELLING HOUSE/HOTEL #
+
+                # Find valid spaces to sell from.
                 valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
                 if valid_spaces_to_sell_from:
                     for monopoly in valid_spaces_to_sell_from:
@@ -147,10 +227,12 @@ class Easy(Player):
                         self.development_action = "sell"
                         return "develop"
 
-                else:  # No valid spaces to sell from, we can only mortgage.
-                    # MANAGEMENT - Mortgage.
+                else:
+                    # No valid spaces to sell from, we can only mortgage.
 
-                    # Find all valid spaces to mortgage.
+                    # MANAGEMENT - MORTGAGE #
+
+                    # Find valid spaces to mortgage.
                     valid_spaces_to_mortgage = find_valid_spaces_to_mortgage(player=self)
                     # We already checked there are spaces to mortgage above, no need to check again.
 
@@ -169,6 +251,12 @@ class Easy(Player):
             self.jail_action = None
             self.is_active_action_taken = False
             self.is_emergency_freeze = False
+            self.is_trade_attempted = False
+
+            # Reset trade parameters.
+            self.trade_partner = None
+            self.trade_cash = None
+            self.trade_spaces = None
 
             # Reset build parameters.
             self.monopoly_build = None
@@ -234,16 +322,17 @@ class Easy(Player):
     # Trade #
 
     def trade_partner_logic(self):
-        pass  # TODO: To be implemented.
+        return self.trade_partner
 
     def trade_spaces_logic(self):
-        pass  # TODO: To be implemented.
+        return self.trade_spaces
 
     def trade_cash_logic(self):
-        pass  # TODO: To be implemented.
+        return self.trade_cash
 
     def trade_cards_logic(self):
-        pass  # TODO: To be implemented.
+        """Easy bot doesn't trade 'Get out of jail free' cards."""
+        return {"initiator": 0, "recipient": 0}
 
     def trade_acceptance_logic(self, trade_offer_initiator,
                                initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,

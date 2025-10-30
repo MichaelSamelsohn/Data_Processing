@@ -24,3 +24,14 @@ match verbosity_level:
 
 GO_SALARY = 200
 JAIL_FINE = 50
+
+MONOPOLY_COUNT = {
+    "Brown": 2,
+    "Light Blue": 3,
+    "Pink": 3,
+    "Orange": 3,
+    "Red": 3,
+    "Yellow": 3,
+    "Green": 3,
+    "Dark Blue": 2
+}
