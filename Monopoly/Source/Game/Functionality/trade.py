@@ -75,10 +75,10 @@ def trade_handler(trade_offer_initiator: Player, players: list):
 
         while True:
             # Initiator to confirm the trade offer.
-            if isinstance(trade_offer_recipient, Human):
-                confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
+            if isinstance(trade_offer_initiator, Human):
+                confirm = input(f"Does {trade_offer_initiator.name} accept the trade? (y/n): ")
                 if confirm == "y":
-                    log.warning(f"Trade confirmed by {trade_offer_initiator.name}")
+                    log.info(f"Trade confirmed by {trade_offer_initiator.name}")
                     break  # Initiator confirms the deal.
                 else:
                     log.warning(f"Trade declined by {trade_offer_initiator.name}")
@@ -99,7 +99,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
 
             match confirm:
                 case "y":
-                    log.warning(f"Trade confirmed by {trade_offer_initiator.name}")
+                    log.info(f"Trade confirmed by {trade_offer_recipient.name}")
 
                     # Perform trade.
                     execute_trade(
