@@ -159,6 +159,10 @@ class Easy(Player):
                             # the trade function.
                             valid_spaces_to_trade = find_valid_spaces_to_trade(player=player)
                             for space in valid_spaces_to_trade:
+                                # Check that space is of RealEstate type (we don't care about railroads and utilities).
+                                if not isinstance(space, RealEstate):
+                                    continue
+
                                 # Check if space is a "missing" space.
                                 if space.color in close_monopolies:
                                     """
@@ -185,7 +189,7 @@ class Easy(Player):
                             # Not much thought over space selection - Select a random space.
                             space_to_trade = random.choice(missing_spaces)
                             self.trade_partner = space_to_trade[0]
-                            self.trade_spaces = {"initiator": "", "recipient": space_to_trade[1]}
+                            self.trade_spaces = {"initiator": "", "recipient": str(space_to_trade[1])}
                             self.trade_cash = {"initiator": str(space_to_trade[2]), "recipient": str(0)}
                             self.is_active_action_taken = True
                             self.is_trade_attempted = True
@@ -332,7 +336,7 @@ class Easy(Player):
 
     def trade_cards_logic(self):
         """Easy bot doesn't trade 'Get out of jail free' cards."""
-        return {"initiator": 0, "recipient": 0}
+        return {"initiator": str(0), "recipient": str(0)}
 
     def trade_acceptance_logic(self, trade_offer_initiator,
                                initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
@@ -359,7 +363,7 @@ class Easy(Player):
         # If we get more than we give accept, decline otherwise.
         if offer_value >= return_value:
             log.logic(f"{self.name} - Accepting trade because offer value, {offer_value}$, "
-                      f"is higher than return value, {return_value}$")
+                      f"is higher than or equal to return value, {return_value}$")
             return "y"
         else:
             log.logic(f"{self.name} - Declining trade because offer value, {offer_value}$, "

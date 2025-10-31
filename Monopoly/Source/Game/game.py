@@ -480,7 +480,7 @@ class Game:
                 debtor.is_bankrupt = True
 
             else:
-                log.warning(f"{debtor} lacks cash to pay debt, will have to sell or mortgage")
+                log.warning(f"{debtor.name} lacks cash to pay debt, will have to sell or mortgage")
 
                 while True:
                     # Let the player choose the cash raising method.

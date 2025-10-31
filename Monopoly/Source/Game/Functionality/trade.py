@@ -149,7 +149,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
 
     # Present the player with the spaces available for trade.
     log.info("Spaces available for trade:")
-    log.info(valid_spaces_to_trade)
+    log.info([space.name for space in valid_spaces_to_trade])
 
     while True:
         # Offer spaces.
@@ -207,7 +207,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
                 offer_free_cards = offer_free_cards["initiator"] if trade_partner == trade_master \
                     else offer_free_cards["recipient"]
 
-            if not offer_free_cards.isdigit() or not (0 <= offer_free_cards <= trade_partner.free_cards):
+            if not offer_free_cards.isdigit() or not (0 <= int(offer_free_cards) <= trade_partner.free_cards):
                 log.warning("Invalid amount")
                 continue
             else:
