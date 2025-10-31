@@ -293,7 +293,7 @@ def transfer_spaces(sender: Player, recipient: Player, spaces_to_transfer: list)
                 if isinstance(recipient, Human):
                     action = input("Redeem property or pay mortgage fee (10%): ")
                 else:  # Bot.
-                    action = recipient.post_trade_redeem_logic()
+                    action = recipient.post_transfer_redeem_logic()
 
                 while True:
                     match action:

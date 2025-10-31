@@ -496,8 +496,8 @@ class Game:
                             mortgage(player=debtor)
                         case "automate":
                             # Relevant only for dummy bot.
-                            if not isinstance(debtor, Dummy):
-                                log.warning("This option can only be used by dummy bots!")
+                            if isinstance(debtor, Human):
+                                log.warning("This option can only be used by bots!")
                                 continue
 
                             # Dummy bot logic doesn't allow to have houses, only spaces (unmortgaged or mortgaged via

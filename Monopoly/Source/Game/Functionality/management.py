@@ -104,7 +104,7 @@ def redeem(player: Player):
 
     # Present player with all valid options.
     log.info("Spaces to redeem:")
-    log.info(valid_spaces_to_redeem)
+    log.info([space.name for space in valid_spaces_to_redeem])
 
     while True:
         # Player to choose which space to redeem.

@@ -78,8 +78,8 @@ class Dummy(Player):
         log.logic(f"{self.name} - Accepting all trade offers")
         return "y"
 
-    def post_trade_redeem_logic(self):
-        log.logic(f"{self.name} - Never redeeming a space post trade")
+    def post_transfer_redeem_logic(self):
+        log.logic(f"{self.name} - Never redeeming a space post transfer")
         return "n"
 
     def development_logic(self):

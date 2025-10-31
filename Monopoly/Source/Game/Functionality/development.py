@@ -134,7 +134,8 @@ def sell(player: Player, board: Board):
 
     # Present player with all valid options.
     log.info("Spaces to sell from:")
-    log.print_data(data=valid_spaces_to_sell_from, log_level="info")
+    for monopoly, spaces in valid_spaces_to_sell_from.items():
+        log.info(f"{monopoly} - {[space.name for space in spaces]}")
 
     while True:
         # Player to choose monopoly to sell houses/hotels.

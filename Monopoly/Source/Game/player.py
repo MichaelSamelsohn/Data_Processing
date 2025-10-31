@@ -121,7 +121,7 @@ class Player:
         pass
 
     @abstractmethod
-    def post_trade_redeem_logic(self):
+    def post_transfer_redeem_logic(self):
         pass
 
     @abstractmethod
