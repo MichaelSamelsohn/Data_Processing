@@ -4,6 +4,7 @@ import random
 import socket
 import threading
 import time
+import traceback
 
 from WiFi.Settings.wifi_settings import *
 
@@ -32,11 +33,13 @@ class MAC:
         self._last_phy_rate = 6  # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
 
         # Relevant for AP.
+        self._challenge_text = {}
         self._authenticated_sta = []
         self._associated_sta = []
 
         # Relevant for STA.
         self._probed_ap = None
+        self.authentication_algorithm = "open"
         self._authenticated_ap = None
         self._associated_ap = None
 
@@ -151,7 +154,7 @@ class MAC:
                 break
             except Exception as e:
                 log.error(f"({self._identifier}) MAC listen error:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data=traceback.print_exc(), log_level="error")
 
     def transmission_queue(self):
         """
@@ -431,12 +434,7 @@ class MAC:
                     log.mac(f"({self._identifier}) Association request frame subtype")
 
                     # Send ACK response.
-                    frame_parameters = {
-                        "TYPE": "ACK",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_ACK": False
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self.send_acknowledgement(source_address=source_address)
 
                     # Assert that STA is authenticated.
                     if source_address in self._authenticated_sta:
@@ -462,12 +460,7 @@ class MAC:
                     log.mac(f"({self._identifier}) Association response frame subtype")
 
                     # Send ACK response.
-                    frame_parameters = {
-                        "TYPE": "ACK",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_ACK": False
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self.send_acknowledgement(source_address=source_address)
 
                     # Assert that AP is authenticated.
                     if source_address == self._authenticated_ap:
@@ -505,24 +498,20 @@ class MAC:
                     log.mac(f"({self._identifier}) Probe response frame subtype")
 
                     # Send ACK response.
-                    frame_parameters = {
-                        "TYPE": "ACK",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_ACK": False
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self.send_acknowledgement(source_address=source_address)
 
                     # Updating the successfully probed AP MAC address.
                     self._probed_ap = source_address
 
                     # Send authenticating request.
-                    # TODO: The authentication algorithm Should be a variable depending on the system.
                     frame_parameters = {
                         "TYPE": "Authentication",
                         "DESTINATION_ADDRESS": self._probed_ap,
                         "WAIT_FOR_ACK": True
                     }
-                    self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
+                    self._tx_queue.append((frame_parameters,
+                                           SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+                    #                                                                            Seq. number
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
@@ -540,21 +529,21 @@ class MAC:
                     self._probed_ap = source_address
 
                     # Send authenticating request.
-                    # TODO: The authentication algorithm Should be a variable depending on the system.
                     frame_parameters = {
                         "TYPE": "Authentication",
                         "DESTINATION_ADDRESS": self._probed_ap,
                         "WAIT_FOR_ACK": True
                     }
-                    self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x01]))
+                    self._tx_queue.append((frame_parameters,
+                                           SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+                    #                                                                            Seq. number
                 else:
                     log.mac(f"({self._identifier}) Beacon received but already probed/authenticated/associated, no "
                             f"response needed")
 
             case [1, 0, 1, 1]:  # Authentication.
                 """
-                Handles both authentication requests and responses.
-                AP authenticates the STA and responds.
+                Handles both authentication requests and responses. AP authenticates the STA and responds.
                 STA marks AP as authenticated and proceeds to send an Association Request.
             
                 Authentication algorithm (2 bytes) - Indicates which authentication algorithm is being used. 
@@ -563,16 +552,6 @@ class MAC:
 
                 Authentication transaction sequence number (2 bytes) - Identifies the step in the authentication 
                 handshake.
-                1 (0x0001) - Authentication request.
-                2 (0x0002) - Response to request. 
-                3/4 (0x0003/0x0004)- Used in Shared Key (challenge/response).
-
-                Status Code (2 bytes) - (Only in responses) Indicates success or failure of the authentication.
-                0 (0x0000) = Successful.
-                Non-zero = Failure (reasons may vary).
-
-                Challenge Text (optional) (variable number of bytes) - Used in Shared Key authentication (not 
-                present in Open System).
                 """
 
                 log.mac(f"({self._identifier}) Authentication frame subtype")
@@ -580,53 +559,168 @@ class MAC:
                 # Extract authentication data.
                 authentication_data = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4]
 
-                match authentication_data[2:4]:
-                    case [0x00, 0x01]:  # Authentication request.
-                        # Checking that we are AP (authentication requests are relevant for AP only).
-                        if self._role == "AP" and cast == "Unicast":
-                            # Send ACK response.
-                            frame_parameters = {
-                                "TYPE": "ACK",
-                                "DESTINATION_ADDRESS": source_address,
-                                "WAIT_FOR_ACK": False
-                            }
-                            self._tx_queue.append((frame_parameters, []))
+                match authentication_data[:2]:
+                    case [0x00, 0x00]:
+                        # Open system.
 
-                            self._authenticated_sta.append(source_address)  # Updating the list.
-                            # Send authentication response.
-                            frame_parameters = {
-                                "TYPE": "Authentication",
-                                "DESTINATION_ADDRESS": source_address,
-                                "WAIT_FOR_ACK": True
-                            }
-                            self._tx_queue.append((frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
-                    case [0x00, 0x02]:  # Authentication response.
-                        # Checking that we are STA (authentication responses are relevant for STA only).
-                        if self._role == "STA" and cast == "Unicast":
-                            # Send ACK response.
-                            frame_parameters = {
-                                "TYPE": "ACK",
-                                "DESTINATION_ADDRESS": source_address,
-                                "WAIT_FOR_ACK": False
-                            }
-                            self._tx_queue.append((frame_parameters, []))
+                        match authentication_data[2:4]:
+                            case [0x00, 0x01]:  # Sequence 1 - Authentication request.
+                                # Checking that we are AP (authentication requests are relevant for AP only).
+                                if self._role == "AP" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
 
-                            self._authenticated_ap = source_address  # Updating the list.
-                            log.success(f"({self._identifier}) Authentication successful")
+                                    # Send ACK response.
+                                    self.send_acknowledgement(source_address=source_address)
 
-                            # Send association request.
-                            frame_parameters = {
-                                "TYPE": "Association Request",
-                                "DESTINATION_ADDRESS": self._authenticated_ap,
-                                "WAIT_FOR_ACK": True
-                            }
-                            self._tx_queue.append((frame_parameters, []))
-                    case [0x00, 0x03]:
-                        # Used in Shared Key.
-                        pass  # TODO: To be implemented.
-                    case [0x00, 0x04]:
-                        # Used in Shared Key.
-                        pass  # TODO: To be implemented.
+                                    self._authenticated_sta.append(source_address)  # Updating the list.
+                                    # Send authentication response.
+                                    frame_parameters = {
+                                        "TYPE": "Authentication",
+                                        "DESTINATION_ADDRESS": source_address,
+                                        "WAIT_FOR_ACK": True
+                                    }
+                                    self._tx_queue.append(
+                                        (frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
+                                    #                       algorithm      Seq. number      Success
+                            case [0x00, 0x02]:  # Sequence 2 - Authentication response.
+                                # Checking that we are STA (authentication responses are relevant for STA only).
+                                if self._role == "STA" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 2 - Authentication response")
+
+                                    # Send ACK response.
+                                    self.send_acknowledgement(source_address=source_address)
+
+                                    self._authenticated_ap = source_address  # Updating the list.
+                                    log.success(f"({self._identifier}) Authentication successful")
+
+                                    # Send association request.
+                                    frame_parameters = {
+                                        "TYPE": "Association Request",
+                                        "DESTINATION_ADDRESS": self._authenticated_ap,
+                                        "WAIT_FOR_ACK": True
+                                    }
+                                    self._tx_queue.append((frame_parameters, []))
+
+                    case [0x00, 0x01]:
+                        # Shared-key.
+
+                        match authentication_data[2:4]:
+                            case [0x00, 0x01]:  # Sequence 1 - Authentication request.
+                                # Checking that we are AP (authentication sequence 1 is relevant for AP only).
+                                if self._role == "AP" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
+
+                                    # Send ACK.
+                                    self.send_acknowledgement(source_address=source_address)
+
+                                    # Generate random challenge text (128 bytes).
+                                    challenge = self.convert_bits_to_bytes(
+                                        bits=[random.randint(0, 1) for _ in range(128)])
+                                    # Save challenge for check on sequence 3.
+                                    self._challenge_text[str(source_address)] = challenge
+
+                                    # Send challenge text.
+                                    frame_parameters = {
+                                        "TYPE": "Authentication",
+                                        "DESTINATION_ADDRESS": source_address,
+                                        "WAIT_FOR_ACK": True
+                                    }
+                                    self._tx_queue.append(
+                                        (frame_parameters, [0x00, 0x01] + [0x00, 0x02] + challenge))
+                                    #                       algorithm      Seq. number
+                            case [0x00, 0x02]:  # Sequence 2 - Challenge text.
+                                # Checking that we are STA (authentication sequence 2, is relevant for STA only).
+                                if self._role == "STA" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
+
+                                    # Send ACK.
+                                    self.send_acknowledgement(source_address=source_address)
+
+                                    # Extract challenge text.
+                                    challenge = authentication_data[4:]
+
+                                    # Generate IV (initialization vector) and select WEP key.
+                                    initialization_vector = [random.randint(0x00, 0xFF) for _ in range(3)]
+                                    wep_key_index = random.choice(list(WEP_KEYS.keys()))
+
+                                    # Encrypt challenge with RC4 stream cipher.
+                                    encrypted_challenge = self.rc4_stream_cipher(
+                                        seed=initialization_vector + WEP_KEYS[wep_key_index], challenge=challenge)
+
+                                    # Send encrypted challenge.
+                                    frame_parameters = {
+                                        "TYPE": "Authentication",
+                                        "DESTINATION_ADDRESS": source_address,
+                                        "WAIT_FOR_ACK": True
+                                    }
+                                    self._tx_queue.append((frame_parameters, [0x00, 0x01] + [0x00, 0x03] +
+                                         #                                    algorithm      Seq. number
+                                         initialization_vector + [wep_key_index] + encrypted_challenge))
+                            case [0x00, 0x03]:  # Sequence 3 - Encrypted challenge.
+                                # Checking that we are AP (authentication sequence 3 is relevant for AP only).
+                                if self._role == "AP" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 3 - Encrypted challenge")
+
+                                    # Send ACK.
+                                    self.send_acknowledgement(source_address=source_address)
+
+                                    # Extract IV, WEP key (using WEP key index) and encrypted challenge.
+                                    initialization_vector = authentication_data[4:7]
+                                    wep_key_index = authentication_data[7]
+
+                                    encrypted_challenge = authentication_data[8:]
+
+                                    # Decrypt the encrypted challenge.
+                                    decrypted_challenge = self.rc4_stream_cipher(
+                                        seed=initialization_vector + WEP_KEYS[wep_key_index],
+                                        challenge=encrypted_challenge)
+
+                                    # Evaluate decrypted challenge compared to original.
+                                    """
+                                    Status Code (2 bytes) - (Only in responses) Indicates success or failure of the 
+                                    authentication. 0 (0x0000) = Successful.
+                                    Non-zero = Failure (reasons may vary).
+                                    """
+                                    if decrypted_challenge == self._challenge_text[str(source_address)]:
+                                        # Challenge successfully decrypted.
+                                        result = [0x00, 0x00]
+                                        self._authenticated_sta.append(source_address)  # Updating the list.
+                                    else:
+                                        # Challenge unsuccessfully decrypted.
+                                        result = [0x00, 0x01]
+
+                                    # Reset challenge for this source address.
+                                    self._challenge_text.pop(str(source_address))
+
+                                    # Send authentication response.
+                                    frame_parameters = {
+                                        "TYPE": "Authentication",
+                                        "DESTINATION_ADDRESS": source_address,
+                                        "WAIT_FOR_ACK": True
+                                    }
+                                    self._tx_queue.append(
+                                        (frame_parameters, [0x00, 0x01] + [0x00, 0x04] + result))
+                                    #                       algorithm      Seq. number
+                            case [0x00, 0x04]:  # Sequence 4 - Authentication response.
+                                # Checking that we are STA (authentication sequence 4, is relevant for STA only).
+                                if self._role == "STA" and cast == "Unicast":
+                                    log.mac(f"({self._identifier}) Sequence 4 - Authentication response")
+
+                                    # Send ACK.
+                                    self.send_acknowledgement(source_address=source_address)
+
+                                    # Check that authentication was successful.
+                                    if authentication_data[4:6] == [0x00, 0x00]:
+                                        self._authenticated_ap = source_address  # Updating the list.
+                                        log.success(f"({self._identifier}) Authentication successful")
+
+                                        # Send association request.
+                                        frame_parameters = {
+                                            "TYPE": "Association Request",
+                                            "DESTINATION_ADDRESS": self._authenticated_ap,
+                                            "WAIT_FOR_ACK": True
+                                        }
+                                        self._tx_queue.append((frame_parameters, []))
 
     def control_controller(self, mac_header: list[int], cast: str):
         """
@@ -672,12 +766,7 @@ class MAC:
                 # TODO: Need to account for uplink and downlink (currently, only one direction).
                 if source_address == self._associated_ap and cast == "Unicast":
                     # Send ACK response.
-                    frame_parameters = {
-                        "TYPE": "ACK",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_ACK": False
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self.send_acknowledgement(source_address=source_address)
 
                     # Remove MAC header and CRC.
                     self._last_data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
@@ -721,6 +810,23 @@ class MAC:
             log.mac(f"({self._identifier}) Waiting for ACK")
             self._is_acknowledged = "Waiting for ACK"
             threading.Thread(target=self.wait_for_acknowledgement, args=(frame_parameters, data), daemon=True).start()
+
+    def send_acknowledgement(self, source_address: list[int]):
+        """
+        Sends an acknowledgement (ACK) frame to the specified source address. This method constructs an ACK frame with
+        the given source address as the destination, and enqueues it for transmission. The ACK frame notifies the sender
+        that their previously received frame was successfully processed.
+
+        :param source_address: The address of the node to which the ACK should be sent.
+        """
+
+        # Send ACK response.
+        frame_parameters = {
+            "TYPE": "ACK",
+            "DESTINATION_ADDRESS": source_address,
+            "WAIT_FOR_ACK": False
+        }
+        self._tx_queue.append((frame_parameters, []))
 
     def wait_for_acknowledgement(self, frame_parameters: dict, data: list[int]):
         """
@@ -923,3 +1029,45 @@ class MAC:
             value = int(''.join(map(str, byte)), 2)
             byte_list.append(value)
         return byte_list
+
+    @staticmethod
+    def rc4_stream_cipher(seed: list[int], challenge: list[int]) -> list[int]:
+        """
+        RC4 generates a pseudorandom stream of bits (a keystream). As with any stream cipher, these can be used for
+        encryption by combining it with the plaintext using bitwise exclusive or; decryption is performed the same way
+        (since exclusive or with given data is an involution).
+
+        To generate the keystream, the cipher makes use of a secret internal state which consists of two parts:
+        1) A permutation of all 256 possible bytes.
+        2) Two 8-bit index-pointers.
+
+        The permutation is initialized with a variable-length key, typically between 40 and 2048 bits, using the
+        key-scheduling algorithm (KSA). Once this has been completed, the stream of bits is generated using the
+        pseudo-random generation algorithm (PRGA).
+
+        :param seed: The RC4 key as a list of integers (each between 0–255). Used to initialize the internal
+        permutation.
+        :param challenge: The input data as a list of integers (each between 0–255). Represents either plaintext (for
+        encryption) or ciphertext (for decryption).
+
+        :return: The resulting list of integers (0–255) representing the encrypted or decrypted data.
+        """
+
+        # Key-scheduling algorithm (KSA)
+        s = list(range(256))
+        j = 0
+        for i in range(256):
+            j = (j + s[i] + seed[i % len(seed)]) % 256
+            s[i], s[j] = s[j], s[i]
+
+        # Pseudo-random generation algorithm (PRGA)
+        i = j = 0
+        out = bytearray()
+        for byte in challenge:
+            i = (i + 1) % 256
+            j = (j + s[i]) % 256
+            s[i], s[j] = s[j], s[i]
+            k = s[(s[i] + s[j]) % 256]
+            out.append(byte ^ k)
+
+        return list(out)

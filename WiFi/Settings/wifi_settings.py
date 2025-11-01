@@ -103,6 +103,17 @@ BEACON_BROADCAST_INTERVAL = 100
 PROBE_REQUEST_BROADCAST_INTERVAL = 60
 PASSIVE_SCANNING_TIME = 20
 
+SECURITY_ALGORITHMS = {
+    "open-system": [0x00, 0x00],
+    "shared-key":  [0x00, 0x01]
+}
+WEP_KEYS = {
+    0: [0x12, 0x34, 0x56, 0x78, 0x90],
+    1: [0xAB, 0xCD, 0xEF, 0x12, 0x34],
+    2: [0x09, 0x87, 0x65, 0x43, 0x21],
+    3: [0xA1, 0xB2, 0xC3, 0xD4, 0xE5],
+}
+
 # PHY settings #
 
 # Standard generator polynomials. IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2820.
