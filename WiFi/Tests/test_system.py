@@ -1,19 +1,23 @@
 # Imports #
 import time
 from unittest.mock import patch
+import pytest
 from WiFi.Source.chip import CHIP
 from channel import Channel
 from constants import *
 from mac import MAC
 
 
-def test_basic_association():
+@pytest.mark.parametrize(
+    "authentication_algorithm", ["open-system", "shared-key"]
+)
+def test_basic_association(authentication_algorithm):
     """
     Test purpose - Basic functionality of authentication and association between AP and STA.
     Criteria - Connected AP and STA authenticate and associate in a given timeframe.
 
     Test steps:
-    1) Set the channel, AP and STA.
+    1) Set the channel, AP and STA. The STA is configured with an authentication algorithm.
     2) Set a timeframe for the AP and STA to authenticate and associate.
     3) Assert that both sides authenticated and associated.
     4) Shutdown (to avoid unnecessary data leaks to next tests).
@@ -23,9 +27,10 @@ def test_basic_association():
     channel = Channel(channel_response=[1], snr_db=25)
     ap = CHIP(role='AP', identifier="AP")
     sta = CHIP(role='STA', identifier="STA 1")
+    sta.mac.authentication_algorithm = authentication_algorithm
 
     # Step (2) - Buffer time to allow for the association to happen.
-    time.sleep(50)
+    time.sleep(60)
 
     # Step (3) - Check that AP and STA are authenticated and associated (both sides).
     try:

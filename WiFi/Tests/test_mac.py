@@ -102,3 +102,23 @@ def test_generate_psdu(payload, crc, psdu):
 
         # Steps (2)+(3) - Generate PSDU sequence and assert that it matches expected result.
         assert MAC(role="").generate_psdu(payload=[payload]) == psdu
+
+
+@pytest.mark.parametrize(
+    "seed, challenge, result",
+    [
+        (list(b'Key'), list(b'Plaintext'), [187, 243, 22, 232, 217, 64, 175, 10, 211]),
+        (list(b'Wiki'), list(b'pedia'), [16, 33, 191, 4, 32]),
+        (list(b'Secret'), list(b'Attack at dawn'), [69, 160, 31, 100, 95, 195, 91, 56, 53, 82, 84, 75, 155, 245]),
+    ]
+)
+def test_rc4_stream_cipher(seed, challenge, result):
+    """
+    TODO: Complete the docstring.
+    """
+
+    # Step (1) - ??
+    with (patch.object(MAC, 'generate_mac_address'),
+          patch.object(MAC, 'transmission_queue')):
+        # Steps (2) - ??
+        assert MAC(role="").rc4_stream_cipher(seed=seed, challenge=challenge) == result
