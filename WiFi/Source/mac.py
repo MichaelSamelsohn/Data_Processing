@@ -29,8 +29,10 @@ class MAC:
 
         self._mpif_socket = None  # Socket connection to MPIF.
 
-        self._phy_rate = 6       # Default value.
-        self._last_phy_rate = 6  # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
+        # PHY rate.
+        self.phy_rate = 6           # Default value.
+        self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
+        self.is_fixed_rate = False  # Boolean value that determines if the rate stays fixed.
 
         # Relevant for AP.
         self._challenge_text = {}
@@ -185,7 +187,10 @@ class MAC:
                         time.sleep(6)  # Allow the transmission to end before initiating another one.
 
                     # Rate selection.
-                    self.rate_selection(frame_parameters=transmission_details[0])
+                    if self.is_fixed_rate:
+                        log.warning(f"({self._identifier}) Rate is fixed at {self.phy_rate}[Mbps]")
+                    else:
+                        self.rate_selection(frame_parameters=transmission_details[0])
 
                     # Start of transmission chain.
                     self.start_transmission_chain(frame_parameters=transmission_details[0],
@@ -218,14 +223,14 @@ class MAC:
         """
         Advertisement frames (beacons and probe requests) should be with a lower PHY rate so everyone can read it.
         
-        Since ACK is a very short frame (14 bytes) and very important for most frames (acknowledgement), it it important 
+        Since ACK is a very short frame (14 bytes) and very important for most frames (acknowledgement), it it crucial 
         that it is received correctly, therefore, we maximize its chances by minimizing the PHY rate to the lowest value 
         possible. 
         """
         if (frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request" or
                 frame_parameters["TYPE"] == "ACK"):
             log.debug(f"({self._identifier}) ACK frame, selecting lowest PHY rate")
-            self._phy_rate = 6
+            self.phy_rate = 6
             return
 
         # Increase/Decrease PHY rate based on last non-ACK, non-advertisement frame.
@@ -235,13 +240,13 @@ class MAC:
             if frame_parameters["RETRY"] == 1:
                 log.debug(f"({self._identifier}) Retry frame, decreasing PHY rate (if possible)")
                 if index > 0:
-                    self._phy_rate = legal_rates[index - 1]
+                    self.phy_rate = legal_rates[index - 1]
                     self._last_phy_rate = legal_rates[index - 1]
                     return
         except KeyError:
             log.debug(f"({self._identifier}) Original frame, increasing PHY rate (if possible)")
             if index < len(legal_rates) - 1:
-                self._phy_rate = legal_rates[index + 1]
+                self.phy_rate = legal_rates[index + 1]
                 self._last_phy_rate = legal_rates[index + 1]
                 return
 
@@ -814,7 +819,7 @@ class MAC:
         log.mac(f"({self._identifier}) Data size (in octets) - {len(data)}")
         log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in 
                                                                        frame_parameters['DESTINATION_ADDRESS'])}")
-        log.mac(f"({self._identifier}) PHY RATE - {self._phy_rate}")
+        log.mac(f"({self._identifier}) PHY RATE - {self.phy_rate}")
 
         log.mac(f"({self._identifier}) Generating MAC header")
         mac_header = self.generate_mac_header(frame_parameters=frame_parameters)
@@ -825,7 +830,7 @@ class MAC:
         # Send a PHY-TXSTART.request (with TXVECTOR) to the PHY.
         log.mac(f"({self._identifier}) Sending TX vector to PHY")
         self.send(primitive="PHY-TXSTART.request",
-                  data=[self._phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
+                  data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
         # Wait for ACK (if relevant).
         if frame_parameters['WAIT_FOR_ACK']:
