@@ -603,6 +603,28 @@ class MAC:
 
                     case [0x00, 0x01]:
                         # Shared-key.
+                        """                                     
+                        Wired Equivalent Privacy (WEP) is an obsolete security algorithm for 802.11 wireless networks. 
+                        It was introduced as part of the original IEEE 802.11 standard ratified in 1997. WEP was the 
+                        only encryption protocol available to 802.11a and 802.11b devices built before the WPA (Wi-Fi 
+                        Protected Access) standard, which was introduced with 802.11g. 
+                        Standard 64-bit WEP uses a 40-bit key (also known as WEP-40), which is concatenated with a 
+                        24-bit initialization vector (IV) to form the RC4 key.
+                        
+                                                                                    Keystream
+                                                          +-----+               +---+---+---+---+
+                                    IV + Key ------------>| RC4 |-------------->| 0 | 1 | 0 | 1 |
+                                     (Seed)               +-----+               +---+---+---+---+
+                                                                                       XOR
+                                                                                +---+---+---+---+ 
+                                                           Plain text --------->| 1 | 1 | 0 | 0 |
+                                                                                +---+---+---+---+
+                                                                                        =
+                                                                                +---+---+---+---+
+                                                                                | 1 | 0 | 0 | 1 |
+                                                                                +---+---+---+---+
+                                                                                   Cipher text --------->
+                        """
 
                         match authentication_data[2:4]:
                             case [0x00, 0x01]:  # Sequence 1 - Authentication request.
