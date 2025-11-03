@@ -5,7 +5,6 @@ import pytest
 from WiFi.Source.chip import CHIP
 from channel import Channel
 from constants import *
-from mac import MAC
 
 
 @pytest.mark.parametrize(
@@ -122,3 +121,53 @@ def test_send_data_no_association():
             ap.shutdown()
             sta.shutdown()
             channel.shutdown()
+
+
+def test_fixed_rate_configuration():
+    """
+    Test purpose - Basic functionality of setting a fixed/non-fixed rate.
+    Criteria - Fixed rate device doesn't use rate selection. Non fixed rate devices changes rate dynamically.
+
+    Test steps:
+    1) Set the channel, AP (with fixed rate) and STA (without fixed rate).
+    2) Set a timeframe for the STA to change its rate.
+    3) Assert that AP remains with same initial rate and STA has different rates.
+    4) Shutdown (to avoid unnecessary data leaks to next tests).
+    """
+
+    # Step (1) - Set AP (with fixed rate), STA (without fixed rate) and channel.
+    channel = Channel(channel_response=[1], snr_db=25)
+    ap = CHIP(role='AP', identifier="AP")
+    ap.mac.phy_rate = 6
+    ap.mac.is_fixed_rate = True
+    is_ap_rate_fixed = True
+    sta = CHIP(role='STA', identifier="STA 1")
+    sta.mac.phy_rate = 6
+    sta.mac.is_fixed_rate = False
+    is_sta_rate_not_fixed = False
+
+    # Step (2) - Set a timeframe for the STA to change its rate.
+    try:
+        for _ in range(60):
+            # Raise relevant flags.
+            if not ap.mac.phy_rate == 6:
+                is_ap_rate_fixed = False
+            if not sta.mac.phy_rate == 6:
+                is_sta_rate_not_fixed = True
+
+            # Buffer time between consecutive checks.
+            time.sleep(1)
+
+        # Step (3) - Assert that AP remains with same initial rate and STA has different rates.
+        if not is_ap_rate_fixed and is_sta_rate_not_fixed:
+            assert False, "AP rate is not fixed, although it should be"
+        elif is_ap_rate_fixed and not is_sta_rate_not_fixed:
+            assert False, "STA rate is fixed, although it shouldn't be"
+        elif not is_ap_rate_fixed and not is_sta_rate_not_fixed:
+            assert False, "AP rate is not fixed and STA rate is fixed, should be reversed"
+
+    # Step (4) - Shutdown.
+    finally:
+        ap.shutdown()
+        sta.shutdown()
+        channel.shutdown()

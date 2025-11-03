@@ -41,7 +41,7 @@ class MAC:
 
         # Relevant for STA.
         self._probed_ap = None
-        self.authentication_algorithm = "open"
+        self.authentication_algorithm = "open-system"
         self._authenticated_ap = None
         self._associated_ap = None
 

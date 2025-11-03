@@ -114,11 +114,15 @@ def test_generate_psdu(payload, crc, psdu):
 )
 def test_rc4_stream_cipher(seed, challenge, result):
     """
-    TODO: Complete the docstring.
+    Test purpose - Basic functionality of RC4 stream cipher encryption.
+    Criteria - Input is correctly encrypted.
+
+    Test steps:
+    1) Encrypt input using RC4 stream cipher.
+    2) Assert that generated stream is bit-exact to expected outcome.
     """
 
-    # Step (1) - ??
+    # Step (1)+(2) - Encrypting input and assert that it matches expected outcome.
     with (patch.object(MAC, 'generate_mac_address'),
           patch.object(MAC, 'transmission_queue')):
-        # Steps (2) - ??
         assert MAC(role="").rc4_stream_cipher(seed=seed, challenge=challenge) == result
