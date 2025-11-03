@@ -41,8 +41,10 @@ class MAC:
 
         # Relevant for STA.
         self._probed_ap = None
+        self._probed_ap_blacklist = []
         self.authentication_algorithm = "open-system"
         self._authenticated_ap = None
+        self._authentication_attempts = 0
         self._associated_ap = None
 
         # Buffers and booleans.
@@ -494,8 +496,8 @@ class MAC:
             case [0, 1, 0, 1]:  # Probe response.
                 """
                 Relevant only for STA devices.
-                If the response is directed to this STA, it sets the responding AP as the probed one and initiates the
-                authentication request.
+                If the response is directed to this STA, it sets the responding AP (unless it is blacklisted after 
+                multiple failed authentication attempts) as the probed one and initiates the authentication request.
                 """
 
                 # Checking that we are STA (probe responses are relevant for STA only).
@@ -505,43 +507,51 @@ class MAC:
                     # Send ACK response.
                     self.send_acknowledgement(source_address=source_address)
 
-                    # Updating the successfully probed AP MAC address.
-                    self._probed_ap = source_address
+                    # Check that AP is not blacklisted.
+                    if source_address not in self._probed_ap_blacklist:
+                        # Updating the successfully probed AP MAC address.
+                        self._probed_ap = source_address
 
-                    # Send authenticating request.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": self._probed_ap,
-                        "WAIT_FOR_ACK": True
-                    }
-                    self._tx_queue.append((frame_parameters,
-                                           SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-                    #                                                                            Seq. number
+                        # Send authenticating request.
+                        frame_parameters = {
+                            "TYPE": "Authentication",
+                            "DESTINATION_ADDRESS": self._probed_ap,
+                            "WAIT_FOR_ACK": True
+                        }
+                        self._tx_queue.append((frame_parameters,
+                                               SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+                        #                                                                            Seq. number
+                    else:
+                        log.mac(f"({self._identifier}) Probe response received from a blacklisted AP, "
+                                f"no response needed")
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
                 Relevant only for STA devices.
-                If the current STA doesn't have a probed AP, it starts an authentication and association process with 
-                the AP from the beacon. 
+                If the current STA doesn't have a probed AP, it starts an authentication (and later association) process 
+                with the AP (unless it is blacklisted after multiple failed authentication attempts) from the beacon. 
                 """
 
                 # Checking that we are STA (beacons are relevant for STA only) and we are not in the process of
                 # association. Also, we are making sure this a broadcast.
                 if self._role == "STA" and self._probed_ap is None and cast == "Broadcast":
-                    log.mac(f"({self._identifier}) Beacon frame subtype")
+                    if source_address not in self._probed_ap_blacklist:
+                        log.mac(f"({self._identifier}) Beacon frame subtype")
 
-                    # Updating the successfully probed AP MAC address.
-                    self._probed_ap = source_address
+                        # Updating the successfully probed AP MAC address.
+                        self._probed_ap = source_address
 
-                    # Send authenticating request.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": self._probed_ap,
-                        "WAIT_FOR_ACK": True
-                    }
-                    self._tx_queue.append((frame_parameters,
-                                           SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-                    #                                                                            Seq. number
+                        # Send authenticating request.
+                        frame_parameters = {
+                            "TYPE": "Authentication",
+                            "DESTINATION_ADDRESS": self._probed_ap,
+                            "WAIT_FOR_ACK": True
+                        }
+                        self._tx_queue.append((frame_parameters,
+                                               SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+                        #                                                                            Seq. number
+                    else:
+                        log.mac(f"({self._identifier}) Beacon received from a blacklisted AP, no response needed")
                 else:
                     log.mac(f"({self._identifier}) Beacon received but already probed/authenticated/associated, no "
                             f"response needed")
@@ -588,23 +598,11 @@ class MAC:
                                         (frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
                                     #                       algorithm      Seq. number      Success
                             case [0x00, 0x02]:  # Sequence 2 - Authentication response.
-                                # Checking that we are STA (authentication responses are relevant for STA only).
-                                if self._role == "STA" and cast == "Unicast":
+                                # Checking that we are STA (authentication responses are relevant for STA only) and AP
+                                # is the probed one.
+                                if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Authentication response")
-
-                                    # Send ACK response.
-                                    self.send_acknowledgement(source_address=source_address)
-
-                                    self._authenticated_ap = source_address  # Updating the list.
-                                    log.success(f"({self._identifier}) Authentication successful")
-
-                                    # Send association request.
-                                    frame_parameters = {
-                                        "TYPE": "Association Request",
-                                        "DESTINATION_ADDRESS": self._authenticated_ap,
-                                        "WAIT_FOR_ACK": True
-                                    }
-                                    self._tx_queue.append((frame_parameters, []))
+                                    self.authentication_response_handler(authentication_status=authentication_data[4:6])
 
                     case [0x00, 0x01]:
                         # Shared-key.
@@ -656,8 +654,9 @@ class MAC:
                                         (frame_parameters, [0x00, 0x01] + [0x00, 0x02] + challenge))
                                     #                       algorithm      Seq. number
                             case [0x00, 0x02]:  # Sequence 2 - Challenge text.
-                                # Checking that we are STA (authentication sequence 2, is relevant for STA only).
-                                if self._role == "STA" and cast == "Unicast":
+                                # Checking that we are STA (authentication sequence 2, is relevant for STA only) and AP
+                                # is the probed one.
+                                if self._role == "STA" and cast == "Unicast"  and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
 
                                     # Send ACK.
@@ -729,25 +728,53 @@ class MAC:
                                         (frame_parameters, [0x00, 0x01] + [0x00, 0x04] + result))
                                     #                       algorithm      Seq. number
                             case [0x00, 0x04]:  # Sequence 4 - Authentication response.
-                                # Checking that we are STA (authentication sequence 4, is relevant for STA only).
-                                if self._role == "STA" and cast == "Unicast":
+                                # Checking that we are STA (authentication sequence 4, is relevant for STA only) and AP
+                                # is the probed one.
+                                if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 4 - Authentication response")
+                                    self.authentication_response_handler(authentication_status=authentication_data[4:6])
 
-                                    # Send ACK.
-                                    self.send_acknowledgement(source_address=source_address)
+    def authentication_response_handler(self, authentication_status: list[int]):
+        """
+        Handle the response received after sending an authentication request to an Access Point (AP). This method
+        processes the authentication status returned by an AP and takes the appropriate next action:
+        - If authentication is successful (`[0x00, 0x00]`), it updates the internal state to mark the AP as
+          authenticated and queues an Association Request frame.
+        - If authentication fails, it increments the retry counter and, after reaching the maximum number of allowed
+          attempts, blacklists the AP and resumes the probing process.
+        Note - An acknowledgement (ACK) is always sent back to the AP regardless of the authentication outcome.
 
-                                    # Check that authentication was successful.
-                                    if authentication_data[4:6] == [0x00, 0x00]:
-                                        self._authenticated_ap = source_address  # Updating the list.
-                                        log.success(f"({self._identifier}) Authentication successful")
+        :param authentication_status: A two-byte list indicating the authentication result, where `[0x00, 0x00]`
+        represents success and any other value indicates failure.
+        """
 
-                                        # Send association request.
-                                        frame_parameters = {
-                                            "TYPE": "Association Request",
-                                            "DESTINATION_ADDRESS": self._authenticated_ap,
-                                            "WAIT_FOR_ACK": True
-                                        }
-                                        self._tx_queue.append((frame_parameters, []))
+        # Send ACK.
+        self.send_acknowledgement(source_address=self._probed_ap)
+
+        # Check that authentication was successful.
+        if authentication_status == [0x00, 0x00]:
+            self._authenticated_ap = self._probed_ap  # Updating the list.
+            log.success(f"({self._identifier}) Authentication successful")
+
+            # Send association request.
+            frame_parameters = {
+                "TYPE": "Association Request",
+                "DESTINATION_ADDRESS": self._authenticated_ap,
+                "WAIT_FOR_ACK": True
+            }
+            self._tx_queue.append((frame_parameters, []))
+        else:  # Authentication failed.
+            self._authentication_attempts += 1
+
+            log.debug(f"({self._identifier}) Checking if able to restart the process")
+            if self._authentication_attempts == AUTHENTICATION_ATTEMPTS:
+                log.warning(f"({self._identifier}) Authentication failed for "
+                            f"{AUTHENTICATION_ATTEMPTS} consecutive times")
+                self._authentication_attempts = 0
+
+                log.warning(f"({self._identifier}) 'Blacklisting' AP and resuming probing")
+                self._probed_ap_blacklist.append(self._probed_ap)
+                self._probed_ap = None  # This will free the probing thread.
 
     def control_controller(self, mac_header: list[int], cast: str):
         """

@@ -881,7 +881,7 @@ class PHY:
         time_signal = np.fft.ifft(reordered_ofdm_symbol)
         time_signal = [complex(round(value.real, 3), round(value.imag, 3)) for value in time_signal]
 
-        # Add cyclic prefix and overlap sample suffix.
+        log.debug(f"({self._identifier}) Adding cyclic prefix and overlapping sample suffix")
         match field_type:
             case 'STF':
                 log.debug(f"({self._identifier}) STF symbols - Cyclic extension")
@@ -930,7 +930,7 @@ class PHY:
           depending on the signal-to-noise ratio (SNR), signal scaling, or implementation-specific characteristics.
         """
 
-        # Calculating the correlation.
+        log.debug(f"({self._identifier}) Calculating the correlation")
         correlation = np.correlate(baseband_signal, np.flip(np.array(self.convert_to_time_domain(
             ofdm_symbol=FREQUENCY_DOMAIN_STF, field_type='STF')).conj()), mode='valid')
         correlation_magnitude = np.abs(correlation)
