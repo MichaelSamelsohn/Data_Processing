@@ -36,6 +36,7 @@ def test_basic_association(authentication_algorithm):
         assert len(ap.mac._associated_sta) == 1
         assert ap.mac._associated_sta[0] == sta.mac._mac_address
         assert sta.mac._associated_ap == ap.mac._mac_address
+
     # Step (4) - Shutdown.
     finally:
         ap.shutdown()
@@ -43,7 +44,35 @@ def test_basic_association(authentication_algorithm):
         channel.shutdown()
 
 
-def test_send_data_when_associated():
+def test_failed_authentication_incorrect_wep_keys():
+    """
+    TODO: Complete the docstring.
+    """
+
+    # Step (1) - Set AP, STA and channel.
+    channel = Channel(channel_response=[1], snr_db=25)
+    ap = CHIP(role='AP', identifier="AP")
+    sta = CHIP(role='STA', identifier="STA 1")
+    sta.mac.authentication_algorithm = "shared-key"
+    sta.mac.wep_keys[0], sta.mac.wep_keys[1] = sta.mac.wep_keys[1], sta.mac.wep_keys[0]
+
+    # Step (2) - Buffer time to allow for the association to happen.
+    time.sleep(120)
+
+    # Step (3) - Check that AP and STA are authenticated and associated (both sides).
+    try:
+        assert len(ap.mac._associated_sta) == 0
+        assert sta.mac._associated_ap is None
+        assert ap.mac._mac_address in sta.mac._probed_ap_blacklist
+
+    # Step (4) - Shutdown.
+    finally:
+        ap.shutdown()
+        sta.shutdown()
+        channel.shutdown()
+
+
+def test_send_data_with_association():
     """
     Test purpose - Basic functionality of data sending from AP and STA (DL) when associated.
     Criteria - STA stores data received from AP in a given timeframe.
@@ -78,6 +107,7 @@ def test_send_data_when_associated():
         # Step (5) - Asserting that the message was received successfully.
         try:
             assert sta.mac._last_data.decode('utf-8') == MESSAGE
+
         # Step (6) - Shutdown.
         finally:
             ap.shutdown()
@@ -85,7 +115,7 @@ def test_send_data_when_associated():
             channel.shutdown()
 
 
-def test_send_data_no_association():
+def test_send_data_without_association():
     """
     Test purpose - STA doesn't accept data frames from an unassociated AP.
     Criteria - STA discards frames received from an unassociated AP.
@@ -116,6 +146,7 @@ def test_send_data_no_association():
         # Step (4) - Asserting that the message was discarded at all times.
         try:
             assert sta.mac._last_data is None
+
         # Step (5) - Shutdown.
         finally:
             ap.shutdown()
