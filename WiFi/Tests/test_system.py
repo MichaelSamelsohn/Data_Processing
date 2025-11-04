@@ -46,24 +46,31 @@ def test_basic_association(authentication_algorithm):
 
 def test_failed_authentication_incorrect_wep_keys():
     """
-    TODO: Complete the docstring.
+    Test purpose - Failed authentication when different WEP keys are used for AP/STA.
+    Criteria - AP is blacklisted for STA after several failed authentication attempts.
+
+    Test steps:
+    1) Set the channel, AP and STA. Swap the STA WEP keys.
+    2) Set a timeframe for the AP and STA to fail authentication multiple times.
+    3) Assert that both sides are not authenticated and AP is blacklisted for the STA.
+    4) Shutdown (to avoid unnecessary data leaks to next tests).
     """
 
-    # Step (1) - Set AP, STA and channel.
+    # Step (1) - Set AP, STA and channel. The STA WEP keys are swapped.
     channel = Channel(channel_response=[1], snr_db=25)
     ap = CHIP(role='AP', identifier="AP")
     sta = CHIP(role='STA', identifier="STA 1")
     sta.mac.authentication_algorithm = "shared-key"
     sta.mac.wep_keys[0], sta.mac.wep_keys[1] = sta.mac.wep_keys[1], sta.mac.wep_keys[0]
 
-    # Step (2) - Buffer time to allow for the association to happen.
+    # Step (2) - Buffer time to allow for several authentication failures to happen.
     time.sleep(120)
 
-    # Step (3) - Check that AP and STA are authenticated and associated (both sides).
+    # Step (3) - Check that AP and STA are not authenticated (both sides) and AP is blacklisted for STA.
     try:
-        assert len(ap.mac._associated_sta) == 0
-        assert sta.mac._associated_ap is None
-        assert ap.mac._mac_address in sta.mac._probed_ap_blacklist
+        assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
+        assert sta.mac._associated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
+        assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
 
     # Step (4) - Shutdown.
     finally:
