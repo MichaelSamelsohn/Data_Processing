@@ -34,6 +34,12 @@ class MAC:
         self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
         self.is_fixed_rate = False  # Boolean value that determines if the rate stays fixed.
 
+        # Encryption.
+        self.wep_keys = {
+            0: [0x12, 0x34, 0x56, 0x78, 0x90],  # Staff (authenticated & associated).
+            1: [0xAB, 0xCD, 0xEF, 0x12, 0x34]   # Guest.
+        }
+
         # Relevant for AP.
         self._challenge_text = {}
         self._authenticated_sta = []
@@ -667,11 +673,10 @@ class MAC:
 
                                     # Generate IV (initialization vector) and select WEP key.
                                     initialization_vector = [random.randint(0x00, 0xFF) for _ in range(3)]
-                                    wep_key_index = random.choice(list(WEP_KEYS.keys()))
 
                                     # Encrypt challenge with RC4 stream cipher.
                                     encrypted_challenge = self.rc4_stream_cipher(
-                                        seed=initialization_vector + WEP_KEYS[wep_key_index], challenge=challenge)
+                                        seed=initialization_vector + self.wep_keys[1], challenge=challenge)
 
                                     # Send encrypted challenge.
                                     frame_parameters = {
@@ -681,7 +686,8 @@ class MAC:
                                     }
                                     self._tx_queue.append((frame_parameters, [0x00, 0x01] + [0x00, 0x03] +
                                          #                                    algorithm      Seq. number
-                                         initialization_vector + [wep_key_index] + encrypted_challenge))
+                                         initialization_vector + [0x01] + encrypted_challenge))
+                                         #                  Guest key index
                             case [0x00, 0x03]:  # Sequence 3 - Encrypted challenge.
                                 # Checking that we are AP (authentication sequence 3 is relevant for AP only).
                                 if self._role == "AP" and cast == "Unicast":
@@ -698,7 +704,7 @@ class MAC:
 
                                     # Decrypt the encrypted challenge.
                                     decrypted_challenge = self.rc4_stream_cipher(
-                                        seed=initialization_vector + WEP_KEYS[wep_key_index],
+                                        seed=initialization_vector + self.wep_keys[wep_key_index],
                                         challenge=encrypted_challenge)
 
                                     # Evaluate decrypted challenge compared to original.
@@ -764,17 +770,32 @@ class MAC:
             }
             self._tx_queue.append((frame_parameters, []))
         else:  # Authentication failed.
+            log.warning(f"({self._identifier}) Authentication failed with status code - {authentication_status}")
             self._authentication_attempts += 1
 
             log.debug(f"({self._identifier}) Checking if able to restart the process")
             if self._authentication_attempts == AUTHENTICATION_ATTEMPTS:
-                log.warning(f"({self._identifier}) Authentication failed for "
-                            f"{AUTHENTICATION_ATTEMPTS} consecutive times")
+                log.error(f"({self._identifier}) Authentication failed for "
+                          f"{AUTHENTICATION_ATTEMPTS} consecutive times")
                 self._authentication_attempts = 0
 
-                log.warning(f"({self._identifier}) 'Blacklisting' AP and resuming probing")
+                log.warning(f"({self._identifier}) 'Blacklisting' AP")
                 self._probed_ap_blacklist.append(self._probed_ap)
                 self._probed_ap = None  # This will free the probing thread.
+
+                # TODO: Start the scanning thread.
+            else:  # We still have more attempts.
+                log.mac(f"({self._identifier}) Restarting authentication process")
+
+                # Send authenticating request.
+                frame_parameters = {
+                    "TYPE": "Authentication",
+                    "DESTINATION_ADDRESS": self._probed_ap,
+                    "WAIT_FOR_ACK": True
+                }
+                self._tx_queue.append((frame_parameters,
+                                       SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+                #                                                                            Seq. number
 
     def control_controller(self, mac_header: list[int], cast: str):
         """
