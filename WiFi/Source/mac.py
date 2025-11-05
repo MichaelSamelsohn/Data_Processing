@@ -886,6 +886,30 @@ class MAC:
             self._is_acknowledged = "Waiting for ACK"
             threading.Thread(target=self.wait_for_acknowledgement, args=(frame_parameters, data), daemon=True).start()
 
+    def send_data(self, data: str):
+        """
+        Sends a text message as a data frame through the MAC layer.
+
+        This method converts the given text into a byte array representation, prepares frame parameters including the
+        destination address and frame type, and enqueues the frame for transmission via the MAC layer.
+
+        :param data: The textual message to be sent.
+        """
+
+        log.info(f"({self._identifier}) Sending data frame with the following message:")
+        log.print_data(data=data, log_level='info')
+        log.debug(f"({self._identifier}) Converting data to bytes")
+        ascii_text = self.convert_string_to_bits(text=data, style='bytes')
+
+        log.debug(f"({self._identifier}) Transferring the data to the MAC layer")
+        frame_parameters = {
+            "TYPE": "Data",
+            "DIRECTION": "Uplink",  # TODO: This depends on where we are sending.
+            "DESTINATION_ADDRESS": self._associated_sta[0],  # TODO: The address should have more meaning.
+            "WAIT_FOR_ACK": True
+        }
+        self._tx_queue.append((frame_parameters, ascii_text))
+
     def send_acknowledgement(self, source_address: list[int]):
         """
         Sends an acknowledgement (ACK) frame to the specified source address. This method constructs an ACK frame with
@@ -1078,6 +1102,38 @@ class MAC:
         log.debug(f"({self._identifier}) Converting the integer into a byte representation of length 4, using "
                   f"little-endian byte order")
         return list(crc32.to_bytes(4, 'little'))
+
+    @staticmethod
+    def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:
+        """
+        Convert text string to bits according to ASCII convention - https://www.ascii-code.com/.
+
+        :param text: Text string.
+        :param style: Type of output. There are two options:
+        1) 'binary' - List of binary values where each ASCII byte is split into 8 bits from MSB to LSB with zeros
+        prepended if necessary.
+        2) 'hex' - List of bytes in string format (for example, '0xAB').
+        3) 'bytes' - List of bytes in integer format.
+
+        :return: List of byte values represented either as binary values or string hex values.
+        """
+
+        # Encode text to bytes using ASCII.
+        byte_data = text.encode('utf-8')
+
+        data_list = []
+        match style:
+            case 'binary':
+                # Bit list as flat list[int], each byte split into bits (MSB first).
+                for b in byte_data:
+                    bits = [(b >> i) & 1 for i in reversed(range(8))]  # Extract bits from MSB to LSB.
+                    data_list.extend(bits)
+            case 'hex':
+                data_list = [f"0x{b:02X}" for b in byte_data]  # Uppercase hex bytes.
+            case 'bytes':
+                data_list = list(byte_data)
+
+        return data_list
 
     @staticmethod
     def convert_bits_to_bytes(bits: list[int]) -> list[int]:

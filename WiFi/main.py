@@ -16,7 +16,7 @@ time.sleep(1)
 # Sending message.
 time.sleep(60)
 text = """Joy, bright spark of divinity,\nDaughter of Elysium,\nFire-insired we trea"""
-ap.send_text(text=text)
+ap.mac.send_text(text=text)
 time.sleep(1000)
 
 ap.shutdown()

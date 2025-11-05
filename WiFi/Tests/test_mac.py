@@ -105,6 +105,35 @@ def test_generate_psdu(payload, crc, psdu):
 
 
 @pytest.mark.parametrize(
+    "style, expected_outcome",
+    [
+        ('binary', MESSAGE_IN_BITS),
+        ('bytes', MESSAGE_IN_BYTES),
+        ('hex', [f'0x{byte:02X}' for byte in MESSAGE_IN_BYTES]),
+    ]
+)
+def test_convert_string_to_bits(style, expected_outcome):
+    """
+    Test purpose - Basic functionality of converting strings to bits.
+    Criteria:
+    1) Correct data conversion when style='binary'.
+    3) Correct data conversion when style='bytes'.
+    2) Correct data conversion when style='hex'.
+
+    Test steps:
+    1) Mock basic functionality of MAC.
+    2) Convert test message using the selected style.
+    3) Assert that generated list is bit-exact to expected outcome.
+    """
+
+    # Step (1) - Mock basic functionality of MAC.
+    with (patch.object(MAC, 'generate_mac_address'),
+          patch.object(MAC, 'transmission_queue')):
+        # Steps (2)+(3) - Convert message to bits and compare to expected outcome.
+        assert MAC(role="").convert_string_to_bits(text=MESSAGE, style=style) == expected_outcome
+
+
+@pytest.mark.parametrize(
     "seed, challenge, result",
     [
         (list(b'Key'), list(b'Plaintext'), [187, 243, 22, 232, 217, 64, 175, 10, 211]),

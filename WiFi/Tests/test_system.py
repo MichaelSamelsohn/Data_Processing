@@ -106,7 +106,7 @@ def test_send_data_with_association():
         sta.mac._associated_ap = ap.mac._mac_address
 
         # Step (3) - Sending the data message from AP to STA (DL).
-        ap.send_text(text=MESSAGE)
+        ap.mac.send_data(data=MESSAGE)
 
         # Step (4) - Buffer time to allow for the data to be sent and received.
         time.sleep(15)
@@ -145,7 +145,7 @@ def test_send_data_without_association():
         ap.mac._associated_sta = [sta.mac._mac_address]
 
         # Step (2) - Sending the data message from AP to STA (DL).
-        ap.send_text(text=MESSAGE)
+        ap.mac.send_data(data=MESSAGE)
 
         # Step (3) - Buffer time to allow for the data to be sent and received.
         time.sleep(60)
