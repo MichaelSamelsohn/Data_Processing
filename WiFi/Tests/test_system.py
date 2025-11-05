@@ -33,9 +33,9 @@ def test_basic_association(authentication_algorithm):
 
     # Step (3) - Check that AP and STA are authenticated and associated (both sides).
     try:
-        assert len(ap.mac._associated_sta) == 1
-        assert ap.mac._associated_sta[0] == sta.mac._mac_address
-        assert sta.mac._associated_ap == ap.mac._mac_address
+        assert len(ap.mac._associated_sta) == 1,                  "AP is not associated with STA"
+        assert ap.mac._associated_sta[0] == sta.mac._mac_address, "AP is not associated with STA"
+        assert sta.mac._associated_ap == ap.mac._mac_address,     "STA is not associated with AP"
 
     # Step (4) - Shutdown.
     finally:
@@ -113,7 +113,7 @@ def test_send_data_with_association():
 
         # Step (5) - Asserting that the message was received successfully.
         try:
-            assert sta.mac._last_data.decode('utf-8') == MESSAGE
+            assert sta.mac._last_data.decode('utf-8') == MESSAGE, "Received message is not the same as original one"
 
         # Step (6) - Shutdown.
         finally:
@@ -152,7 +152,7 @@ def test_send_data_without_association():
 
         # Step (4) - Asserting that the message was discarded at all times.
         try:
-            assert sta.mac._last_data is None
+            assert sta.mac._last_data is None, "Data was sent without association"
 
         # Step (5) - Shutdown.
         finally:
