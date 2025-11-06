@@ -1,7 +1,12 @@
 # Imports #
 import time
-from unittest.mock import patch
+import random
+import string
 import pytest
+
+from unittest.mock import patch
+
+from WiFi.Settings.wifi_settings import RTS_CTS_THRESHOLD
 from WiFi.Source.chip import CHIP
 from channel import Channel
 from constants import *
@@ -105,15 +110,18 @@ def test_send_data_with_association():
         ap.mac._associated_sta = [sta.mac._mac_address]
         sta.mac._associated_ap = ap.mac._mac_address
 
-        # Step (3) - Sending the data message from AP to STA (DL).
-        ap.mac.send_data_frame(data=MESSAGE, destination_address=sta.mac._mac_address)
+        # Step (3) - Sending a random data (below RTS-CTS threshold) message from AP to STA (DL).
+        random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
+                                                k=RTS_CTS_THRESHOLD - 1))
+        ap.mac.send_data_frame(data=random_message, destination_address=sta.mac._mac_address)
 
         # Step (4) - Buffer time to allow for the data to be sent and received.
         time.sleep(15)
 
         # Step (5) - Asserting that the message was received successfully.
         try:
-            assert sta.mac._last_data.decode('utf-8') == MESSAGE, "Received message is not the same as original one"
+            assert sta.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                          "original one")
 
         # Step (6) - Shutdown.
         finally:
@@ -209,3 +217,78 @@ def test_fixed_rate_configuration():
         ap.shutdown()
         sta.shutdown()
         channel.shutdown()
+
+
+def test_rts_cts_mechanism():
+    """
+    TODO: Complete the docstring.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        # Setting the AP and STA.
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+
+        # Step (2) - Mocking association between AP and STA.
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        sta.mac._associated_ap = ap.mac._mac_address
+
+        # Step (3) - Sending a random data message (above RTS-CTS threshold) from STA to AP (UL).
+        random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
+                                                k=RTS_CTS_THRESHOLD + 1))
+        sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
+
+        # Step (4) - Buffer time to allow for the data to be sent and received.
+        time.sleep(30)
+
+        # Step (5) - Asserting that the message was received successfully.
+        try:
+            assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                          "original one")
+
+        # Step (6) - Shutdown.
+        finally:
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
+
+
+def test_rts_cts_configuration():
+    """
+    TODO: Complete the docstring.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        # Setting the AP and STA.
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+        sta.mac.is_always_rts_cts = True
+
+        # Step (2) - Mocking association between AP and STA.
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        sta.mac._associated_ap = ap.mac._mac_address
+
+        # Step (3) - Sending a random data message (above RTS-CTS threshold) from STA to AP (UL).
+        random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
+                                                k=RTS_CTS_THRESHOLD - 1))
+        sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
+
+        # Step (4) - Buffer time to allow for the data to be sent and received.
+        time.sleep(30)
+
+        # Step (5) - Asserting that the message was received successfully.
+        try:
+            assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                          "original one")
+
+        # Step (6) - Shutdown.
+        finally:
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
