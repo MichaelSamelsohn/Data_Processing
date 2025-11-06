@@ -30,13 +30,10 @@ class MAC:
         self._mpif_socket = None  # Socket connection to MPIF.
 
         # Configurations.
-        self.is_fixed_rate = False  # Boolean value that determines if the rate stays fixed.
+        self.phy_rate = 6               # Default value.
+        self.is_fixed_rate = False      # Boolean value that determines if the rate stays fixed.
         self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
         # circumstance) is sent with RTS-CTS mechanism.
-
-        # PHY rate.
-        self.phy_rate = 6           # Default value.
-        self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
 
         # Encryption.
         self.wep_keys = {
@@ -58,6 +55,7 @@ class MAC:
         self._associated_ap = None
 
         # General buffers and booleans.
+        self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
         self._is_shutdown = False  # Indicator to stop doing generic functions (such as advertisement). Also used for
         # flushing existing queued frames.
         self._tx_psdu_buffer = None
@@ -950,11 +948,9 @@ class MAC:
         ascii_text = self.convert_string_to_bits(text=data, style='bytes')
 
         log.debug(f"({self._identifier}) Checking if RTS-CTS mechanism is required for current data packet")
-        is_cts = False
         if self._role == "STA":
             if self.is_always_rts_cts:
                 log.warning(f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
-                is_cts = True
 
                 # Send RTS frame.
                 frame_parameters = {
@@ -967,10 +963,9 @@ class MAC:
 
             else:
                 # Check frame size of the data.
-                if len(ascii_text) > RTS_CTS_FRAME_SIZE:
+                if len(ascii_text) > RTS_CTS_THRESHOLD:
                     log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
                             f"{len(ascii_text)}")
-                    is_cts = True
 
                     # Send RTS frame.
                     frame_parameters = {

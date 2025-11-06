@@ -8,6 +8,27 @@ from WiFi.Source.mac import MAC
 from constants import *
 
 
+def test_mac_default_configuration():
+    """
+    Test purpose - Correct MAC default values.
+    Criteria - Initializing a MAC instance has the default configurations.
+
+    Test steps:
+    1) Generate a MAC instance.
+    2) Assert that relevant values have correct default values.
+    """
+
+    # Step (1) - Initiate a MAC instance with mocked functions.
+    with (patch.object(MAC, 'generate_mac_address'),
+          patch.object(MAC, 'transmission_queue')):
+        mac = MAC(role="")
+
+        # Step (2) - Check that MAC instance has correct default values.
+        assert mac.phy_rate == 6
+        assert mac.is_fixed_rate is False
+        assert mac.is_always_rts_cts is False
+
+
 def test_mac_initialization():
     """
     Test purpose - Correct MAC initialization.
