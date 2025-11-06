@@ -29,10 +29,14 @@ class MAC:
 
         self._mpif_socket = None  # Socket connection to MPIF.
 
+        # Configurations.
+        self.is_fixed_rate = False  # Boolean value that determines if the rate stays fixed.
+        self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
+        # circumstance) is sent with RTS-CTS mechanism.
+
         # PHY rate.
         self.phy_rate = 6           # Default value.
         self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
-        self.is_fixed_rate = False  # Boolean value that determines if the rate stays fixed.
 
         # Encryption.
         self.wep_keys = {
@@ -53,11 +57,11 @@ class MAC:
         self._authentication_attempts = 0
         self._associated_ap = None
 
-        # Buffers and booleans.
+        # General buffers and booleans.
         self._is_shutdown = False  # Indicator to stop doing generic functions (such as advertisement). Also used for
         # flushing existing queued frames.
         self._tx_psdu_buffer = None
-        self._is_acknowledged = "No ACK required"
+        self._is_confirmed = "No confirmation required"
         self._is_retry = False
         self._tx_queue = []
         log.mac("Activating transmission queue")
@@ -186,12 +190,12 @@ class MAC:
 
             if self._tx_queue:
                 # There are command(s) in the queue.
-                if self._is_acknowledged == "No ACK required" and not self._is_retry:
+                if self._is_confirmed == "No confirmation required" and not self._is_retry:
                     # Pop first item to acquire queued frame.
                     transmission_details = self._tx_queue.pop(0)
 
                     # Timing delay to avoid collisions. TODO: Should be enhanced.
-                    if not transmission_details[0]["TYPE"] == "ACK":
+                    if transmission_details[0]["TYPE"] not in ("ACK", "CTS"):
                         time.sleep(6)  # Allow the transmission to end before initiating another one.
 
                     # Rate selection.
@@ -277,7 +281,7 @@ class MAC:
             frame_parameters = {
                 "TYPE": "Beacon",
                 "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                "WAIT_FOR_ACK": False
+                "WAIT_FOR_CONFIRMATION": False
             }
             self._tx_queue.append((frame_parameters, []))
 
@@ -305,7 +309,7 @@ class MAC:
             frame_parameters = {
                 "TYPE": "Probe Request",
                 "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                "WAIT_FOR_ACK": False
+                "WAIT_FOR_CONFIRMATION": False
             }
             self._tx_queue.append((frame_parameters, []))
 
@@ -366,61 +370,48 @@ class MAC:
                 else:  # CRC check passed.
                     log.success(f"({self._identifier}) CRC check passed")
 
-                    log.mac(f"({self._identifier}) Extracting MAC header and destination address")
+                    log.mac(f"({self._identifier}) Extracting MAC header")
                     mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
-                    destination_address = mac_header[4:10]
 
-                    # Understand which type of casting this is.
-                    if destination_address == [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]:
-                        cast = "Broadcast"
-                    elif destination_address == self._mac_address:
-                        cast = "Unicast"
-                    else:  # Some unknown destination address (not related to us).
-                        cast = False
-                    log.debug(f"({self._identifier}) Cast type is - {cast}")
+                    log.debug(f"({self._identifier}) Checking if received frame is a retransmission")
+                    self._is_retry = True if self._rx_psdu_buffer[11] == 1 else False
+                    log.debug(f"({self._identifier}) Is retransmission - {self._is_retry}")
 
-                    log.debug(f"({self._identifier}) Checking that frame is either broadcasted or unicast intended for "
-                              f"us")
-                    if cast:
-                        log.debug(f"({self._identifier}) Checking if received frame is a retransmission")
-                        self._is_retry = True if self._rx_psdu_buffer[11] == 1 else False
-                        log.debug(f"({self._identifier}) Is retransmission - {self._is_retry}")
+                    # Delegate frame handling to relevant controller based on the frame type.
+                    match self._rx_psdu_buffer[2:4][::-1]:
+                        case [0, 0]:  # Management.
+                            log.debug(f"({self._identifier}) Management frame type")
+                            self.management_controller(mac_header=mac_header)
+                        case [0, 1]:  # Control.
+                            log.debug(f"({self._identifier}) Control frame type")
+                            self.control_controller(mac_header=mac_header)
+                        case [1, 0]:  # Data.
+                            log.debug(f"({self._identifier}) Data frame type")
+                            self.data_controller(mac_header=mac_header)
+                        case [1, 1]:  # Extension.
+                            log.debug(f"({self._identifier}) Extension frame type")
+                            pass  # TODO: To be implemented.
 
-                        # Delegate frame handling to relevant controller based on the frame type.
-                        match self._rx_psdu_buffer[2:4][::-1]:
-                            case [0, 0]:  # Management.
-                                log.debug(f"({self._identifier}) Management frame type")
-                                self.management_controller(mac_header=mac_header, cast=cast)
-                            case [0, 1]:  # Control.
-                                log.debug(f"({self._identifier}) Control frame type")
-                                self.control_controller(mac_header=mac_header, cast=cast)
-                            case [1, 0]:  # Data.
-                                log.debug(f"({self._identifier}) Data frame type")
-                                self.data_controller(mac_header=mac_header, cast=cast)
-                            case [1, 1]:  # Extension.
-                                log.debug(f"({self._identifier}) Extension frame type")
-                                pass  # TODO: To be implemented.
+                    if self._is_retry:
+                        log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
+                                  f"over-responding to the same retransmitted request")
+                        seen = set()  # Collection of unique occurrences.
+                        result = []   # Clean queue without duplicates.
+                        for item in reversed(self._tx_queue):
+                            item_key = json.dumps(item, sort_keys=True)
+                            if item_key not in seen:
+                                result.insert(0, item)  # Insert at the beginning to reverse the reversal.
+                                seen.add(item_key)
 
-                        if self._is_retry:
-                            log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
-                                      f"over-responding to the same retransmitted request")
-                            seen = set()  # Collection of unique occurrences.
-                            result = []   # Clean queue without duplicates.
-                            for item in reversed(self._tx_queue):
-                                item_key = json.dumps(item, sort_keys=True)
-                                if item_key not in seen:
-                                    result.insert(0, item)  # Insert at the beginning to reverse the reversal.
-                                    seen.add(item_key)
-
-                            self._tx_queue = result  # Update the TX queue.
-                            self._is_retry = False   # Reset the retry boolean.
+                        self._tx_queue = result  # Update the TX queue.
+                        self._is_retry = False   # Reset the retry boolean.
             # Error cases.
             case "PHY-RXEND.indication(FormatViolation)":
                 pass  # TODO: Add to statistics and possibly effect rate selection?
             case "PHY-RXEND.indication(ScrambleSeedNotFound)":
                 pass  # TODO: Add to statistics and possibly effect rate selection?
 
-    def management_controller(self, mac_header: list[int], cast: str):
+    def management_controller(self, mac_header: list[int]):
         """
         Handles incoming management frames and coordinates the wireless connection process.
 
@@ -429,11 +420,10 @@ class MAC:
         Access Points (AP).
 
         :param mac_header: The MAC header extracted from the received frame.
-        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
 
-        # Extract important values from MAC header.
-        source_address = mac_header[10:16]
+        # Extract important information from the MAC header.
+        destination_address, source_address, cast = self.extract_address_information(mac_header=mac_header)
 
         match self._rx_psdu_buffer[4:8][::-1]:
             case [0, 0, 0, 0]:  # Association request.
@@ -447,7 +437,7 @@ class MAC:
                     log.mac(f"({self._identifier}) Association request frame subtype")
 
                     # Send ACK response.
-                    self.send_acknowledgement(source_address=source_address)
+                    self.send_acknowledgement_frame(source_address=source_address)
 
                     # Assert that STA is authenticated.
                     if source_address in self._authenticated_sta:
@@ -457,7 +447,7 @@ class MAC:
                         frame_parameters = {
                             "TYPE": "Association Response",
                             "DESTINATION_ADDRESS": source_address,
-                            "WAIT_FOR_ACK": True
+                            "WAIT_FOR_CONFIRMATION": "ACK"
                         }
                         self._tx_queue.append((frame_parameters, [0x00, 0x00]))
 
@@ -473,7 +463,7 @@ class MAC:
                     log.mac(f"({self._identifier}) Association response frame subtype")
 
                     # Send ACK response.
-                    self.send_acknowledgement(source_address=source_address)
+                    self.send_acknowledgement_frame(source_address=source_address)
 
                     # Assert that AP is authenticated.
                     if source_address == self._authenticated_ap:
@@ -495,7 +485,7 @@ class MAC:
                     frame_parameters = {
                         "TYPE": "Probe Response",
                         "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_ACK": True
+                        "WAIT_FOR_CONFIRMATION": "ACK"
                     }
                     self._tx_queue.append((frame_parameters, []))
 
@@ -511,7 +501,7 @@ class MAC:
                     log.mac(f"({self._identifier}) Probe response frame subtype")
 
                     # Send ACK response.
-                    self.send_acknowledgement(source_address=source_address)
+                    self.send_acknowledgement_frame(source_address=source_address)
 
                     # Check that AP is not blacklisted.
                     if source_address not in self._probed_ap_blacklist:
@@ -522,7 +512,7 @@ class MAC:
                         frame_parameters = {
                             "TYPE": "Authentication",
                             "DESTINATION_ADDRESS": self._probed_ap,
-                            "WAIT_FOR_ACK": True
+                            "WAIT_FOR_CONFIRMATION": "ACK"
                         }
                         self._tx_queue.append((frame_parameters,
                                                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
@@ -551,7 +541,7 @@ class MAC:
                         frame_parameters = {
                             "TYPE": "Authentication",
                             "DESTINATION_ADDRESS": self._probed_ap,
-                            "WAIT_FOR_ACK": True
+                            "WAIT_FOR_CONFIRMATION": "ACK"
                         }
                         self._tx_queue.append((frame_parameters,
                                                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
@@ -591,14 +581,14 @@ class MAC:
                                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
 
                                     # Send ACK response.
-                                    self.send_acknowledgement(source_address=source_address)
+                                    self.send_acknowledgement_frame(source_address=source_address)
 
                                     self._authenticated_sta.append(source_address)  # Updating the list.
                                     # Send authentication response.
                                     frame_parameters = {
                                         "TYPE": "Authentication",
                                         "DESTINATION_ADDRESS": source_address,
-                                        "WAIT_FOR_ACK": True
+                                        "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
                                     self._tx_queue.append(
                                         (frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
@@ -642,7 +632,7 @@ class MAC:
                                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
 
                                     # Send ACK.
-                                    self.send_acknowledgement(source_address=source_address)
+                                    self.send_acknowledgement_frame(source_address=source_address)
 
                                     # Generate random challenge text (128 bytes).
                                     challenge = self.convert_bits_to_bytes(
@@ -654,7 +644,7 @@ class MAC:
                                     frame_parameters = {
                                         "TYPE": "Authentication",
                                         "DESTINATION_ADDRESS": source_address,
-                                        "WAIT_FOR_ACK": True
+                                        "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
                                     self._tx_queue.append(
                                         (frame_parameters, [0x00, 0x01] + [0x00, 0x02] + challenge))
@@ -666,7 +656,7 @@ class MAC:
                                     log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
 
                                     # Send ACK.
-                                    self.send_acknowledgement(source_address=source_address)
+                                    self.send_acknowledgement_frame(source_address=source_address)
 
                                     # Extract challenge text.
                                     challenge = authentication_data[4:]
@@ -682,7 +672,7 @@ class MAC:
                                     frame_parameters = {
                                         "TYPE": "Authentication",
                                         "DESTINATION_ADDRESS": source_address,
-                                        "WAIT_FOR_ACK": True
+                                        "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
                                     self._tx_queue.append((frame_parameters, [0x00, 0x01] + [0x00, 0x03] +
                                          #                                    algorithm      Seq. number
@@ -694,7 +684,7 @@ class MAC:
                                     log.mac(f"({self._identifier}) Sequence 3 - Encrypted challenge")
 
                                     # Send ACK.
-                                    self.send_acknowledgement(source_address=source_address)
+                                    self.send_acknowledgement_frame(source_address=source_address)
 
                                     # Extract IV, WEP key (using WEP key index) and encrypted challenge.
                                     initialization_vector = authentication_data[4:7]
@@ -728,7 +718,7 @@ class MAC:
                                     frame_parameters = {
                                         "TYPE": "Authentication",
                                         "DESTINATION_ADDRESS": source_address,
-                                        "WAIT_FOR_ACK": True
+                                        "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
                                     self._tx_queue.append(
                                         (frame_parameters, [0x00, 0x01] + [0x00, 0x04] + result))
@@ -755,7 +745,7 @@ class MAC:
         """
 
         # Send ACK.
-        self.send_acknowledgement(source_address=self._probed_ap)
+        self.send_acknowledgement_frame(source_address=self._probed_ap)
 
         # Check that authentication was successful.
         if authentication_status == [0x00, 0x00]:
@@ -766,7 +756,7 @@ class MAC:
             frame_parameters = {
                 "TYPE": "Association Request",
                 "DESTINATION_ADDRESS": self._authenticated_ap,
-                "WAIT_FOR_ACK": True
+                "WAIT_FOR_CONFIRMATION": "ACK"
             }
             self._tx_queue.append((frame_parameters, []))
         else:  # Authentication failed.
@@ -791,30 +781,58 @@ class MAC:
                 frame_parameters = {
                     "TYPE": "Authentication",
                     "DESTINATION_ADDRESS": self._probed_ap,
-                    "WAIT_FOR_ACK": True
+                    "WAIT_FOR_CONFIRMATION": "ACK"
                 }
                 self._tx_queue.append((frame_parameters,
                                        SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
                 #                                                                            Seq. number
 
-    def control_controller(self, mac_header: list[int], cast: str):
+    def control_controller(self, mac_header: list[int]):
         """
         Handles control frame processing based on received MAC header and cast type.
 
         This method inspects a portion of the received frame buffer to identify the subtype of the control frame.
 
         :param mac_header: The MAC header extracted from the received frame.
-        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
+
+        # Extract important information from the MAC header.
+        destination_address, source_address, cast = self.extract_address_information(mac_header=mac_header)
 
         match self._rx_psdu_buffer[4:8][::-1]:
             case [1, 1, 0, 1]:  # ACK.
-                log.mac(f"({self._identifier}) ACK frame subtype")
+                if cast == "Unicast":
+                    log.mac(f"({self._identifier}) ACK frame subtype")
 
-                log.success(f"({self._identifier}) Frame acknowledged - ACK received")
-                self._is_acknowledged = "ACK"
+                    if self._is_confirmed == "Waiting for confirmation":
+                        self._is_confirmed = "ACK"
+                    else:
+                        log.mac(f"({self._identifier}) Irrelevant since we are not waiting for an ACK")
 
-    def data_controller(self, mac_header: list[int], cast: str):
+            case [1, 0, 1, 1]:  # RTS.
+                if self._role == "AP" and cast == "Unicast":
+                    log.mac(f"({self._identifier}) RTS frame subtype")
+
+                    # Send CTS frame.
+                    frame_parameters = {
+                        "TYPE": "CTS",
+                        "DESTINATION_ADDRESS": source_address,
+                        "WAIT_FOR_CONFIRMATION": False
+                    }
+                    self._tx_queue.append((frame_parameters, []))
+                else:  # RTS is not intended for us.
+                    pass  # TODO: Set NAV time to hold transmission.
+
+            case [1, 1, 0, 0]:  # CTS.
+                if self._role == "STA" and cast == "Unicast" and self._associated_ap == source_address:
+                    log.mac(f"({self._identifier}) CTS frame subtype")
+
+                    if self._is_confirmed == "Waiting for confirmation":
+                        self._is_confirmed = "CTS"
+                    else:
+                        log.mac(f"({self._identifier}) Irrelevant since we are not waiting for a CTS")
+
+    def data_controller(self, mac_header: list[int]):
         """
         Processes incoming data frames from the PHY layer and extracts application data.
 
@@ -828,25 +846,50 @@ class MAC:
         Only frames from the associated AP are processed. All others are ignored.
 
         :param mac_header: The MAC header extracted from the received frame.
-        :param cast: Indicates the type of frame casting, e.g., "unicast" or "broadcast".
         """
 
-        source_address = mac_header[10:16]
+        # Extract important information from the MAC header.
+        destination_address, source_address, cast = self.extract_address_information(mac_header=mac_header)
 
         # Check that frame is from the associated AP and intended for us.
         match self._rx_psdu_buffer[4:8][::-1]:
             case [0, 0, 0, 0]:  # Data.
-                log.mac(f"({self._identifier}) Data frame subtype")
+                if cast == "Unicast":
+                    if ((self._role == "AP" and source_address in self._associated_sta) or  # Relevant for uplink.
+                        (self._role == "STA" and source_address == self._associated_ap)):   # Relevant for downlink.
+                        log.mac(f"({self._identifier}) Data frame subtype")
 
-                # TODO: Need to account for uplink and downlink (currently, only one direction).
-                if source_address == self._associated_ap and cast == "Unicast":
-                    # Send ACK response.
-                    self.send_acknowledgement(source_address=source_address)
+                        # Send ACK response.
+                        self.send_acknowledgement_frame(source_address=source_address)
 
-                    # Remove MAC header and CRC.
-                    self._last_data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
-                    log.info(f"({self._identifier}) Received message:")
-                    log.print_data(self._last_data.decode('utf-8'), log_level="info")
+                        # Remove MAC header and CRC.
+                        self._last_data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
+                        log.info(f"({self._identifier}) Received message:")
+                        log.info("------------------")
+                        log.print_data(self._last_data.decode('utf-8'), log_level="info")
+                        log.info("------------------")
+
+    def extract_address_information(self, mac_header):
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Extract destination address from MAC header.
+        destination_address = mac_header[4:10]
+
+        # Understand which type of casting this is.
+        if destination_address == [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]:
+            cast = "Broadcast"
+        elif destination_address == self._mac_address:
+            cast = "Unicast"
+        else:  # Some unknown destination address (not related to us).
+            cast = "Unknown"
+        log.debug(f"({self._identifier}) Cast type is - {cast}")
+
+        # Extract source address from MAC header.
+        source_address = mac_header[10:16]
+
+        return destination_address, source_address, cast
 
     def start_transmission_chain(self, frame_parameters: dict, data: list[int]):
         """
@@ -880,13 +923,13 @@ class MAC:
         self.send(primitive="PHY-TXSTART.request",
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
-        # Wait for ACK (if relevant).
-        if frame_parameters['WAIT_FOR_ACK']:
-            log.mac(f"({self._identifier}) Waiting for ACK")
-            self._is_acknowledged = "Waiting for ACK"
-            threading.Thread(target=self.wait_for_acknowledgement, args=(frame_parameters, data), daemon=True).start()
+        # Wait for ACK/CTS (if relevant).
+        if frame_parameters['WAIT_FOR_CONFIRMATION']:
+            log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
+            self._is_confirmed = "Waiting for confirmation"
+            threading.Thread(target=self.wait_for_confirmation, args=(frame_parameters, data), daemon=True).start()
 
-    def send_data(self, data: str):
+    def send_data_frame(self, data: str, destination_address: list[int]):
         """
         Sends a text message as a data frame through the MAC layer.
 
@@ -894,23 +937,62 @@ class MAC:
         destination address and frame type, and enqueues the frame for transmission via the MAC layer.
 
         :param data: The textual message to be sent.
+        :param destination_address: ??
         """
 
+        # TODO: Add a check that destination address is legal (for UL/DL).
+
         log.info(f"({self._identifier}) Sending data frame with the following message:")
+        log.info("------------------")
         log.print_data(data=data, log_level='info')
+        log.info("------------------")
         log.debug(f"({self._identifier}) Converting data to bytes")
         ascii_text = self.convert_string_to_bits(text=data, style='bytes')
 
-        log.debug(f"({self._identifier}) Transferring the data to the MAC layer")
+        log.debug(f"({self._identifier}) Checking if RTS-CTS mechanism is required for current data packet")
+        is_cts = False
+        if self._role == "STA":
+            if self.is_always_rts_cts:
+                log.warning(f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
+                is_cts = True
+
+                # Send RTS frame.
+                frame_parameters = {
+                    "TYPE": "RTS",
+                    "DIRECTION": "Uplink",
+                    "DESTINATION_ADDRESS": destination_address,
+                    "WAIT_FOR_CONFIRMATION": "CTS"
+                }
+                self._tx_queue.append((frame_parameters, []))
+
+            else:
+                # Check frame size of the data.
+                if len(ascii_text) > RTS_CTS_FRAME_SIZE:
+                    log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
+                            f"{len(ascii_text)}")
+                    is_cts = True
+
+                    # Send RTS frame.
+                    frame_parameters = {
+                        "TYPE": "RTS",
+                        "DIRECTION": "Uplink",
+                        "DESTINATION_ADDRESS": destination_address,
+                        "WAIT_FOR_CONFIRMATION": "CTS"
+                    }
+                    self._tx_queue.append((frame_parameters, []))
+
+                # TODO: Add another check for RTS-CTS if channel conditions are bad.
+
+        # Send data frame.
         frame_parameters = {
             "TYPE": "Data",
-            "DIRECTION": "Uplink",  # TODO: This depends on where we are sending.
-            "DESTINATION_ADDRESS": self._associated_sta[0],  # TODO: The address should have more meaning.
-            "WAIT_FOR_ACK": True
+            "DIRECTION": "Uplink" if self._role == "STA" else "Downlink",
+            "DESTINATION_ADDRESS": destination_address,
+            "WAIT_FOR_CONFIRMATION": "ACK"
         }
         self._tx_queue.append((frame_parameters, ascii_text))
 
-    def send_acknowledgement(self, source_address: list[int]):
+    def send_acknowledgement_frame(self, source_address: list[int]):
         """
         Sends an acknowledgement (ACK) frame to the specified source address. This method constructs an ACK frame with
         the given source address as the destination, and enqueues it for transmission. The ACK frame notifies the sender
@@ -923,11 +1005,11 @@ class MAC:
         frame_parameters = {
             "TYPE": "ACK",
             "DESTINATION_ADDRESS": source_address,
-            "WAIT_FOR_ACK": False
+            "WAIT_FOR_CONFIRMATION": False
         }
         self._tx_queue.append((frame_parameters, []))
 
-    def wait_for_acknowledgement(self, frame_parameters: dict, data: list[int]):
+    def wait_for_confirmation(self, frame_parameters: dict, data: list[int]):
         """
         Waits for an acknowledgment (ACK) after a frame transmission.
 
@@ -942,27 +1024,29 @@ class MAC:
         Notes - This method should be called after initiating a transmission that requires an ACK (unicast).
         """
 
-        # Waiting for ACK.
+        # Waiting for confirmation.
         for i in range(SHORT_RETRY_LIMIT):
             time.sleep(5)  # Allow reception time for the ACK response.
 
-            if self._is_acknowledged == "ACK":
-                self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
-                return  # No need to continue as the frame was acknowledged.
+            if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
+                log.success(f"({self._identifier}) Frame confirmed, "
+                            f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
+                self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
+                return  # No need to continue as the frame was confirmed.
             else:
                 # TODO: This time is dynamic (Contention Window).
-                log.warning(f"({self._identifier}) No ACK, retransmitting")
+                log.warning(f"({self._identifier}) No confirmation, retransmitting")
 
                 # Adjust the frame parameters for a retransmission.
-                frame_parameters["RETRY"] = 1           # Turn on the retry bit.
-                frame_parameters["WAIT_FOR_ACK"] = False  # To avoid another thread waiting for ACK.
+                frame_parameters["RETRY"] = 1                      # Turn on the retry bit.
+                frame_parameters["WAIT_FOR_CONFIRMATION"] = False  # To avoid another thread waiting for confirmation.
 
                 # Retransmit.
                 self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
 
         # If we got to this point, the frame is dropped.
-        log.error(f"({self._identifier}) Frame was dropped")  # TODO: Better logging (to know which frame dropped).
-        self._is_acknowledged = "No ACK required"  # Resetting the value for next transmissions.
+        log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")
+        self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
 
     def generate_psdu(self, payload) -> list[int]:
         """
