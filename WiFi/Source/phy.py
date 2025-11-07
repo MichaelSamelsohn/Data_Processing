@@ -4,6 +4,8 @@ import json
 import time
 import socket
 import threading
+import traceback
+
 import numpy as np
 import random
 
@@ -110,7 +112,7 @@ class PHY:
                 break
             except Exception as e:
                 log.error(f"({self._identifier}) PHY listen error:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data=traceback.print_exc(), log_level="error")
 
     def channel_connection(self, host, port):
         """
@@ -162,7 +164,7 @@ class PHY:
                 break
             except Exception as e:
                 log.error(f"({self._identifier}) PHY listen error:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data=traceback.print_exc(), log_level="error")
 
     @staticmethod
     def send(socket_connection, primitive, data):

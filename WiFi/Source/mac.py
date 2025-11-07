@@ -30,10 +30,11 @@ class MAC:
         self._mpif_socket = None  # Socket connection to MPIF.
 
         # Configurations.
-        self.phy_rate = 6               # Default value.
+        self.phy_rate = 6               # PHY rate.
         self.is_fixed_rate = False      # Boolean value that determines if the rate stays fixed.
         self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
         # circumstance) is sent with RTS-CTS mechanism.
+        self.authentication_algorithm = "open-system"  # Encryption type used for authentication.
 
         # Encryption.
         self.wep_keys = {
@@ -49,23 +50,25 @@ class MAC:
         # Relevant for STA.
         self._probed_ap = None
         self._probed_ap_blacklist = []
-        self.authentication_algorithm = "open-system"
         self._authenticated_ap = None
         self._authentication_attempts = 0
         self._associated_ap = None
 
-        # General buffers and booleans.
+        # General buffers, booleans and variables.
         self._last_phy_rate = 6     # Default value (used for monitoring non-ACK or advertisement frame PHY rates).
         self._is_shutdown = False  # Indicator to stop doing generic functions (such as advertisement). Also used for
         # flushing existing queued frames.
-        self._tx_psdu_buffer = None
         self._is_confirmed = "No confirmation required"
         self._is_retry = False
         self._tx_queue = []
         log.mac("Activating transmission queue")
         threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
-        self._last_data = None  # For debug purposes.
+        self._tx_psdu_buffer = None
+
+        # Debug.
+        self._last_data = None
+        self._is_rts_cts = False
 
     @staticmethod
     def generate_mac_address() -> list[int]:
@@ -826,6 +829,7 @@ class MAC:
                     log.mac(f"({self._identifier}) CTS frame subtype")
 
                     if self._is_confirmed == "Waiting for confirmation":
+                        self._is_rts_cts = False
                         self._is_confirmed = "CTS"
                     else:
                         log.mac(f"({self._identifier}) Irrelevant since we are not waiting for a CTS")
@@ -951,6 +955,7 @@ class MAC:
         if self._role == "STA":
             if self.is_always_rts_cts:
                 log.warning(f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
+                self._is_rts_cts = True
 
                 # Send RTS frame.
                 frame_parameters = {
@@ -966,6 +971,7 @@ class MAC:
                 if len(ascii_text) > RTS_CTS_THRESHOLD:
                     log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
                             f"{len(ascii_text)}")
+                    self._is_rts_cts = True
 
                     # Send RTS frame.
                     frame_parameters = {

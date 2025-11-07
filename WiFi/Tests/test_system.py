@@ -221,7 +221,16 @@ def test_fixed_rate_configuration():
 
 def test_rts_cts_mechanism():
     """
-    TODO: Complete the docstring.
+    Test purpose - Basic functionality of RTS-CTS mechanism.
+    Criteria - Send a data frame above the RTS-CTS threshold and check that RTS-CTS mechanism is used.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality.
+    2) Mock association between AP and STA.
+    3) Send a random data message (above RTS-CTS threshold) from STA to AP (UL).
+    4) Set a timeframe for the AP to receive and decipher the data.
+    5) Assert that the message was received correctly on the STA side and RTS-CTS mechanism was used.
+    6) Shutdown (to avoid unnecessary data leaks to next tests).
     """
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
@@ -231,6 +240,7 @@ def test_rts_cts_mechanism():
         # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
+        is_rts_cts_active = False
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
@@ -241,13 +251,20 @@ def test_rts_cts_mechanism():
                                                 k=RTS_CTS_THRESHOLD + 1))
         sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
 
-        # Step (4) - Buffer time to allow for the data to be sent and received.
-        time.sleep(30)
-
-        # Step (5) - Asserting that the message was received successfully.
+        # Step (4) - Set a timeframe for the data to be sent and received with RTS-CTS.
         try:
+            for _ in range(30):
+                if sta.mac._is_rts_cts:
+                    # Raise relevant flag.
+                    is_rts_cts_active = True
+
+                # Buffer time between consecutive checks.
+                time.sleep(1)
+
+            # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
             assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
                                                                           "original one")
+            assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
 
         # Step (6) - Shutdown.
         finally:
@@ -258,10 +275,20 @@ def test_rts_cts_mechanism():
 
 def test_rts_cts_configuration():
     """
-    TODO: Complete the docstring.
+    Test purpose - Basic functionality of setting the RTS-CTS mechanism to 'always'.
+    Criteria - Set RTS-CTS mechanism to always and send data frames lower than RTS-CTS threshold. The frame is to be
+    sent with RTS-CTS mechanism.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality. STA is configured with RTS-CTS always.
+    2) Mock association between AP and STA.
+    3) Send a random data message (below RTS-CTS threshold) from STA to AP (UL).
+    4) Set a timeframe for the AP to receive and decipher the data.
+    5) Assert that the message was received correctly on the STA side and RTS-CTS mechanism was used.
+    6) Shutdown (to avoid unnecessary data leaks to next tests).
     """
 
-    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality). STA is configured with RTS-CTS.
     channel = Channel(channel_response=[1], snr_db=25)
     with (patch('chip.MAC.beacon_broadcast', return_value=None),
           patch('chip.MAC.scanning', return_value=None)):
@@ -269,23 +296,31 @@ def test_rts_cts_configuration():
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
         sta.mac.is_always_rts_cts = True
+        is_rts_cts_active = False
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
         sta.mac._associated_ap = ap.mac._mac_address
 
-        # Step (3) - Sending a random data message (above RTS-CTS threshold) from STA to AP (UL).
+        # Step (3) - Sending a random data message (below RTS-CTS threshold) from STA to AP (UL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
                                                 k=RTS_CTS_THRESHOLD - 1))
         sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
 
-        # Step (4) - Buffer time to allow for the data to be sent and received.
-        time.sleep(30)
-
-        # Step (5) - Asserting that the message was received successfully.
+        # Step (4) - Set a timeframe for the data to be sent and received with RTS-CTS.
         try:
+            for _ in range(30):
+                if sta.mac._is_rts_cts:
+                    # Raise relevant flag.
+                    is_rts_cts_active = True
+
+                # Buffer time between consecutive checks.
+                time.sleep(1)
+
+            # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
             assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
-                                                                          "original one")
+                                                                         "original one")
+            assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
 
         # Step (6) - Shutdown.
         finally:
