@@ -662,12 +662,16 @@ class MAC:
                                     # Extract challenge text.
                                     challenge = authentication_data[4:]
 
-                                    # Generate IV (initialization vector) and select WEP key.
+                                    # TODO: Turn to function.
+                                    # -----------------------
+                                    # Generate IV (initialization vector).
                                     initialization_vector = [random.randint(0x00, 0xFF) for _ in range(3)]
 
                                     # Encrypt challenge with RC4 stream cipher.
                                     encrypted_challenge = self.rc4_stream_cipher(
-                                        seed=initialization_vector + self.wep_keys[1], challenge=challenge)
+                                        seed=initialization_vector + self.wep_keys[1],
+                                        challenge=challenge + self.cyclic_redundancy_check_32(data=challenge))
+                                    # -----------------------
 
                                     # Send encrypted challenge.
                                     frame_parameters = {
@@ -675,10 +679,28 @@ class MAC:
                                         "DESTINATION_ADDRESS": source_address,
                                         "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
-                                    self._tx_queue.append((frame_parameters, [0x00, 0x01] + [0x00, 0x03] +
-                                         #                                    algorithm      Seq. number
-                                         initialization_vector + [0x01] + encrypted_challenge))
-                                         #                  Guest key index
+                                    """
+                                    Construction of expanded WEP MPDU:
+                            
+                                                                          Encrypted (Note)  
+                                                                    |<------------------------>|
+                                                        +------------+-------------+------------+
+                                                        |     IV     |  DATA >= 1  |     ICV    |
+                                                        |  4 octets  |             |  4 octets  |
+                                                        +------------+-------------+------------+
+                                                        |            |
+                                                        |            -----------------------------
+                                                        |                                        |
+                                                        +----------------+------------+----------+
+                                                        |  Init. Vector  |  Pad bits  |  Key ID  |  
+                                                        |    3 octets    |   6 bits   |  2 bits  |  
+                                                        +----------------+------------+----------+
+                                    """
+                                    frame_data = ([0x00, 0x01] + [0x00, 0x03] +
+                                    #              algorithm      Seq. number
+                                                  initialization_vector + [0x00, 0x01] + encrypted_challenge)
+                                    #                      IV            Guest key index
+                                    self._tx_queue.append((frame_parameters, frame_data))
                             case [0x00, 0x03]:  # Sequence 3 - Encrypted challenge.
                                 # Checking that we are AP (authentication sequence 3 is relevant for AP only).
                                 if self._role == "AP" and cast == "Unicast":
@@ -687,16 +709,26 @@ class MAC:
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=source_address)
 
+                                    # TODO: Turn to function.
+                                    # -----------------------
                                     # Extract IV, WEP key (using WEP key index) and encrypted challenge.
                                     initialization_vector = authentication_data[4:7]
-                                    wep_key_index = authentication_data[7]
+                                    wep_key_index = authentication_data[8]
 
-                                    encrypted_challenge = authentication_data[8:]
+                                    encrypted_challenge = authentication_data[9:]
 
                                     # Decrypt the encrypted challenge.
                                     decrypted_challenge = self.rc4_stream_cipher(
                                         seed=initialization_vector + self.wep_keys[wep_key_index],
                                         challenge=encrypted_challenge)
+
+                                    # Check ICV.
+                                    challenge = decrypted_challenge[:-4]
+                                    icv = decrypted_challenge[-4:]
+                                    is_icv_check = False
+                                    if icv == self.cyclic_redundancy_check_32(data=challenge):
+                                        is_icv_check = True
+                                    # -----------------------
 
                                     # Evaluate decrypted challenge compared to original.
                                     """
@@ -704,7 +736,8 @@ class MAC:
                                     authentication. 0 (0x0000) = Successful.
                                     Non-zero = Failure (reasons may vary).
                                     """
-                                    if decrypted_challenge == self._challenge_text[str(source_address)]:
+                                    if (challenge == self._challenge_text[str(source_address)]
+                                            and is_icv_check):
                                         # Challenge successfully decrypted.
                                         result = [0x00, 0x00]
                                         self._authenticated_sta.append(source_address)  # Updating the list.
@@ -772,7 +805,7 @@ class MAC:
 
                 log.warning(f"({self._identifier}) 'Blacklisting' AP")
                 self._probed_ap_blacklist.append(self._probed_ap)
-                self._probed_ap = None  # This will free the probing thread.
+                self._probed_ap = None
 
                 # TODO: Start the scanning thread.
             else:  # We still have more attempts.
