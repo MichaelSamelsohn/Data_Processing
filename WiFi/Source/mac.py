@@ -1221,63 +1221,71 @@ class MAC:
                   f"little-endian byte order")
         return list(crc32.to_bytes(4, 'little'))
 
-    @staticmethod
-    def convert_string_to_bits(text: str, style='bytes') -> list[int | str]:
+    def encrypt_data(self, encryption_method: str, data: list[int], wep_key_index=0) -> None | list[int]:
         """
-        Convert text string to bits according to ASCII convention - https://www.ascii-code.com/.
-
-        :param text: Text string.
-        :param style: Type of output. There are two options:
-        1) 'binary' - List of binary values where each ASCII byte is split into 8 bits from MSB to LSB with zeros
-        prepended if necessary.
-        2) 'hex' - List of bytes in string format (for example, '0xAB').
-        3) 'bytes' - List of bytes in integer format.
-
-        :return: List of byte values represented either as binary values or string hex values.
+        TODO: Complete the docstring.
         """
 
-        # Encode text to bytes using ASCII.
-        byte_data = text.encode('utf-8')
+        match encryption_method:
+            case "open-system":
+                # Open-system = No encryption.
+                return data
+            case "shared-key":
+                # Generate IV (initialization vector).
+                initialization_vector = [random.randint(0x00, 0xFF) for _ in range(3)]
 
-        data_list = []
-        match style:
-            case 'binary':
-                # Bit list as flat list[int], each byte split into bits (MSB first).
-                for b in byte_data:
-                    bits = [(b >> i) & 1 for i in reversed(range(8))]  # Extract bits from MSB to LSB.
-                    data_list.extend(bits)
-            case 'hex':
-                data_list = [f"0x{b:02X}" for b in byte_data]  # Uppercase hex bytes.
-            case 'bytes':
-                data_list = list(byte_data)
+                # Encrypt challenge with RC4 stream cipher.
+                encrypted_data = self.rc4_stream_cipher(
+                    seed=initialization_vector + self.wep_keys[wep_key_index],
+                    challenge=data + self.cyclic_redundancy_check_32(data=data))
 
-        return data_list
+                # Construct WEP MPDU.
+                """
+                Construction of expanded WEP MPDU:
+                                                          Encrypted (Note)  
+                                                    |<------------------------>|
+                                        +------------+-------------+------------+
+                                        |     IV     |  DATA >= 1  |     ICV    |
+                                        |  4 octets  |             |  4 octets  |
+                                        +------------+-------------+------------+
+                                        |            |
+                                        |            -----------------------------
+                                        |                                        |
+                                        +----------------+------------+----------+
+                                        |  Init. Vector  |  Pad bits  |  Key ID  |  
+                                        |    3 octets    |   6 bits   |  2 bits  |  
+                                        +----------------+------------+----------+
+                """
+                return initialization_vector + [0x00, wep_key_index] + encrypted_data
+                #               IV              Pad bits   Key ID        Data + ICV
+            case _:
+                return None
 
-    @staticmethod
-    def convert_bits_to_bytes(bits: list[int]) -> list[int]:
+    def decrypt_data(self, encryption_method: str, encrypted_msdu: list[int]) -> None | list[int]:
         """
-        Convert a list of bits (0s and 1s) into a bytes object.
-
-        This method takes a list of integers representing bits (each value should be 0 or 1), groups them into chunks of
-        8 bits (1 byte), and converts each chunk into the corresponding byte value. The resulting sequence of bytes is
-        returned as a bytes object.
-
-        If the total number of bits is not a multiple of 8, the last incomplete byte is still processed as-is, assuming
-        it represents the most significant bits (MSBs) of the final byte, and padded with zeros on the right to make up
-        8 bits.
-
-        :param bits: A list of integers containing only 0s and 1s.
-
-        :return: A bytes object representing the input bits.
+        TODO: Complete the docstring.
         """
 
-        # Group bits into bytes and convert to integers.
-        byte_list = []
-        for i in range(0, len(bits), 8):
-            byte = bits[i:i + 8]
-            value = int(''.join(map(str, byte)), 2)
-            byte_list.append(value)
-        return byte_list
+        match encryption_method:
+            case "open-system":
+                return encrypted_msdu
+            case "shared-key":
+                # Extract IV, WEP key (using WEP key index) and encrypted data.
+                initialization_vector = encrypted_msdu[:3]
+                wep_key_index = encrypted_msdu[4]
+                encrypted_data = encrypted_msdu[5:]
+
+                # Decrypt the encrypted data.
+                data_icv_vector = self.rc4_stream_cipher(
+                    seed=initialization_vector + self.wep_keys[wep_key_index],
+                    challenge=encrypted_data)
+
+                # Check ICV.
+                data = data_icv_vector[:-4]
+                icv = data_icv_vector[-4:]
+                return data if icv == self.cyclic_redundancy_check_32(data=data) else None
+            case _:
+                return None
 
     @staticmethod
     def rc4_stream_cipher(seed: list[int], challenge: list[int]) -> list[int]:
@@ -1320,3 +1328,29 @@ class MAC:
             out.append(byte ^ k)
 
         return list(out)
+
+    @staticmethod
+    def convert_bits_to_bytes(bits: list[int]) -> list[int]:
+        """
+        Convert a list of bits (0s and 1s) into a bytes object.
+
+        This method takes a list of integers representing bits (each value should be 0 or 1), groups them into chunks of
+        8 bits (1 byte), and converts each chunk into the corresponding byte value. The resulting sequence of bytes is
+        returned as a bytes object.
+
+        If the total number of bits is not a multiple of 8, the last incomplete byte is still processed as-is, assuming
+        it represents the most significant bits (MSBs) of the final byte, and padded with zeros on the right to make up
+        8 bits.
+
+        :param bits: A list of integers containing only 0s and 1s.
+
+        :return: A bytes object representing the input bits.
+        """
+
+        # Group bits into bytes and convert to integers.
+        byte_list = []
+        for i in range(0, len(bits), 8):
+            byte = bits[i:i + 8]
+            value = int(''.join(map(str, byte)), 2)
+            byte_list.append(value)
+        return byte_list
