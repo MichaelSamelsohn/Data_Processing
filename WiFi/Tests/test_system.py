@@ -36,11 +36,18 @@ def test_basic_association(authentication_algorithm):
     # Step (2) - Buffer time to allow for the association to happen.
     time.sleep(60)
 
+    print(ap.mac._encryption_type)
+    print(sta.mac._encryption_type)
+
     # Step (3) - Check that AP and STA are authenticated and associated (both sides).
     try:
-        assert len(ap.mac._associated_sta) == 1,                  "AP is not associated with STA"
-        assert ap.mac._associated_sta[0] == sta.mac._mac_address, "AP is not associated with STA"
-        assert sta.mac._associated_ap == ap.mac._mac_address,     "STA is not associated with AP"
+        assert len(ap.mac._associated_sta) == 1,                           "AP is not associated with STA"
+        assert ap.mac._encryption_type[str(sta.mac._mac_address)] == authentication_algorithm, \
+            "Encryption method not saved for AP"
+        assert ap.mac._associated_sta[0] == sta.mac._mac_address,          "AP is not associated with STA"
+        assert sta.mac._associated_ap == ap.mac._mac_address,              "STA is not associated with AP"
+        assert sta.mac._encryption_type[str(ap.mac._mac_address)] == authentication_algorithm, \
+            "Encryption method not saved for AP"
 
     # Step (4) - Shutdown.
     finally:
@@ -74,7 +81,9 @@ def test_failed_authentication_incorrect_wep_keys():
     # Step (3) - Check that AP and STA are not authenticated (both sides) and AP is blacklisted for STA.
     try:
         assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
+        assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
         assert sta.mac._associated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
+        assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
         assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
 
     # Step (4) - Shutdown.
@@ -108,7 +117,9 @@ def test_send_data_with_association():
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
         sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
         # Step (3) - Sending a random data (below RTS-CTS threshold) message from AP to STA (DL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
@@ -151,6 +162,7 @@ def test_send_data_without_association():
         sta = CHIP(role='STA', identifier="STA 1")
         # Mocking association between AP and STA (AP side only).
         ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
 
         # Step (2) - Sending the data message from AP to STA (DL).
         ap.mac.send_data_frame(data=MESSAGE, destination_address=sta.mac._mac_address)
@@ -244,7 +256,9 @@ def test_rts_cts_mechanism():
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
         sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
         # Step (3) - Sending a random data message (above RTS-CTS threshold) from STA to AP (UL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
@@ -300,7 +314,9 @@ def test_rts_cts_configuration():
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
         sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
         # Step (3) - Sending a random data message (below RTS-CTS threshold) from STA to AP (UL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
