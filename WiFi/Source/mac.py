@@ -1208,7 +1208,23 @@ class MAC:
 
     def encrypt_data(self, encryption_method: str, data: list[int], wep_key_index=0) -> None | list[int]:
         """
-        TODO: Complete the docstring.
+        Encrypts the provided data using the specified WEP encryption method. This method simulates the WEP (Wired
+        Equivalent Privacy) encryption process for IEEE 802.11 frames. Depending on the chosen encryption method, it
+        either returns the plaintext data (for open-system authentication) or an encrypted payload (for shared-key
+        authentication).
+
+        :param encryption_method: The encryption method to use. Supported values:
+        - "open-system": No encryption is applied; the data is returned as-is.
+        - "shared-key": Encrypts the data using the RC4 stream cipher.
+        :param data: The data (in bytes as integer values 0–255) to encrypt.
+        :param wep_key_index: (optional) Index of the WEP key to use for encryption. Defaults to 0 (staff).
+
+        :return:
+        - For "open-system", returns the original data.
+        - For "shared-key", returns the constructed WEP MPDU, consisting of:
+          [Initialization Vector (3 bytes) + Control Byte (Pad bits + Key ID) + Encrypted Payload]
+          where the encrypted payload is RC4(data + ICV).
+        - Returns `None` if an unsupported encryption method is provided.
         """
 
         match encryption_method:
@@ -1248,7 +1264,20 @@ class MAC:
 
     def decrypt_data(self, encryption_method: str, encrypted_msdu: list[int]) -> None | list[int]:
         """
-        TODO: Complete the docstring.
+        Decrypts an MSDU (MAC Service Data Unit) based on the specified encryption method. This method supports both
+        open-system and shared-key (WEP) decryption schemes:
+        - Open-System: No encryption or decryption is performed; the input MSDU is returned unchanged.
+        - Shared-Key: Performs WEP decryption using the RC4 stream cipher. The function extracts the Initialization
+          Vector (IV) and key index, uses the corresponding WEP key, and verifies the decrypted data using a 32-bit CRC
+          (Integrity Check Value, ICV).
+
+        :param encryption_method: The encryption method used for the MSDU. Supported values:
+        - `"open-system"`
+        - `"shared-key"`
+        :param encrypted_msdu: The encrypted MAC Service Data Unit represented as a list of bytes (integers 0–255).
+
+        :return: The decrypted data as a list of integers if successful, None if the decryption fails (e.g., ICV
+        mismatch or unknown encryption method).
         """
 
         match encryption_method:
