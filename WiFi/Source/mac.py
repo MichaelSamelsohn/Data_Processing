@@ -37,6 +37,7 @@ class MAC:
         self.authentication_algorithm = "open-system"  # Encryption type used for authentication.
 
         # Encryption.
+        self._encryption_type = {}
         self.wep_keys = {
             0: [0x12, 0x34, 0x56, 0x78, 0x90],  # Staff (authenticated & associated).
             1: [0xAB, 0xCD, 0xEF, 0x12, 0x34]   # Guest.
@@ -584,7 +585,10 @@ class MAC:
                                     # Send ACK response.
                                     self.send_acknowledgement_frame(source_address=source_address)
 
-                                    self._authenticated_sta.append(source_address)  # Updating the list.
+                                    # Open-system -> Authenticate immediately.
+                                    self._authenticated_sta.append(source_address)
+                                    self._encryption_type[str(source_address)] = "open-system"
+
                                     # Send authentication response.
                                     frame_parameters = {
                                         "TYPE": "Authentication",
@@ -599,7 +603,28 @@ class MAC:
                                 # is the probed one.
                                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Authentication response")
-                                    self.authentication_response_handler(authentication_status=authentication_data[4:6])
+
+                                    # Send ACK.
+                                    self.send_acknowledgement_frame(source_address=self._probed_ap)
+
+                                    # Check that authentication was successful.
+                                    if authentication_data[4:6] == [0x00, 0x00]:
+                                        self._authenticated_ap = self._probed_ap
+                                        self._encryption_type[str(source_address)] = "open-system"
+                                        log.success(f"({self._identifier}) Authentication successful")
+
+                                        # Send association request.
+                                        frame_parameters = {
+                                            "TYPE": "Association Request",
+                                            "DESTINATION_ADDRESS": self._authenticated_ap,
+                                            "WAIT_FOR_CONFIRMATION": "ACK"
+                                        }
+                                        self._tx_queue.append((frame_parameters, []))
+                                    else:
+                                        log.warning(f"({self._identifier}) Authentication failed with status code - "
+                                                    f"{authentication_data[4:6]}")
+                                        self._authentication_attempts += 1
+                                        self.authentication_fail_handler()
 
                     case [0x00, 0x01]:
                         # Shared-key.
@@ -662,44 +687,17 @@ class MAC:
                                     # Extract challenge text.
                                     challenge = authentication_data[4:]
 
-                                    # TODO: Turn to function.
-                                    # -----------------------
-                                    # Generate IV (initialization vector).
-                                    initialization_vector = [random.randint(0x00, 0xFF) for _ in range(3)]
-
-                                    # Encrypt challenge with RC4 stream cipher.
-                                    encrypted_challenge = self.rc4_stream_cipher(
-                                        seed=initialization_vector + self.wep_keys[1],
-                                        challenge=challenge + self.cyclic_redundancy_check_32(data=challenge))
-                                    # -----------------------
-
                                     # Send encrypted challenge.
                                     frame_parameters = {
                                         "TYPE": "Authentication",
                                         "DESTINATION_ADDRESS": source_address,
                                         "WAIT_FOR_CONFIRMATION": "ACK"
                                     }
-                                    """
-                                    Construction of expanded WEP MPDU:
-                            
-                                                                          Encrypted (Note)  
-                                                                    |<------------------------>|
-                                                        +------------+-------------+------------+
-                                                        |     IV     |  DATA >= 1  |     ICV    |
-                                                        |  4 octets  |             |  4 octets  |
-                                                        +------------+-------------+------------+
-                                                        |            |
-                                                        |            -----------------------------
-                                                        |                                        |
-                                                        +----------------+------------+----------+
-                                                        |  Init. Vector  |  Pad bits  |  Key ID  |  
-                                                        |    3 octets    |   6 bits   |  2 bits  |  
-                                                        +----------------+------------+----------+
-                                    """
-                                    frame_data = ([0x00, 0x01] + [0x00, 0x03] +
                                     #              algorithm      Seq. number
-                                                  initialization_vector + [0x00, 0x01] + encrypted_challenge)
-                                    #                      IV            Guest key index
+                                    frame_data = ([0x00, 0x01] + [0x00, 0x03] +
+                                                  self.encrypt_data(encryption_method="shared-key",  # Method.
+                                                                    data=challenge,                  # Challenge.
+                                                                    wep_key_index=1))                # Guest key ID.
                                     self._tx_queue.append((frame_parameters, frame_data))
                             case [0x00, 0x03]:  # Sequence 3 - Encrypted challenge.
                                 # Checking that we are AP (authentication sequence 3 is relevant for AP only).
@@ -709,26 +707,9 @@ class MAC:
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=source_address)
 
-                                    # TODO: Turn to function.
-                                    # -----------------------
-                                    # Extract IV, WEP key (using WEP key index) and encrypted challenge.
-                                    initialization_vector = authentication_data[4:7]
-                                    wep_key_index = authentication_data[8]
-
-                                    encrypted_challenge = authentication_data[9:]
-
                                     # Decrypt the encrypted challenge.
-                                    decrypted_challenge = self.rc4_stream_cipher(
-                                        seed=initialization_vector + self.wep_keys[wep_key_index],
-                                        challenge=encrypted_challenge)
-
-                                    # Check ICV.
-                                    challenge = decrypted_challenge[:-4]
-                                    icv = decrypted_challenge[-4:]
-                                    is_icv_check = False
-                                    if icv == self.cyclic_redundancy_check_32(data=challenge):
-                                        is_icv_check = True
-                                    # -----------------------
+                                    challenge = self.decrypt_data(encryption_method="shared-key",
+                                                                  encrypted_msdu=authentication_data[4:])
 
                                     # Evaluate decrypted challenge compared to original.
                                     """
@@ -736,11 +717,11 @@ class MAC:
                                     authentication. 0 (0x0000) = Successful.
                                     Non-zero = Failure (reasons may vary).
                                     """
-                                    if (challenge == self._challenge_text[str(source_address)]
-                                            and is_icv_check):
+                                    if challenge == self._challenge_text[str(source_address)]:
                                         # Challenge successfully decrypted.
                                         result = [0x00, 0x00]
-                                        self._authenticated_sta.append(source_address)  # Updating the list.
+                                        self._authenticated_sta.append(source_address)
+                                        self._encryption_type[str(source_address)] = "shared-key"
                                     else:
                                         # Challenge unsuccessfully decrypted.
                                         result = [0x00, 0x01]
@@ -762,64 +743,58 @@ class MAC:
                                 # is the probed one.
                                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 4 - Authentication response")
-                                    self.authentication_response_handler(authentication_status=authentication_data[4:6])
 
-    def authentication_response_handler(self, authentication_status: list[int]):
+                                    # Send ACK.
+                                    self.send_acknowledgement_frame(source_address=self._probed_ap)
+
+                                    # Check that authentication was successful.
+                                    if authentication_data[4:6] == [0x00, 0x00]:
+                                        self._authenticated_ap = self._probed_ap  # Updating the list.
+                                        self._encryption_type[str(source_address)] = "shared-key"
+                                        log.success(f"({self._identifier}) Authentication successful")
+
+                                        # Send association request.
+                                        frame_parameters = {
+                                            "TYPE": "Association Request",
+                                            "DESTINATION_ADDRESS": self._authenticated_ap,
+                                            "WAIT_FOR_CONFIRMATION": "ACK"
+                                        }
+                                        self._tx_queue.append((frame_parameters, []))
+                                    else:
+                                        log.warning(f"({self._identifier}) Authentication failed with status code - "
+                                                    f"{authentication_data[4:6]}")
+                                        self._authentication_attempts += 1
+                                        self.authentication_fail_handler()
+
+    def authentication_fail_handler(self):
         """
-        Handle the response received after sending an authentication request to an Access Point (AP). This method
-        processes the authentication status returned by an AP and takes the appropriate next action:
-        - If authentication is successful (`[0x00, 0x00]`), it updates the internal state to mark the AP as
-          authenticated and queues an Association Request frame.
-        - If authentication fails, it increments the retry counter and, after reaching the maximum number of allowed
-          attempts, blacklists the AP and resumes the probing process.
-        Note - An acknowledgement (ACK) is always sent back to the AP regardless of the authentication outcome.
-
-        :param authentication_status: A two-byte list indicating the authentication result, where `[0x00, 0x00]`
-        represents success and any other value indicates failure.
+        Authentication fail handler. Retries authentication if number of attempts is below number of allowed attempts,
+        else blacklists the AP and resumes the probing process.
         """
 
-        # Send ACK.
-        self.send_acknowledgement_frame(source_address=self._probed_ap)
+        log.debug(f"({self._identifier}) Checking if able to restart the process")
+        if self._authentication_attempts == AUTHENTICATION_ATTEMPTS:
+            log.error(f"({self._identifier}) Authentication failed for "
+                      f"{AUTHENTICATION_ATTEMPTS} consecutive times")
+            self._authentication_attempts = 0
 
-        # Check that authentication was successful.
-        if authentication_status == [0x00, 0x00]:
-            self._authenticated_ap = self._probed_ap  # Updating the list.
-            log.success(f"({self._identifier}) Authentication successful")
+            log.warning(f"({self._identifier}) 'Blacklisting' AP")
+            self._probed_ap_blacklist.append(self._probed_ap)
+            self._probed_ap = None
 
-            # Send association request.
+            # TODO: Start the scanning thread.
+        else:  # We still have more attempts.
+            log.mac(f"({self._identifier}) Restarting authentication process")
+
+            # Send authenticating request.
             frame_parameters = {
-                "TYPE": "Association Request",
-                "DESTINATION_ADDRESS": self._authenticated_ap,
+                "TYPE": "Authentication",
+                "DESTINATION_ADDRESS": self._probed_ap,
                 "WAIT_FOR_CONFIRMATION": "ACK"
             }
-            self._tx_queue.append((frame_parameters, []))
-        else:  # Authentication failed.
-            log.warning(f"({self._identifier}) Authentication failed with status code - {authentication_status}")
-            self._authentication_attempts += 1
-
-            log.debug(f"({self._identifier}) Checking if able to restart the process")
-            if self._authentication_attempts == AUTHENTICATION_ATTEMPTS:
-                log.error(f"({self._identifier}) Authentication failed for "
-                          f"{AUTHENTICATION_ATTEMPTS} consecutive times")
-                self._authentication_attempts = 0
-
-                log.warning(f"({self._identifier}) 'Blacklisting' AP")
-                self._probed_ap_blacklist.append(self._probed_ap)
-                self._probed_ap = None
-
-                # TODO: Start the scanning thread.
-            else:  # We still have more attempts.
-                log.mac(f"({self._identifier}) Restarting authentication process")
-
-                # Send authenticating request.
-                frame_parameters = {
-                    "TYPE": "Authentication",
-                    "DESTINATION_ADDRESS": self._probed_ap,
-                    "WAIT_FOR_CONFIRMATION": "ACK"
-                }
-                self._tx_queue.append((frame_parameters,
-                                       SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-                #                                                                            Seq. number
+            self._tx_queue.append((frame_parameters,
+                                   SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
+            #                                                                            Seq. number
 
     def control_controller(self, mac_header: list[int]):
         """
@@ -894,15 +869,22 @@ class MAC:
                         (self._role == "STA" and source_address == self._associated_ap)):   # Relevant for downlink.
                         log.mac(f"({self._identifier}) Data frame subtype")
 
-                        # Send ACK response.
-                        self.send_acknowledgement_frame(source_address=source_address)
+                        # Decrypt data.
+                        self._last_data = self.decrypt_data(
+                            encryption_method=self._encryption_type[str(source_address)],
+                            encrypted_msdu=self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
+                        if not self._last_data:
+                            # Decryption failed -> not sending ACK, so frame is resent.
+                            log.warning(f"({self._identifier}) Data decryption failed, expecting a retry")
+                        else:
+                            # Send ACK response.
+                            self.send_acknowledgement_frame(source_address=source_address)
 
-                        # Remove MAC header and CRC.
-                        self._last_data = bytes(self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4])
-                        log.info(f"({self._identifier}) Received message:")
-                        log.info("------------------")
-                        log.print_data(self._last_data.decode('utf-8'), log_level="info")
-                        log.info("------------------")
+                            self._last_data = bytes(self._last_data)
+                            log.info(f"({self._identifier}) Received message:")
+                            log.info("------------------")
+                            log.print_data(self._last_data.decode('utf-8'), log_level="info")
+                            log.info("------------------")
 
     def extract_address_information(self, mac_header):
         """
@@ -982,7 +964,8 @@ class MAC:
         log.print_data(data=data, log_level='info')
         log.info("------------------")
         log.debug(f"({self._identifier}) Converting data to bytes")
-        ascii_text = self.convert_string_to_bits(text=data, style='bytes')
+        encrypted_data = self.encrypt_data(encryption_method=self._encryption_type[str(destination_address)],
+                                           data=list(data.encode('utf-8')))
 
         log.debug(f"({self._identifier}) Checking if RTS-CTS mechanism is required for current data packet")
         if self._role == "STA":
@@ -1001,9 +984,9 @@ class MAC:
 
             else:
                 # Check frame size of the data.
-                if len(ascii_text) > RTS_CTS_THRESHOLD:
+                if len(encrypted_data) > RTS_CTS_THRESHOLD:
                     log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
-                            f"{len(ascii_text)}")
+                            f"{len(encrypted_data)}")
                     self._is_rts_cts = True
 
                     # Send RTS frame.
@@ -1024,7 +1007,7 @@ class MAC:
             "DESTINATION_ADDRESS": destination_address,
             "WAIT_FOR_CONFIRMATION": "ACK"
         }
-        self._tx_queue.append((frame_parameters, ascii_text))
+        self._tx_queue.append((frame_parameters, encrypted_data))
 
     def send_acknowledgement_frame(self, source_address: list[int]):
         """
@@ -1081,6 +1064,8 @@ class MAC:
         # If we got to this point, the frame is dropped.
         log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")
         self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
+        # TODO: Special treatment for special frames (i.e. no ACK for authentication frame -> Remove from
+        #  authentication list).
 
     def generate_psdu(self, payload) -> list[int]:
         """
