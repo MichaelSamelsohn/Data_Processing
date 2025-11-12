@@ -33,8 +33,10 @@ class MAC:
         self.phy_rate = 6               # PHY rate.
         self.is_fixed_rate = False      # Boolean value that determines if the rate stays fixed.
         self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
-        # circumstance) is sent with RTS-CTS mechanism.
+                                        # circumstance) is sent with RTS-CTS mechanism.
         self.authentication_algorithm = "open-system"  # Encryption type used for authentication.
+        self.channel_type = "A"         # Regulatory or operational characteristics of a channel — what rules apply for
+                                        # transmitting on that channel.
 
         # Encryption.
         self._encryption_type = {}
@@ -153,6 +155,11 @@ class MAC:
         """
 
         while True:
+            # Check if we are in a 'Z' type channel.
+            if self.channel_type == "Z":
+                continue  # Not allowed to listen in a 'Z' type channel.
+
+            # Receive traffic over the MPIF socket.
             try:
                 message = self._mpif_socket.recv(65536)
                 if message:
@@ -273,6 +280,10 @@ class MAC:
         receivers.
         """
 
+        # Check if we are in a 'Z' type channel.
+        if self.channel_type == "Z":
+            return  # Not allowed to broadcast in a 'Z' type channel.
+
         log.mac(f"({self._identifier}) Sending beacons to notify STAs")
 
         while True:
@@ -299,6 +310,10 @@ class MAC:
         2. Active Scanning - If no APs respond during the passive phase, the device repeatedly sends probe request
            frames to solicit responses from APs. It continues probing until at least one AP responds.
         """
+
+        # Check if we are in a 'Z' type channel.
+        if self.channel_type == "Z":
+            return  # Not allowed to scan in a 'Z' type channel.
 
         log.mac(f"({self._identifier}) Scanning for APs to associate with")
 
@@ -921,6 +936,12 @@ class MAC:
         :param frame_parameters: Transmission frame parameters (such as - type, destination address, etc').
         :param data: Data payload.
         """
+
+        # Check if we are in a 'Z' type channel.
+        if self.channel_type == "Z":
+            log.warning(f"({self._identifier}) Frame ({frame_parameters['TYPE'].upper()}) won't be sent because "
+                        f"channel type is 'Z'")
+            return
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
         log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE'].upper()}")
