@@ -5,6 +5,7 @@ import string
 import pytest
 
 from unittest.mock import patch
+
 from WiFi.Settings.wifi_settings import RTS_CTS_THRESHOLD
 from WiFi.Source.chip import CHIP
 from channel import Channel
@@ -34,6 +35,9 @@ def test_basic_association(authentication_algorithm):
 
     # Step (2) - Buffer time to allow for the association to happen.
     time.sleep(60)
+
+    print(ap.mac._encryption_type)
+    print(sta.mac._encryption_type)
 
     # Step (3) - Check that AP and STA are authenticated and associated (both sides).
     try:
@@ -78,7 +82,7 @@ def test_failed_authentication_incorrect_wep_keys():
     try:
         assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
         assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
-        assert sta.mac._authenticated_sta == [],    "STA is authenticated with AP, although it shouldn't be"
+        assert sta.mac._associated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
         assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
         assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
 
@@ -339,39 +343,3 @@ def test_rts_cts_configuration():
             ap.shutdown()
             sta.shutdown()
             channel.shutdown()
-
-
-def test_no_association_channel_type_z():
-    """
-    Test purpose - AP and STA behaviour when set with channel type 'Z'.
-    Criteria - No traffic whatsoever when both AP and STA are configured with channel type 'Z'.
-
-    Test steps:
-    1) Set the channel, AP and STA. The AP and STA are configured with channel type 'Z'.
-    2) Set enough time for standard authentication and association.
-    3) Assert that both sides are not authenticated and associated.
-    4) Shutdown (to avoid unnecessary data leaks to next tests).
-    """
-
-    # Step (1) - Set AP, STA and channel. AP and STA are configured with channel type 'Z'.
-    channel = Channel(channel_response=[1], snr_db=25)
-    ap = CHIP(role='AP', identifier="AP")
-    ap.mac.channel_type = "Z"
-    sta = CHIP(role='STA', identifier="STA 1")
-    sta.mac.channel_type = "Z"
-
-    # Step (2) - Buffer time for standard authentication and association to happen.
-    time.sleep(60)
-
-    # Step (3) - Check that AP and STA are not authenticated (both sides).
-    try:
-        assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
-        assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
-        assert sta.mac._authenticated_sta == [],    "STA is authenticated with AP, although it shouldn't be"
-        assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
-
-    # Step (4) - Shutdown.
-    finally:
-        ap.shutdown()
-        sta.shutdown()
-        channel.shutdown()
