@@ -35,8 +35,8 @@ class MAC:
         self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
                                         # circumstance) is sent with RTS-CTS mechanism.
         self.authentication_algorithm = "open-system"  # Encryption type used for authentication.
-        self.channel_type = "A"         # Regulatory or operational characteristics of a channel — what rules apply for
-                                        # transmitting on that channel.
+        self.channel_type = "A"         # Regulatory or operational characteristics of a channel — what rules apply
+                                        # for transmitting on that channel.
 
         # Encryption.
         self._encryption_type = {}
@@ -280,13 +280,14 @@ class MAC:
         receivers.
         """
 
-        # Check if we are in a 'Z' type channel.
-        if self.channel_type == "Z":
-            return  # Not allowed to broadcast in a 'Z' type channel.
-
-        log.mac(f"({self._identifier}) Sending beacons to notify STAs")
+        # Buffer time to allow for MAC configurations to take hold.
+        time.sleep(1)
 
         while True:
+            # Check channel type restrictions.
+            if self.channel_type == "Z":
+                continue  # Broadcasting not allowed in 'Z' channel.
+
             if self._is_shutdown:
                 break
 
@@ -311,26 +312,32 @@ class MAC:
            frames to solicit responses from APs. It continues probing until at least one AP responds.
         """
 
-        # Check if we are in a 'Z' type channel.
-        if self.channel_type == "Z":
-            return  # Not allowed to scan in a 'Z' type channel.
+        # Check channel type restrictions.
+        if not self.channel_type == "Z":
+            log.mac(f"({self._identifier}) Scanning for APs to associate with")
 
-        log.mac(f"({self._identifier}) Scanning for APs to associate with")
+            log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
+            time.sleep(PASSIVE_SCANNING_TIME)
+        else:
+            log.warning(f"({self._identifier}) Scanning is not allowed in channel type 'Z'")
 
-        log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
-        time.sleep(PASSIVE_SCANNING_TIME)
+        while True:
+            # Check channel type restrictions.
+            if self.channel_type == "Z":
+                continue  # Active scanning not allowed in 'Z' channel.
 
-        while not self._probed_ap:
-            # No AP probe responded yet, send probe request.
-            log.mac(f"({self._identifier}) Active scanning - Probing")
-            frame_parameters = {
-                "TYPE": "Probe Request",
-                "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                "WAIT_FOR_CONFIRMATION": False
-            }
-            self._tx_queue.append((frame_parameters, []))
+            # Check if we haven't probed any AP yet.
+            if not self._probed_ap:
+                # No AP probe responded yet, send probe request.
+                log.mac(f"({self._identifier}) Active scanning - Probing")
+                frame_parameters = {
+                    "TYPE": "Probe Request",
+                    "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
+                    "WAIT_FOR_CONFIRMATION": False
+                }
+                self._tx_queue.append((frame_parameters, []))
 
-            time.sleep(PROBE_REQUEST_BROADCAST_INTERVAL)  # Buffer time between consecutive probing requests.
+                time.sleep(PROBE_REQUEST_BROADCAST_INTERVAL)  # Buffer time between consecutive probing requests.
 
     def controller(self, primitive, data):
         """
@@ -388,7 +395,7 @@ class MAC:
                     log.success(f"({self._identifier}) CRC check passed")
 
                     log.mac(f"({self._identifier}) Extracting MAC header")
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+                    mac_header = byte_list[:24]
 
                     log.debug(f"({self._identifier}) Checking if received frame is a retransmission")
                     self._is_retry = True if self._rx_psdu_buffer[11] == 1 else False
@@ -937,11 +944,10 @@ class MAC:
         :param data: Data payload.
         """
 
-        # Check if we are in a 'Z' type channel.
+        # Check channel type restrictions.
         if self.channel_type == "Z":
-            log.warning(f"({self._identifier}) Frame ({frame_parameters['TYPE'].upper()}) won't be sent because "
-                        f"channel type is 'Z'")
-            return
+            log.warning(f"({self._identifier}) No transmission allowed for channel type 'Z'")
+            return  # Transmission not allowed in 'Z' channel.
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
         log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE'].upper()}")
