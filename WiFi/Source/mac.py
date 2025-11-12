@@ -33,7 +33,7 @@ class MAC:
         self.phy_rate = 6               # PHY rate.
         self.is_fixed_rate = False      # Boolean value that determines if the rate stays fixed.
         self.is_always_rts_cts = False  # Boolean value that determines if any data frame (regardless of size or
-        # circumstance) is sent with RTS-CTS mechanism.
+                                        # circumstance) is sent with RTS-CTS mechanism.
         self.authentication_algorithm = "open-system"  # Encryption type used for authentication.
 
         # Encryption.
@@ -373,7 +373,7 @@ class MAC:
                     log.success(f"({self._identifier}) CRC check passed")
 
                     log.mac(f"({self._identifier}) Extracting MAC header")
-                    mac_header = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[:24]
+                    mac_header = byte_list[:24]
 
                     log.debug(f"({self._identifier}) Checking if received frame is a retransmission")
                     self._is_retry = True if self._rx_psdu_buffer[11] == 1 else False

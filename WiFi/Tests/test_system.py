@@ -82,7 +82,7 @@ def test_failed_authentication_incorrect_wep_keys():
     try:
         assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
         assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
-        assert sta.mac._associated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
+        assert sta.mac._authenticated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
         assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
         assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
 
