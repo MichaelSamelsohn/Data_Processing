@@ -303,17 +303,21 @@ class MAC:
         log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
         time.sleep(PASSIVE_SCANNING_TIME)
 
-        while not self._probed_ap:
-            # No AP probe responded yet, send probe request.
-            log.mac(f"({self._identifier}) Active scanning - Probing")
-            frame_parameters = {
-                "TYPE": "Probe Request",
-                "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                "WAIT_FOR_CONFIRMATION": False
-            }
-            self._tx_queue.append((frame_parameters, []))
+        while True:
+            if not self._probed_ap:
+                # No AP probe responded yet, send probe request.
+                log.mac(f"({self._identifier}) Active scanning - Probing")
+                frame_parameters = {
+                    "TYPE": "Probe Request",
+                    "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
+                    "WAIT_FOR_CONFIRMATION": False
+                }
+                self._tx_queue.append((frame_parameters, []))
 
-            time.sleep(PROBE_REQUEST_BROADCAST_INTERVAL)  # Buffer time between consecutive probing requests.
+                time.sleep(PROBE_REQUEST_BROADCAST_INTERVAL)  # Buffer time between consecutive probing requests.
+            else:
+                # Buffer time to avoid a heavy while True loop.
+                time.sleep(0.01)
 
     def controller(self, primitive, data):
         """
@@ -518,8 +522,8 @@ class MAC:
                                                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
                         #                                                                            Seq. number
                     else:
-                        log.mac(f"({self._identifier}) Probe response received from a blacklisted AP, "
-                                f"no response needed")
+                        log.warning(f"({self._identifier}) Probe response received from a blacklisted AP, "
+                                    f"no response needed")
 
             case [1, 0, 0, 0]:  # Beacon.
                 """
@@ -547,10 +551,10 @@ class MAC:
                                                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
                         #                                                                            Seq. number
                     else:
-                        log.mac(f"({self._identifier}) Beacon received from a blacklisted AP, no response needed")
+                        log.warning(f"({self._identifier}) Beacon received from a blacklisted AP, no response needed")
                 else:
-                    log.mac(f"({self._identifier}) Beacon received but already probed/authenticated/associated, no "
-                            f"response needed")
+                    log.warning(f"({self._identifier}) Beacon received but already probed/authenticated/associated, no "
+                                f"response needed")
 
             case [1, 0, 1, 1]:  # Authentication.
                 """
@@ -778,9 +782,7 @@ class MAC:
 
             log.warning(f"({self._identifier}) 'Blacklisting' AP")
             self._probed_ap_blacklist.append(self._probed_ap)
-            self._probed_ap = None
-
-            # TODO: Start the scanning thread.
+            self._probed_ap = None  # This should allow the scanning thread to continue active scanning.
         else:  # We still have more attempts.
             log.mac(f"({self._identifier}) Restarting authentication process")
 
