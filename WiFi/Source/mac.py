@@ -169,8 +169,8 @@ class MAC:
             except ConnectionError:  # In case of shutdown.
                 break
             except Exception as e:
-                log.error(f"({self._identifier}) MAC listen error:")
-                log.print_data(data=traceback.print_exc(), log_level="error")
+                log.error(f"({self._identifier}) MAC MPIF listen error:")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
 
     def transmission_queue(self):
         """
@@ -272,8 +272,6 @@ class MAC:
         seconds). The beacon is sent to the broadcast address (FF:FF:FF:FF:FF:FF), making it visible to all nearby
         receivers.
         """
-
-        log.mac(f"({self._identifier}) Sending beacons to notify STAs")
 
         while True:
             if self._is_shutdown:

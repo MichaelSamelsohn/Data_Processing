@@ -17,6 +17,7 @@ import json
 import socket
 import threading
 import time
+import traceback
 
 import numpy as np
 
@@ -79,7 +80,7 @@ class Channel:
                 break
             except Exception as e:
                 log.error(f"Channel listen error:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
 
     def handle_client(self, conn, addr):
         """

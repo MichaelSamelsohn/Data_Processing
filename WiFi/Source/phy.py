@@ -111,8 +111,8 @@ class PHY:
             except ConnectionError:  # In case of shutdown.
                 break
             except Exception as e:
-                log.error(f"({self._identifier}) PHY listen error:")
-                log.print_data(data=traceback.print_exc(), log_level="error")
+                log.error(f"({self._identifier}) PHY MPIF listen error:")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
 
     def channel_connection(self, host, port):
         """
@@ -163,8 +163,8 @@ class PHY:
             except ConnectionError:  # In case of shutdown.
                 break
             except Exception as e:
-                log.error(f"({self._identifier}) PHY listen error:")
-                log.print_data(data=traceback.print_exc(), log_level="error")
+                log.error(f"({self._identifier}) PHY channel listen error:")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
 
     @staticmethod
     def send(socket_connection, primitive, data):
