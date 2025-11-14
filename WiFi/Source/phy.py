@@ -160,7 +160,7 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
-            except ConnectionError:  # In case of shutdown.
+            except ConnectionError | OSError:  # In case of shutdown.
                 break
             except Exception as e:
                 log.error(f"({self._identifier}) PHY channel listen error:")
@@ -179,8 +179,11 @@ class PHY:
         :param data: The data to be sent along with the primitive. Must be JSON-serializable.
         """
 
-        message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-        socket_connection.sendall(message.encode())
+        try:
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
+            socket_connection.sendall(message.encode())
+        except ConnectionError | OSError:
+            return  # In case of shutdown.
 
     def controller(self, primitive, data):
         """
