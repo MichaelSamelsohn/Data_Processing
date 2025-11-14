@@ -198,7 +198,8 @@ class MAC:
 
                     # Timing delay to avoid collisions. TODO: Should be enhanced.
                     if transmission_details[0]["TYPE"] not in ("ACK", "CTS"):
-                        time.sleep(6)  # Allow the transmission to end before initiating another one.
+                        # Allow the transmission to end before initiating another one.
+                        time.sleep(CONFIRMATION_WAIT_TIME + 0.5)
 
                     # Rate selection.
                     if self.is_fixed_rate:
@@ -1043,7 +1044,7 @@ class MAC:
 
         # Waiting for confirmation.
         for i in range(SHORT_RETRY_LIMIT):
-            time.sleep(5)  # Allow reception time for the ACK response.
+            time.sleep(CONFIRMATION_WAIT_TIME)  # Allow reception time for the ACK response.
 
             if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
                 log.success(f"({self._identifier}) Frame confirmed, "
