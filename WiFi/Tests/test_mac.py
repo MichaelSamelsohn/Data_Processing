@@ -27,6 +27,7 @@ def test_mac_default_configuration():
         assert mac.phy_rate == 6
         assert mac.is_fixed_rate is False
         assert mac.is_always_rts_cts is False
+        assert mac.authentication_algorithm == "open-system"
 
 
 def test_mac_initialization():
