@@ -33,11 +33,11 @@ def test_basic_association(authentication_algorithm):
     sta = CHIP(role='STA', identifier="STA 1")
     sta.mac.authentication_algorithm = authentication_algorithm
 
+    ap.activation()
+    sta.activation()
+
     # Step (2) - Buffer time to allow for the association to happen.
     time.sleep(60)
-
-    print(ap.mac._encryption_type)
-    print(sta.mac._encryption_type)
 
     # Step (3) - Check that AP and STA are authenticated and associated (both sides).
     try:
@@ -74,6 +74,9 @@ def test_failed_authentication_incorrect_wep_keys():
     sta = CHIP(role='STA', identifier="STA 1")
     sta.mac.authentication_algorithm = "shared-key"
     sta.mac.wep_keys[0], sta.mac.wep_keys[1] = sta.mac.wep_keys[1], sta.mac.wep_keys[0]
+
+    ap.activation()
+    sta.activation()
 
     # Step (2) - Buffer time to allow for several authentication failures to happen.
     time.sleep(120)
@@ -121,6 +124,9 @@ def test_send_data_with_association():
         sta.mac._associated_ap = ap.mac._mac_address
         sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
+        ap.activation()
+        sta.activation()
+
         # Step (3) - Sending a random data (below RTS-CTS threshold) message from AP to STA (DL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
                                                 k=RTS_CTS_THRESHOLD - 1))
@@ -164,6 +170,9 @@ def test_send_data_without_association():
         ap.mac._associated_sta = [sta.mac._mac_address]
         ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
 
+        ap.activation()
+        sta.activation()
+
         # Step (2) - Sending the data message from AP to STA (DL).
         ap.mac.send_data_frame(data=MESSAGE, destination_address=sta.mac._mac_address)
 
@@ -196,15 +205,19 @@ def test_fixed_rate_configuration():
     # Step (1) - Set AP (with fixed rate), STA (without fixed rate) and channel.
     channel = Channel(channel_response=[1], snr_db=25)
     ap = CHIP(role='AP', identifier="AP")
+    sta = CHIP(role='STA', identifier="STA 1")
+
     ap.mac.phy_rate = 6
     ap.mac.is_fixed_rate = True
-    is_ap_rate_fixed = True
-    sta = CHIP(role='STA', identifier="STA 1")
     sta.mac.phy_rate = 6
     sta.mac.is_fixed_rate = False
-    is_sta_rate_not_fixed = False
+
+    ap.activation()
+    sta.activation()
 
     # Step (2) - Set a timeframe for the STA to change its rate.
+    is_ap_rate_fixed = True
+    is_sta_rate_not_fixed = False
     try:
         for _ in range(60):
             # Raise relevant flags.
@@ -252,7 +265,6 @@ def test_rts_cts_mechanism():
         # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
-        is_rts_cts_active = False
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
@@ -260,12 +272,16 @@ def test_rts_cts_mechanism():
         sta.mac._associated_ap = ap.mac._mac_address
         sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
+        ap.activation()
+        sta.activation()
+
         # Step (3) - Sending a random data message (above RTS-CTS threshold) from STA to AP (UL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
                                                 k=RTS_CTS_THRESHOLD + 1))
         sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
 
         # Step (4) - Set a timeframe for the data to be sent and received with RTS-CTS.
+        is_rts_cts_active = False
         try:
             for _ in range(30):
                 if sta.mac._is_rts_cts:
@@ -277,7 +293,7 @@ def test_rts_cts_mechanism():
 
             # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
             assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
-                                                                          "original one")
+                                                                         "original one")
             assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
 
         # Step (6) - Shutdown.
@@ -310,7 +326,6 @@ def test_rts_cts_configuration():
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
         sta.mac.is_always_rts_cts = True
-        is_rts_cts_active = False
 
         # Step (2) - Mocking association between AP and STA.
         ap.mac._associated_sta = [sta.mac._mac_address]
@@ -318,12 +333,16 @@ def test_rts_cts_configuration():
         sta.mac._associated_ap = ap.mac._mac_address
         sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
 
+        ap.activation()
+        sta.activation()
+
         # Step (3) - Sending a random data message (below RTS-CTS threshold) from STA to AP (UL).
         random_message = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation,
                                                 k=RTS_CTS_THRESHOLD - 1))
         sta.mac.send_data_frame(data=random_message, destination_address=ap.mac._mac_address)
 
         # Step (4) - Set a timeframe for the data to be sent and received with RTS-CTS.
+        is_rts_cts_active = False
         try:
             for _ in range(30):
                 if sta.mac._is_rts_cts:

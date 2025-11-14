@@ -54,14 +54,20 @@ class CHIP:
         self.mac = MAC(role=self._role, identifier=self._identifier)
         self.mac.mpif_connection(host=HOST, port=self.mpif.port)
 
+    def activation(self):
+        """Chip activation. STA starts scanning while AP starts broadcasting."""
+        log.info(f"({self._identifier}) Activating the chip")
+
         if self._role == "STA":
             # Scan for APs to associate with.
             threading.Thread(target=self.mac.scanning, daemon=True).start()
             time.sleep(0.1)  # Buffer time.
-        else:  # AP.
+        elif self._role == "AP":  # AP.
             # Send beacons to notify STAs.
             threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
             time.sleep(0.1)  # Buffer time.
+        else:
+            log.warning(f"({self._identifier}) Chip doesn't have a defined role, will remain passive")
 
     def shutdown(self):
         """Chip shutdown. Disabling all listening sockets (MAC/PHY/MPIF), and flushing all queued frames."""
