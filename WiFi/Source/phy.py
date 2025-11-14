@@ -13,9 +13,9 @@ from WiFi.Settings.wifi_settings import *
 
 
 class PHY:
-    def __init__(self):
+    def __init__(self, identifier: str):
         log.phy("Establishing PHY layer")
-        self._identifier = None
+        self._identifier = identifier
 
         self._mpif_socket = None  # Socket connection to MPIF.
         self._channel_socket = None
