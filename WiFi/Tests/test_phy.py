@@ -24,7 +24,7 @@ def test_generate_signal_field(phy_rate, length):
     """
 
     # Step (2) - Generate SIGNAL field.
-    phy = PHY()
+    phy = PHY(identifier="")
     phy._length = length
     signal_field_coding = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["SIGNAL_FIELD_CODING"]
     phy._signal_field_coding = signal_field_coding
@@ -60,7 +60,7 @@ def test_generate_lfsr_sequence(sequence_length, expected_lfsr_sequence):
     """
 
     # Steps (1)+(2) - Generate LFSR sequence and assert it is bit-exact to the expected value.
-    assert (PHY().generate_lfsr_sequence(sequence_length=sequence_length, seed=93) ==
+    assert (PHY(identifier="").generate_lfsr_sequence(sequence_length=sequence_length, seed=93) ==
             expected_lfsr_sequence)
 
 
@@ -79,7 +79,7 @@ def test_bcc_encode():
     assignment for SIGNAL field.
     """
 
-    phy = PHY()
+    phy = PHY(identifier="")
     phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
 
     # Steps (1)+(2) - Encode and assert that outcome is bit-exact to expected one.
@@ -102,7 +102,7 @@ def test_interleave():
     """
 
     # Steps (1)+(2) - Interleave and assert that outcome is bit-exact to expected one.
-    assert (PHY().interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY(identifier="").interleave(bits=ENCODED_SIGNAL_FIELD, phy_rate=6) ==
             INTERLEAVED_SIGNAL_FIELD)
 
 
@@ -122,7 +122,7 @@ def test_data_subcarrier_modulation():
     """
 
     # Steps (1)+(2) - Modulate interleaved SIGNAL data and assert that outcome is bit-exact to reference.
-    assert (PHY().subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY(identifier="").subcarrier_modulation(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             MODULATED_SIGNAL_FIELD)
 
 
@@ -142,7 +142,7 @@ def test_pilot_subcarrier_insertion():
     """
 
     # Steps (1)+(2) - Modulate OFDM symbol (for SIGNAL data) and assert that outcome is bit-exact to reference.
-    assert (PHY().pilot_subcarrier_insertion(
+    assert (PHY(identifier="").pilot_subcarrier_insertion(
         modulated_subcarriers=MODULATED_SIGNAL_FIELD,
         pilot_polarity=1) == FREQUENCY_DOMAIN_SIGNAL_FIELD)
 
@@ -171,7 +171,7 @@ def test_convert_to_time_domain(ofdm_symbol, field_type, expected_value):
     """
 
     # Steps (1)+(2) - Convert OFDM symbol to time domain and assert it is bit-exact to the reference.
-    assert PHY().convert_to_time_domain(
+    assert PHY(identifier="").convert_to_time_domain(
         ofdm_symbol=ofdm_symbol,
         field_type=field_type) == expected_value
 
@@ -187,7 +187,7 @@ def test_generate_preamble():
     """
 
     # Steps (1)+(2) - Generate preamble and assert it's bit-exact to expected outcome.
-    assert (PHY().generate_preamble() ==
+    assert (PHY(identifier="").generate_preamble() ==
             TIME_DOMAIN_STF[:-1] +  # STF.
             [TIME_DOMAIN_STF[-1] + TIME_DOMAIN_LTF[0]] +  # Overlap between STF and LTF.
             TIME_DOMAIN_LTF[1:])                            # LTF.
@@ -203,7 +203,7 @@ def test_generate_signal_symbol():
     2) Assert that time domain SIGNAL is bit-exact to the expected outcome.
     """
 
-    phy = PHY()
+    phy = PHY(identifier="")
     phy._length = 100
     phy._signal_field_coding = [1, 0, 1, 1]  # According to PHY rate = 36.
     phy._bcc_shift_register = 7 * [0]        # Initializing the shift register.
@@ -232,7 +232,7 @@ def test_generate_signal_symbol_call_count():
           patch.object(PHY, 'convert_to_time_domain') as mock_convert_to_time_domain):
 
         # Step (2) - Generate time domain SIGNAL.
-        PHY().generate_signal_symbol()
+        PHY(identifier="").generate_signal_symbol()
 
         # Step (3) - Assert all relevant calls were made.
         assert mock_generate_signal_field.call_count == 1
@@ -261,7 +261,7 @@ def test_decode_signal():
           patch.object(PHY, 'convolutional_decode_viterbi', return_value=SIGNAL_FIELD)):
 
         # Step (2) - Assert that parity check and PHY rate are decoded correctly.
-        assert PHY().decode_signal(signal=[]) == (36, 100)
+        assert PHY(identifier="").decode_signal(signal=[]) == (36, 100)
 
 
 def test_decode_signal_parity_check():
@@ -289,7 +289,7 @@ def test_decode_signal_parity_check():
           patch.object(PHY, 'convolutional_decode_viterbi', return_value=flipped_parity_signal_field)):
 
         # Step (3) - Assert that parity check fails.
-        assert PHY().decode_signal(signal=[]) == (None, None)
+        assert PHY(identifier="").decode_signal(signal=[]) == (None, None)
 
 
 def test_decode_signal_invalid_rate():
@@ -315,7 +315,7 @@ def test_decode_signal_invalid_rate():
           patch.object(PHY, 'convolutional_decode_viterbi', return_value=invalid_rate_signal_field)):
 
         # Step (3) - Assert that no rate/length returns as invalid rate detected.
-        assert PHY().decode_signal(signal=[]) == (None, None)
+        assert PHY(identifier="").decode_signal(signal=[]) == (None, None)
 
 
 def test_hard_decision_demapping():
@@ -330,7 +330,7 @@ def test_hard_decision_demapping():
     """
 
     # Steps (1)+(2) - Hard decision demapping and assertion of SIGNAL symbol.
-    assert PHY().hard_decision_demapping(
+    assert PHY(identifier="").hard_decision_demapping(
         equalized_symbol=MODULATED_SIGNAL_FIELD, modulation='BPSK') == INTERLEAVED_SIGNAL_FIELD
 
 
@@ -345,5 +345,5 @@ def test_deinterleave():
     """
 
     # Steps (1)+(2) - Deinterleaving and assertion of SIGNAL symbol.
-    assert (PHY().deinterleave(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
+    assert (PHY(identifier="").deinterleave(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             ENCODED_SIGNAL_FIELD)

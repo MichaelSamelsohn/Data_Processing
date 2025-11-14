@@ -48,12 +48,10 @@ class CHIP:
         self.mpif = MPIF(host=HOST)
 
         # Start clients after a slight delay to ensure server is ready.
-        self.phy = PHY()
-        self.phy._identifier = self._identifier
+        self.phy = PHY(identifier=self._identifier)
         self.phy.mpif_connection(host=HOST, port=self.mpif.port)
         self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
         self.mac = MAC(role=self._role, identifier=self._identifier)
-        self.mac._identifier = self._identifier
         self.mac.mpif_connection(host=HOST, port=self.mpif.port)
 
         if self._role == "STA":
