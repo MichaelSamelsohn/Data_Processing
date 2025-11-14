@@ -10,7 +10,7 @@ from WiFi.Settings.wifi_settings import *
 
 
 class MAC:
-    def __init__(self, role: str):
+    def __init__(self, role: str, identifier: str):
         """
         Initialize the MAC layer with the specified role.
 
@@ -21,8 +21,8 @@ class MAC:
         """
 
         log.mac("Establishing MAC layer")
-        self._role = role  # Role of the current chip, either AP or STA.
-        self._identifier = None
+        self._role = role              # Role of the current chip, either AP or STA.
+        self._identifier = identifier  # Name tag for the current chip.
 
         log.mac("Generating MAC address")
         self._mac_address = self.generate_mac_address()

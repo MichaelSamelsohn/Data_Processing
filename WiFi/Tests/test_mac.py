@@ -21,7 +21,7 @@ def test_mac_default_configuration():
     # Step (1) - Initiate a MAC instance with mocked functions.
     with (patch.object(MAC, 'generate_mac_address'),
           patch.object(MAC, 'transmission_queue')):
-        mac = MAC(role="")
+        mac = MAC(role="", identifier="")
 
         # Step (2) - Check that MAC instance has correct default values.
         assert mac.phy_rate == 6
@@ -42,7 +42,7 @@ def test_mac_initialization():
     # Step (1) - Initiate a MAC instance with mocked functions.
     with (patch.object(MAC, 'generate_mac_address') as mock_generate_mac_address,
           patch.object(MAC, 'transmission_queue') as mock_transmission_queue):
-        _ = MAC(role="")
+        _ = MAC(role="", identifier="")
 
         # Step (2) - Check that MAC initialization calls all expected functions.
         assert mock_generate_mac_address.call_count == 1
@@ -61,7 +61,7 @@ def test_generate_mac_address():
 
     # Step (1) - Generate random MAC address.
     with patch.object(MAC, 'transmission_queue'):
-        mac_address = MAC(role="").generate_mac_address()
+        mac_address = MAC(role="", identifier="").generate_mac_address()
 
         # Step (2) - Assert that generated MAC address matches all criteria.
         assert isinstance(mac_address, list)                 # Check that MAC address was generated.
@@ -93,7 +93,7 @@ def test_crc32(data_bytes):
     # Steps (3)+(4) - Generate actual CRC-32 sequence and compare to expected outcome.
     with (patch.object(MAC, 'generate_mac_address'),
           patch.object(MAC, 'transmission_queue')):
-        assert MAC(role="").cyclic_redundancy_check_32(data=list(data_bytes)) == list(expected_crc)
+        assert MAC(role="", identifier="").cyclic_redundancy_check_32(data=list(data_bytes)) == list(expected_crc)
 
 
 @pytest.mark.parametrize(
@@ -122,7 +122,7 @@ def test_generate_psdu(payload, crc, psdu):
           patch.object(MAC, 'cyclic_redundancy_check_32', return_value=[crc])):
 
         # Steps (2)+(3) - Generate PSDU sequence and assert that it matches expected result.
-        assert MAC(role="").generate_psdu(payload=[payload]) == psdu
+        assert MAC(role="", identifier="").generate_psdu(payload=[payload]) == psdu
 
 
 @pytest.mark.parametrize(
@@ -146,4 +146,4 @@ def test_rc4_stream_cipher(seed, challenge, result):
     # Step (1)+(2) - Encrypting input and assert that it matches expected outcome.
     with (patch.object(MAC, 'generate_mac_address'),
           patch.object(MAC, 'transmission_queue')):
-        assert MAC(role="").rc4_stream_cipher(seed=seed, challenge=challenge) == result
+        assert MAC(role="", identifier="").rc4_stream_cipher(seed=seed, challenge=challenge) == result

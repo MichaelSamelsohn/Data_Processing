@@ -39,8 +39,8 @@ class CHIP:
         :param identifier: A unique identifier for the chip instance.
         """
 
-        self._role = role
-        self._identifier = identifier
+        self._role = role              # Role of the current chip, either AP or STA.
+        self._identifier = identifier  # Name tag for the current chip.
 
         log.info(f"Establishing WiFi chip as {self._role} (with identifier - {self._identifier})")
 
@@ -52,7 +52,7 @@ class CHIP:
         self.phy._identifier = self._identifier
         self.phy.mpif_connection(host=HOST, port=self.mpif.port)
         self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
-        self.mac = MAC(role=self._role)
+        self.mac = MAC(role=self._role, identifier=self._identifier)
         self.mac._identifier = self._identifier
         self.mac.mpif_connection(host=HOST, port=self.mpif.port)
 
