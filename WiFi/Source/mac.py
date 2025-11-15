@@ -153,6 +153,7 @@ class MAC:
         """
 
         while True:
+            # Listen to incoming MPIF traffic.
             try:
                 message = self._mpif_socket.recv(65536)
                 if message:
@@ -298,8 +299,6 @@ class MAC:
         2. Active Scanning - If no APs respond during the passive phase, the device repeatedly sends probe request
            frames to solicit responses from APs. It continues probing until at least one AP responds.
         """
-
-        log.mac(f"({self._identifier}) Scanning for APs to associate with")
 
         log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
         time.sleep(PASSIVE_SCANNING_TIME)
@@ -889,7 +888,20 @@ class MAC:
 
     def extract_address_information(self, mac_header):
         """
-        TODO: Complete the docstring.
+        Extract destination and source MAC addresses from a MAC header and
+        determine the casting type of the frame.
+
+        :param mac_header: A sequence representing the MAC header. The method assumes the following layout:
+        - Bytes 4–9   : Destination MAC address (6 bytes)
+        - Bytes 10–15 : Source MAC address (6 bytes)
+
+        :return: A 3-tuple containing:
+        - destination_address (list[int]): The extracted destination MAC address.
+        - source_address (list[int]): The extracted source MAC address.
+        - cast (str): One of:
+            * "Broadcast" — if the destination is FF:FF:FF:FF:FF:FF
+            * "Unicast"   — if the destination matches the device’s MAC address
+            * "Unknown"   — for any other destination address
         """
 
         # Extract destination address from MAC header.
