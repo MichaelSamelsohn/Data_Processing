@@ -377,12 +377,12 @@ def test_shutdown():
     """
 
     # Step (1) - Setting channel and test chip (no designation as AP/STA to avoid advertising).
-    # Note - Dummy channel is set so that the PHY socket is able to connect to something.
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((HOST, CHANNEL_PORT))
-    server.listen()
-    chip = CHIP(role='', identifier="identifier")
+    channel = Channel(channel_response=[1], snr_db=25)
+    chip = CHIP(role='AP', identifier="identifier")
+    chip.activation()
+
+    # Step (?) - Buffer time to allow the chip to become fully active.
+    time.sleep(10)
 
     # Step (2) - Preforming the shutdown.
     chip.shutdown()
@@ -393,6 +393,7 @@ def test_shutdown():
         assert chip.phy._mpif_socket._closed
         assert chip.phy._channel_socket._closed
         assert chip.mac._mpif_socket._closed
+        assert chip.mac._tx_queue == []
     # Step (4) - Closing the dummy channel socket.
     finally:
-        server.close()
+        channel.shutdown()
