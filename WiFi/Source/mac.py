@@ -984,7 +984,7 @@ class MAC:
         if self._role == "STA":
             if self.is_always_rts_cts:
                 log.warning(f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
-                self._is_rts_cts = True
+                self._is_rts_cts = True  # Used for debug purposes.
 
                 # Send RTS frame.
                 frame_parameters = {
@@ -1000,7 +1000,7 @@ class MAC:
                 if len(encrypted_data) > RTS_CTS_THRESHOLD:
                     log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
                             f"{len(encrypted_data)}")
-                    self._is_rts_cts = True
+                    self._is_rts_cts = True  # Used for debug purposes.
 
                     # Send RTS frame.
                     frame_parameters = {
