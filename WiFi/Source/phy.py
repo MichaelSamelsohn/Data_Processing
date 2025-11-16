@@ -106,13 +106,12 @@ class PHY:
                     log.traffic(f"({self._identifier}) PHY received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
-                else:
-                    break
-            except ConnectionError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY MPIF listen error:")
                 log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
 
     def channel_connection(self, host, port):
         """
@@ -160,11 +159,12 @@ class PHY:
                     self.controller(primitive=primitive, data=data)
                 else:
                     break
-            except ConnectionError | OSError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY channel listen error:")
                 log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
 
     @staticmethod
     def send(socket_connection, primitive, data):

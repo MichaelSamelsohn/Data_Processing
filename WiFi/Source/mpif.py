@@ -13,6 +13,7 @@ import json
 import socket
 import threading
 import time
+import traceback
 
 from WiFi.Settings.wifi_settings import log
 
@@ -94,8 +95,9 @@ class MPIF:
                 if not data:
                     break
                 dst.sendall(data)
-            except ConnectionError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"MPIF forwarding error:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return

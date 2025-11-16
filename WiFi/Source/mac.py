@@ -165,13 +165,12 @@ class MAC:
                     log.traffic(f"({self._identifier}) MAC received: {primitive} "
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
-                else:
-                    break
-            except ConnectionError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"({self._identifier}) MAC MPIF listen error:")
                 log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
 
     def transmission_queue(self):
         """

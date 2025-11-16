@@ -76,11 +76,12 @@ class Channel:
 
                 # Start new thread to handle the client.
                 threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True).start()
-            except OSError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"Channel listen error:")
                 log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
 
     def handle_client(self, conn, addr):
         """
@@ -118,11 +119,12 @@ class Channel:
 
                 # Broadcast the result to all clients.
                 self.broadcast(primitive="RF-SIGNAL", data=self.pass_signal(rf_signal=data))
-            except OSError:  # In case of shutdown.
-                break
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
             except Exception as e:
                 log.error(f"Error handling client {addr}:")
-                log.print_data(data=e, log_level="error")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
 
     def broadcast(self, primitive, data):
         """
@@ -147,7 +149,8 @@ class Channel:
                     conn.sendall(message)
                 except Exception as e:
                     log.error(f"Failed to send to a client:")
-                    log.print_data(data=e, log_level="error")
+                    log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)),
+                                   log_level="error")
                     self.clients.discard(conn)
                     conn.close()
 
