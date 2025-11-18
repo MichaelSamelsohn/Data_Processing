@@ -147,6 +147,8 @@ class Channel:
             for conn in list(self.clients):
                 try:
                     conn.sendall(message)
+                except (OSError, ConnectionResetError, ConnectionAbortedError):
+                    return  # In case of shutdown.
                 except Exception as e:
                     log.error(f"Failed to send to a client:")
                     log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)),

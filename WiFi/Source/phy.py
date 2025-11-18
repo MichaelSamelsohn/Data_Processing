@@ -182,7 +182,7 @@ class PHY:
         try:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
             socket_connection.sendall(message.encode())
-        except ConnectionError | OSError:
+        except (OSError, ConnectionResetError, ConnectionAbortedError):
             return  # In case of shutdown.
 
     def controller(self, primitive, data):
