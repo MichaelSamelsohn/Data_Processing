@@ -2,6 +2,7 @@
 import json
 import random
 import socket
+import textwrap
 import threading
 import time
 import traceback
@@ -66,6 +67,7 @@ class MAC:
         threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
         self._tx_psdu_buffer = None
+        self._statistics = []
 
         # Debug.
         self._last_data = None
@@ -438,6 +440,9 @@ class MAC:
                 # Checking that we are AP (association requests are relevant for AP only) and this is an unicast.
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Association request frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Association request",
+                                             "SOURCE_ADDRESS": source_address})
 
                     # Send ACK response.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -464,6 +469,9 @@ class MAC:
                 # Checking that we are STA (association response are relevant for STA only) and this is an unicast.
                 if self._role == "STA" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Association response frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Association response",
+                                             "SOURCE_ADDRESS": source_address})
 
                     # Send ACK response.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -483,6 +491,9 @@ class MAC:
                 # Checking that we are AP (probe requests are relevant for AP only) and this is a broadcast.
                 if self._role == "AP" and cast == "Broadcast":
                     log.mac(f"({self._identifier}) Probe request frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Probe request",
+                                             "SOURCE_ADDRESS": source_address})
 
                     # Send probe response.
                     frame_parameters = {
@@ -502,6 +513,9 @@ class MAC:
                 # Checking that we are STA (probe responses are relevant for STA only).
                 if self._role == "STA" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Probe response frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Probe response",
+                                             "SOURCE_ADDRESS": source_address})
 
                     # Send ACK response.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -534,8 +548,11 @@ class MAC:
                 # Checking that we are STA (beacons are relevant for STA only) and we are not in the process of
                 # association. Also, we are making sure this a broadcast.
                 if self._role == "STA" and self._probed_ap is None and cast == "Broadcast":
+                    # Check that AP is not blacklisted.
                     if source_address not in self._probed_ap_blacklist:
                         log.mac(f"({self._identifier}) Beacon frame subtype")
+                        # Add to statistics.
+                        self._statistics.append({"DIRECTION": "RX", "TYPE": "Beacon", "SOURCE_ADDRESS": source_address})
 
                         # Updating the successfully probed AP MAC address.
                         self._probed_ap = source_address
@@ -582,6 +599,9 @@ class MAC:
                                 # Checking that we are AP (authentication requests are relevant for AP only).
                                 if self._role == "AP" and cast == "Unicast":
                                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK response.
                                     self.send_acknowledgement_frame(source_address=source_address)
@@ -604,6 +624,9 @@ class MAC:
                                 # is the probed one.
                                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Authentication response")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=self._probed_ap)
@@ -657,6 +680,9 @@ class MAC:
                                 # Checking that we are AP (authentication sequence 1 is relevant for AP only).
                                 if self._role == "AP" and cast == "Unicast":
                                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=source_address)
@@ -681,6 +707,9 @@ class MAC:
                                 # is the probed one.
                                 if self._role == "STA" and cast == "Unicast"  and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=source_address)
@@ -704,6 +733,9 @@ class MAC:
                                 # Checking that we are AP (authentication sequence 3 is relevant for AP only).
                                 if self._role == "AP" and cast == "Unicast":
                                     log.mac(f"({self._identifier}) Sequence 3 - Encrypted challenge")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=source_address)
@@ -744,6 +776,9 @@ class MAC:
                                 # is the probed one.
                                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 4 - Authentication response")
+                                    # Add to statistics.
+                                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
+                                                             "SOURCE_ADDRESS": source_address})
 
                                     # Send ACK.
                                     self.send_acknowledgement_frame(source_address=self._probed_ap)
@@ -812,7 +847,10 @@ class MAC:
                 if cast == "Unicast":
                     log.mac(f"({self._identifier}) ACK frame subtype")
 
+                    # TODO: Need to check if we are waiting for ACK from a specific source?
                     if self._is_confirmed == "Waiting for confirmation":
+                        # Add to statistics.
+                        self._statistics.append({"DIRECTION": "RX", "TYPE": "ACK", "SOURCE_ADDRESS": source_address})
                         self._is_confirmed = "ACK"
                     else:
                         log.mac(f"({self._identifier}) Irrelevant since we are not waiting for an ACK")
@@ -820,6 +858,8 @@ class MAC:
             case [1, 0, 1, 1]:  # RTS.
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) RTS frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "RTS", "SOURCE_ADDRESS": source_address})
 
                     # Send CTS frame.
                     frame_parameters = {
@@ -836,7 +876,9 @@ class MAC:
                     log.mac(f"({self._identifier}) CTS frame subtype")
 
                     if self._is_confirmed == "Waiting for confirmation":
-                        self._is_rts_cts = False
+                        # Add to statistics.
+                        self._statistics.append({"DIRECTION": "RX", "TYPE": "CTS", "SOURCE_ADDRESS": source_address})
+                        self._is_rts_cts = False  # For debug purposes.
                         self._is_confirmed = "CTS"
                     else:
                         log.mac(f"({self._identifier}) Irrelevant since we are not waiting for a CTS")
@@ -867,6 +909,8 @@ class MAC:
                     if ((self._role == "AP" and source_address in self._associated_sta) or  # Relevant for uplink.
                         (self._role == "STA" and source_address == self._associated_ap)):   # Relevant for downlink.
                         log.mac(f"({self._identifier}) Data frame subtype")
+                        # Add to statistics.
+                        self._statistics.append({"DIRECTION": "RX", "TYPE": "DATA", "SOURCE_ADDRESS": source_address})
 
                         # Decrypt data.
                         self._last_data = self.decrypt_data(
@@ -952,11 +996,18 @@ class MAC:
         self.send(primitive="PHY-TXSTART.request",
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
-        # Wait for ACK/CTS (if relevant).
-        if frame_parameters['WAIT_FOR_CONFIRMATION']:
-            log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
-            self._is_confirmed = "Waiting for confirmation"
-            threading.Thread(target=self.wait_for_confirmation, args=(frame_parameters, data), daemon=True).start()
+        if "RETRY" not in frame_parameters:
+            # Original frame. Add to statistics.
+            self._statistics.append({"DIRECTION": "TX", "TYPE": frame_parameters["TYPE"],
+                                     "DESTINATION_ADDRESS": frame_parameters["DESTINATION_ADDRESS"]})
+
+            # Check if confirmation (ACK/CTS) is needed for frame.
+            if frame_parameters['WAIT_FOR_CONFIRMATION']:
+                # Original frame, requires confirmation.
+                log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
+                self._statistics[-1]["RETRY_ATTEMPTS"] = 0  # Set retry attempts counter.
+                self._is_confirmed = "Waiting for confirmation"
+                threading.Thread(target=self.wait_for_confirmation, args=(frame_parameters, data), daemon=True).start()
 
     def send_data_frame(self, data: str, destination_address: list[int]):
         """
@@ -1040,18 +1091,22 @@ class MAC:
 
     def wait_for_confirmation(self, frame_parameters: dict, data: list[int]):
         """
-        Waits for an acknowledgment (ACK) after a frame transmission.
+        Waits for an acknowledgment (ACK/CTS) after a frame transmission.
 
         This method loops for a predefined number of attempts (based on SHORT_RETRY_LIMIT), pausing for a short period
         in each iteration to allow time for an ACK response.
 
-        If an ACK is received, the method resets the acknowledgment status and exits early, confirming successful
+        If an ACK/CTS is received, the method resets the acknowledgment status and exits early, confirming successful
         delivery.
-        If no ACK is received after all retries, it logs that the frame was dropped and resets the acknowledgment state
-        in preparation for the next transmission.
+        If no ACK/CTS is received after all retries, it logs that the frame was dropped and resets the acknowledgment
+        state in preparation for the next transmission.
 
-        Notes - This method should be called after initiating a transmission that requires an ACK (unicast).
+        Notes - This method should be called after initiating a transmission that requires an ACK/CTS (unicast).
         """
+
+        # Extract frame statistics.
+        # Note - Since this function is invoked from start_transmission_chain, it is definitely the last frame.
+        frame = self._statistics[-1]
 
         # Waiting for confirmation.
         for i in range(SHORT_RETRY_LIMIT):
@@ -1060,6 +1115,7 @@ class MAC:
             if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
                 log.success(f"({self._identifier}) Frame confirmed, "
                             f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
+                frame["CONFIRMED"] = True
                 self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
                 return  # No need to continue as the frame was confirmed.
             else:
@@ -1067,14 +1123,15 @@ class MAC:
                 log.warning(f"({self._identifier}) No confirmation, retransmitting")
 
                 # Adjust the frame parameters for a retransmission.
-                frame_parameters["RETRY"] = 1                      # Turn on the retry bit.
-                frame_parameters["WAIT_FOR_CONFIRMATION"] = False  # To avoid another thread waiting for confirmation.
+                frame_parameters["RETRY"] = 1  # Turn on the retry bit.
+                frame["RETRY_ATTEMPTS"] += 1   # Update the retry counter.
 
                 # Retransmit.
                 self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
 
         # If we got to this point, the frame is dropped.
         log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")
+        frame["CONFIRMED"] = False  # Update frame status.
         self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
         # TODO: Special treatment for special frames (i.e. no ACK for authentication frame -> Remove from
         #  authentication list).
@@ -1380,3 +1437,70 @@ class MAC:
             value = int(''.join(map(str, byte)), 2)
             byte_list.append(value)
         return byte_list
+
+    def print_statistics(self):
+
+        def mac_to_hex(mac_list):
+            return ":".join(f"{b:02X}" for b in mac_list)
+
+        rows = []
+
+        for frame in self._statistics:
+            direction = frame.get("DIRECTION", "UNKNOWN")
+            frame_type = frame.get("TYPE", "UNKNOWN")
+
+            if direction == "RX":
+                description = f"{frame_type}"
+                mac = frame["SOURCE_ADDRESS"]
+            elif direction == "TX":
+                if "RETRY_ATTEMPTS" not in frame:
+                    description = f"{frame_type}"
+                elif frame["RETRY_ATTEMPTS"] == 0:
+                    description = f"{frame_type} (original frame confirmed)"
+                elif frame.get("CONFIRMED", False):
+                    description = (
+                        f"{frame_type} (retry attempts - {frame['RETRY_ATTEMPTS']})"
+                    )
+                else:
+                    description = f"{frame_type} (frame dropped)"
+                mac = frame["DESTINATION_ADDRESS"]
+            else:
+                direction = "UNKNOWN"
+                description = "UNKNOWN FRAME"
+                mac = []
+
+            mac_hex = mac_to_hex(mac)
+            rows.append((direction, description, mac_hex))
+
+        # --- Column widths, ensure headers fit ---
+        DIR_COL_WIDTH = max(max(len(dir_) for dir_, _, _ in rows), len("Direction")) + 2
+        DESC_COL_WIDTH = max(max(len(desc) for _, desc, _ in rows), len("Frame Description")) + 2
+        MAC_COL_WIDTH = max(max(len(mac) for _, _, mac in rows), len("MAC Address (HEX)")) + 2
+
+        # Headers
+        header_dir = "Direction".center(DIR_COL_WIDTH)
+        header_desc = "Frame Description".center(DESC_COL_WIDTH)
+        header_mac = "MAC Address (HEX)".center(MAC_COL_WIDTH)
+
+        # Borders
+        top_border = "+" + "-" * DIR_COL_WIDTH + "+" + "-" * DESC_COL_WIDTH + "+" + "-" * MAC_COL_WIDTH + "+"
+        mid_border = top_border
+        bottom_border = top_border
+
+        # --- Print table ---
+        log.info(f"({self._identifier}) Statistics:")
+        log.info(f"({self._identifier}) {top_border}")
+        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_mac}|")
+        log.info(f"({self._identifier}) {mid_border}")
+
+        for direction, description, mac_hex in rows:
+            # Wrap description if needed
+            wrapped_desc = textwrap.wrap(description, width=DESC_COL_WIDTH - 2) or [""]
+
+            for i, line in enumerate(wrapped_desc):
+                dir_col = direction.center(DIR_COL_WIDTH) if i == 0 else " " * DIR_COL_WIDTH
+                desc_col = line.center(DESC_COL_WIDTH)
+                mac_col = mac_hex.center(MAC_COL_WIDTH) if i == 0 else " " * MAC_COL_WIDTH
+                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{mac_col}|")
+
+        log.info(f"({self._identifier}) {bottom_border}")
