@@ -1449,58 +1449,65 @@ class MAC:
             direction = frame.get("DIRECTION", "UNKNOWN")
             frame_type = frame.get("TYPE", "UNKNOWN")
 
+            # Base description and retries
             if direction == "RX":
-                description = f"{frame_type}"
+                direction += " <--"
+                description = frame_type
+                retries = "N/A"
                 mac = frame["SOURCE_ADDRESS"]
             elif direction == "TX":
-                if "RETRY_ATTEMPTS" not in frame:
-                    description = f"{frame_type}"
-                elif frame["RETRY_ATTEMPTS"] == 0:
-                    description = f"{frame_type} (original frame confirmed)"
-                elif frame.get("CONFIRMED", False):
-                    description = (
-                        f"{frame_type} (retry attempts - {frame['RETRY_ATTEMPTS']})"
-                    )
-                else:
-                    description = f"{frame_type} (frame dropped)"
+                direction += " -->"
+                description = frame_type
                 mac = frame["DESTINATION_ADDRESS"]
+
+                if "RETRY_ATTEMPTS" not in frame:
+                    retries = "N/A"
+                else:
+                    retries = str(frame["RETRY_ATTEMPTS"])
+                    if frame["RETRY_ATTEMPTS"] > 0 and not frame.get("CONFIRMED", False):
+                        retries += " (frame dropped)"
             else:
                 direction = "UNKNOWN"
                 description = "UNKNOWN FRAME"
+                retries = "N/A"
                 mac = []
 
             mac_hex = mac_to_hex(mac)
-            rows.append((direction, description, mac_hex))
+            rows.append((direction, description, retries, mac_hex))
 
         # --- Column widths, ensure headers fit ---
-        DIR_COL_WIDTH = max(max(len(dir_) for dir_, _, _ in rows), len("Direction")) + 2
-        DESC_COL_WIDTH = max(max(len(desc) for _, desc, _ in rows), len("Frame Description")) + 2
-        MAC_COL_WIDTH = max(max(len(mac) for _, _, mac in rows), len("MAC Address (HEX)")) + 2
+        DIR_COL_WIDTH = max(max(len(dir_) for dir_, _, _, _ in rows), len("Direction")) + 2
+        DESC_COL_WIDTH = max(max(len(desc) for _, desc, _, _ in rows), len("Frame Description")) + 2
+        RETRIES_COL_WIDTH = max(max(len(retries) for _, _, retries, _ in rows), len("Retries")) + 2
+        MAC_COL_WIDTH = max(max(len(mac) for _, _, _, mac in rows), len("MAC Address (HEX)")) + 2
 
         # Headers
         header_dir = "Direction".center(DIR_COL_WIDTH)
         header_desc = "Frame Description".center(DESC_COL_WIDTH)
+        header_retries = "Retries".center(RETRIES_COL_WIDTH)
         header_mac = "MAC Address (HEX)".center(MAC_COL_WIDTH)
 
         # Borders
-        top_border = "+" + "-" * DIR_COL_WIDTH + "+" + "-" * DESC_COL_WIDTH + "+" + "-" * MAC_COL_WIDTH + "+"
+        top_border = "+" + "-" * DIR_COL_WIDTH + "+" + "-" * DESC_COL_WIDTH + "+" + "-" * RETRIES_COL_WIDTH + "+" + "-" * MAC_COL_WIDTH + "+"
         mid_border = top_border
         bottom_border = top_border
 
         # --- Print table ---
         log.info(f"({self._identifier}) Statistics:")
         log.info(f"({self._identifier}) {top_border}")
-        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_mac}|")
+        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_retries}|{header_mac}|")
         log.info(f"({self._identifier}) {mid_border}")
 
-        for direction, description, mac_hex in rows:
+        for direction, description, retries, mac_hex in rows:
             # Wrap description if needed
             wrapped_desc = textwrap.wrap(description, width=DESC_COL_WIDTH - 2) or [""]
 
             for i, line in enumerate(wrapped_desc):
                 dir_col = direction.center(DIR_COL_WIDTH) if i == 0 else " " * DIR_COL_WIDTH
                 desc_col = line.center(DESC_COL_WIDTH)
+                retries_col = retries.center(RETRIES_COL_WIDTH) if i == 0 else " " * RETRIES_COL_WIDTH
                 mac_col = mac_hex.center(MAC_COL_WIDTH) if i == 0 else " " * MAC_COL_WIDTH
-                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{mac_col}|")
+                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{retries_col}|{mac_col}|")
 
         log.info(f"({self._identifier}) {bottom_border}")
+
