@@ -21,11 +21,10 @@ class MAC:
         :param role: The role of the current chip, either 'AP' (Access Point) or 'STA' (Station).
         """
 
-        log.mac("Establishing MAC layer")
         self._role = role              # Role of the current chip, either AP or STA.
         self._identifier = identifier  # Name tag for the current chip.
 
-        log.mac("Generating MAC address")
+        log.mac(f"({self._identifier}) Generating MAC address")
         self._mac_address = self.generate_mac_address()
 
         self._mpif_socket = None  # Socket connection to MPIF.
@@ -63,8 +62,6 @@ class MAC:
         self._is_confirmed = "No confirmation required"
         self._is_retry = False
         self._tx_queue = []
-        log.mac("Activating transmission queue")
-        threading.Thread(target=self.transmission_queue, daemon=True).start()
         self._rx_psdu_buffer = None
         self._tx_psdu_buffer = None
         self._statistics = []
@@ -125,8 +122,8 @@ class MAC:
         self.send(primitive="MAC", data=[])
 
         # Start listener thread.
-        threading.Thread(target=self.listen, daemon=True).start()
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
+        threading.Thread(target=self.listen, daemon=True).start()
 
     def send(self, primitive, data):
         """

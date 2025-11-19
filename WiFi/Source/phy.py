@@ -14,7 +14,6 @@ from WiFi.Settings.wifi_settings import *
 
 class PHY:
     def __init__(self, identifier: str):
-        log.phy("Establishing PHY layer")
         self._identifier = identifier
 
         self._mpif_socket = None  # Socket connection to MPIF.
@@ -82,8 +81,8 @@ class PHY:
         self.send(socket_connection=self._mpif_socket, primitive="PHY", data=[])
 
         # Start listener thread.
-        threading.Thread(target=self.mpif_listen, daemon=True).start()
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
+        threading.Thread(target=self.mpif_listen, daemon=True).start()
 
     def mpif_listen(self):
         """

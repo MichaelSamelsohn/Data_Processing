@@ -47,7 +47,6 @@ def test_mac_initialization():
 
         # Step (2) - Check that MAC initialization calls all expected functions.
         assert mock_generate_mac_address.call_count == 1
-        assert mock_transmission_queue.call_count == 1
 
 
 def test_generate_mac_address():

@@ -18,10 +18,13 @@ Created by Michael Samelsohn, 19/07/25.
 
 # Imports #
 import time
+import socket
+import json
 import threading
+import traceback
+
 from WiFi.Settings.wifi_settings import *
 from WiFi.Source.mac import MAC
-from WiFi.Source.mpif import MPIF
 from WiFi.Source.phy import PHY
 
 
@@ -44,20 +47,30 @@ class CHIP:
 
         log.info(f"Establishing WiFi chip as {self._role} (with identifier - {self._identifier})")
 
-        # Start MPIF block.
-        self.mpif = MPIF(host=HOST)
-
-        # Start clients after a slight delay to ensure server is ready.
+        log.phy(f"({self._identifier}) Generating PHY layer")
         self.phy = PHY(identifier=self._identifier)
-        self.phy.mpif_connection(host=HOST, port=self.mpif.port)
-        self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
-        self.mac = MAC(role=self._role, identifier=self._identifier)
-        self.mac.mpif_connection(host=HOST, port=self.mpif.port)
+        log.mac(f"({self._identifier}) Generating MAC layer")
+        self.mac = MAC(identifier=self._identifier, role=self._role)
+
+        log.debug(f"({self._identifier}) Configuring listening socket for MAC-PHY interface")
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((HOST, 0))  # The OS to choose a free port.
+        self.server.listen(2)
+        self.port = self.server.getsockname()[1]
+        log.debug(f"({self._identifier}) Server listening on {HOST}:{self.port}")
 
     def activation(self):
         """Chip activation. STA starts scanning while AP starts broadcasting."""
         log.info(f"({self._identifier}) Activating the chip")
 
+        log.debug(f"({self._identifier}) Establishing internal and external connections")
+        threading.Thread(target=self.establish_mpif, daemon=True).start()
+        self.phy.mpif_connection(host=HOST, port=self.port)
+        self.mac.mpif_connection(host=HOST, port=self.port)
+        threading.Thread(target=self.mac.transmission_queue, daemon=True).start()  # Activating transmission queue.
+        self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)  # External connection.
+
+        log.mac(f"({self._identifier}) Starting (WLAN) network discovery")
         if self._role == "STA":
             # Scan for APs to associate with.
             threading.Thread(target=self.mac.scanning, daemon=True).start()
@@ -69,15 +82,60 @@ class CHIP:
         else:
             log.warning(f"({self._identifier}) Chip doesn't have a defined role, will remain passive")
 
-    def shutdown(self):
-        """Chip shutdown. Disabling all listening sockets (MAC/PHY/MPIF), and flushing all queued frames."""
-        log.info(f"({self._identifier}) Closing the MAC/PHY sockets")
+    def establish_mpif(self):
+        """
+        Accept and identify connections from "MAC" and "PHY" clients.
 
-        # Stop MAC activity (no sent frames) and severe the PHY connection from the channel (no received frames).
-        self.mac._is_shutdown = True  # This flag is responsible for flushing all queued frames in the MAC buffer.
-        self.phy._channel_socket.close()
+        This method blocks until both clients have connected and identified themselves by sending a JSON message with a
+        "PRIMITIVE" field set to either "MAC" or "PHY". Once both clients are connected, it starts two threads to
+        forward data bidirectionally between them.
+        """
 
-        # Close MPIF connection between MAC and PHY.
-        self.mac._mpif_socket.close()
-        self.phy._mpif_socket.close()
-        self.mpif.server.close()
+        log.debug(f"({self._identifier}) Identifying MAC/PHY connections")
+
+        clients = {}
+        while len(clients) < 2:
+            conn, addr = self.server.accept()
+            id_msg = conn.recv(1024)
+
+            # Unpacking the message.
+            primitive = json.loads(id_msg.decode())['PRIMITIVE']
+
+            if primitive == "MAC":
+                log.success(f"({self._identifier}) MAC layer connected")
+                clients['MAC'] = conn
+            elif primitive == "PHY":
+                log.success(f"({self._identifier}) PHY layer connected")
+                clients['PHY'] = conn
+            else:
+                log.error(f"Unknown client ID '{id_msg}', closing connection")
+                conn.close()
+
+        log.success(f"({self._identifier}) MPIF established")
+        threading.Thread(target=self.forward_messages, args=(clients['MAC'], clients['PHY']), daemon=True).start()
+        threading.Thread(target=self.forward_messages, args=(clients['PHY'], clients['MAC']), daemon=True).start()
+
+    @staticmethod
+    def forward_messages(src, dst):
+        """
+        Forward data from the source socket to the destination socket.
+
+        Continuously reads data from the source socket and sends it to the destination socket until the source closes
+        the connection or an error occurs. On disconnection or exception, both sockets are closed.
+
+        :param src: The source socket to receive data from.
+        :param dst: The destination socket to send data to.
+        """
+
+        while True:
+            try:
+                data = src.recv(65536)
+                if not data:
+                    break
+                dst.sendall(data)
+            except (OSError, ConnectionResetError, ConnectionAbortedError):
+                return
+            except Exception as e:
+                log.error(f"MPIF forwarding error:")
+                log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
+                return
