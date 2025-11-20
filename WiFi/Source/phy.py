@@ -15,6 +15,8 @@ from WiFi.Settings.wifi_settings import *
 class PHY:
     def __init__(self, identifier: str):
         self._identifier = identifier
+        self.stop_event = threading.Event()
+        self._threads = []
 
         self._mpif_socket = None  # Socket connection to MPIF.
         self._channel_socket = None
@@ -82,7 +84,10 @@ class PHY:
 
         # Start listener thread.
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
-        threading.Thread(target=self.mpif_listen, daemon=True).start()
+        mpif_listen_thread = threading.Thread(target=self.mpif_listen, daemon=True,
+                                         name=f"({self._identifier}) PHY MPIF listen thread")
+        mpif_listen_thread.start()
+        self._threads.append(mpif_listen_thread)
 
     def mpif_listen(self):
         """
@@ -93,7 +98,7 @@ class PHY:
         passed to the controller for further handling.
         """
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 message = self._mpif_socket.recv(16384)
                 if message:
@@ -106,6 +111,7 @@ class PHY:
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.warning(f"({self._identifier}) PHY MPIF listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY MPIF listen error:")
@@ -129,8 +135,11 @@ class PHY:
         self._channel_socket.connect((host, port))
 
         # Start listener thread.
-        threading.Thread(target=self.channel_listen, daemon=True).start()
-        time.sleep(0.1)  # Buffer time.
+        channel_listen_thread = threading.Thread(target=self.channel_listen, daemon=True,
+                                                 name=f"({self._identifier}) PHY channel listen thread")
+        channel_listen_thread.start()
+        self._threads.append(channel_listen_thread)
+        time.sleep(0.1)  # Buffer time to allow the channel connection.
 
     def channel_listen(self):
         """
@@ -143,7 +152,7 @@ class PHY:
         (time domain PPDU complex values).
         """
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 message = self._channel_socket.recv(65536)
                 if message:
@@ -159,6 +168,7 @@ class PHY:
                 else:
                     break
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.warning(f"({self._identifier}) PHY channel listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY channel listen error:")

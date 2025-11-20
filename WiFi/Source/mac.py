@@ -125,10 +125,10 @@ class MAC:
 
         # Start listener thread.
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
-        listen_thread = threading.Thread(target=self.listen, daemon=True,
+        mpif_listen_thread = threading.Thread(target=self.mpif_listen, daemon=True,
                                          name=f"({self._identifier}) MAC MPIF listen thread")
-        listen_thread.start()
-        self._threads.append(listen_thread)
+        mpif_listen_thread.start()
+        self._threads.append(mpif_listen_thread)
 
     def send(self, primitive, data):
         """
@@ -148,7 +148,7 @@ class MAC:
             log.warning(f"({self._identifier}) MAC MPIF send connection reset/aborted")
             return
 
-    def listen(self):
+    def mpif_listen(self):
         """
         Listens for incoming messages on the socket and processes them.
 
