@@ -44,6 +44,8 @@ class CHIP:
 
         self._role = role              # Role of the current chip, either AP or STA.
         self._identifier = identifier  # Name tag for the current chip.
+        self.stop_event = threading.Event()
+        self._threads = []
 
         log.info(f"Establishing WiFi chip as {self._role} (with identifier - {self._identifier})")
 
@@ -60,15 +62,27 @@ class CHIP:
         log.debug(f"({self._identifier}) Server listening on {HOST}:{self.port}")
 
     def activation(self):
-        """Chip activation. STA starts scanning while AP starts broadcasting."""
+        """
+        TODO: Complete the docstring.
+        """
+
         log.info(f"({self._identifier}) Activating the chip")
 
         log.debug(f"({self._identifier}) Establishing internal and external connections")
-        threading.Thread(target=self.establish_mpif, daemon=True).start()
+        # Internal connections.
+        mpif_establishment_thread = threading.Thread(target=self.establish_mpif, daemon=True,
+                                                     name=f"{self._identifier} MPIF establishment")
+        mpif_establishment_thread.start()
+        self._threads.append(mpif_establishment_thread)
         self.phy.mpif_connection(host=HOST, port=self.port)
         self.mac.mpif_connection(host=HOST, port=self.port)
-        threading.Thread(target=self.mac.transmission_queue, daemon=True).start()  # Activating transmission queue.
-        self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)  # External connection.
+        # Activating transmission queue.
+        transmission_queue_thread = threading.Thread(target=self.mac.transmission_queue,
+                                                     daemon=True, name=f"{self._identifier} MAC transmission queue")
+        transmission_queue_thread.start()
+        self._threads.append(transmission_queue_thread)
+        # External connection.
+        self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
 
         log.mac(f"({self._identifier}) Starting (WLAN) network discovery")
         if self._role == "STA":
@@ -94,29 +108,39 @@ class CHIP:
         log.debug(f"({self._identifier}) Identifying MAC/PHY connections")
 
         clients = {}
-        while len(clients) < 2:
-            conn, addr = self.server.accept()
-            id_msg = conn.recv(1024)
+        while not self.stop_event.is_set():
+            if len(clients) < 2:
+                conn, addr = self.server.accept()
+                id_msg = conn.recv(1024)
 
-            # Unpacking the message.
-            primitive = json.loads(id_msg.decode())['PRIMITIVE']
+                # Unpacking the message.
+                primitive = json.loads(id_msg.decode())['PRIMITIVE']
 
-            if primitive == "MAC":
-                log.success(f"({self._identifier}) MAC layer connected")
-                clients['MAC'] = conn
-            elif primitive == "PHY":
-                log.success(f"({self._identifier}) PHY layer connected")
-                clients['PHY'] = conn
+                if primitive == "MAC":
+                    log.success(f"({self._identifier}) MAC layer connected")
+                    clients['MAC'] = conn
+                elif primitive == "PHY":
+                    log.success(f"({self._identifier}) PHY layer connected")
+                    clients['PHY'] = conn
+                else:
+                    log.error(f"Unknown client ID '{id_msg}', closing connection")
+                    conn.close()
             else:
-                log.error(f"Unknown client ID '{id_msg}', closing connection")
-                conn.close()
+                break
 
         log.success(f"({self._identifier}) MPIF established")
-        threading.Thread(target=self.forward_messages, args=(clients['MAC'], clients['PHY']), daemon=True).start()
-        threading.Thread(target=self.forward_messages, args=(clients['PHY'], clients['MAC']), daemon=True).start()
+        mac_forward_message_thread = threading.Thread(target=self.forward_messages,
+                                                      args=(clients['MAC'], clients['PHY']), daemon=True,
+                                                      name=f"{self._identifier} MAC message forwarding")
+        mac_forward_message_thread.start()
+        self._threads.append(mac_forward_message_thread)
+        phy_forward_message_thread = threading.Thread(target=self.forward_messages,
+                                                      args=(clients['PHY'], clients['MAC']), daemon=True,
+                                                      name=f"{self._identifier} PHY message forwarding")
+        phy_forward_message_thread.start()
+        self._threads.append(phy_forward_message_thread)
 
-    @staticmethod
-    def forward_messages(src, dst):
+    def forward_messages(self, src, dst):
         """
         Forward data from the source socket to the destination socket.
 
@@ -127,7 +151,7 @@ class CHIP:
         :param dst: The destination socket to send data to.
         """
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 data = src.recv(65536)
                 if not data:
