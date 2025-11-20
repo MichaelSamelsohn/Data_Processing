@@ -23,6 +23,8 @@ class MAC:
 
         self._role = role              # Role of the current chip, either AP or STA.
         self._identifier = identifier  # Name tag for the current chip.
+        self.stop_event = threading.Event()
+        self._threads = []
 
         log.mac(f"({self._identifier}) Generating MAC address")
         self._mac_address = self.generate_mac_address()
@@ -123,7 +125,10 @@ class MAC:
 
         # Start listener thread.
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
-        threading.Thread(target=self.listen, daemon=True).start()
+        listen_thread = threading.Thread(target=self.listen, daemon=True,
+                                         name=f"({self._identifier}) MAC MPIF listen thread")
+        listen_thread.start()
+        self._threads.append(listen_thread)
 
     def send(self, primitive, data):
         """
@@ -139,8 +144,9 @@ class MAC:
         try:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
             self._mpif_socket.sendall(message.encode())
-        except OSError:
-            log.warning(f"({self._identifier}) An attempt to send some frame was blocked (due to MPIF shutdown)")
+        except (OSError, ConnectionResetError, ConnectionAbortedError):
+            log.warning(f"({self._identifier}) MAC MPIF send connection reset/aborted")
+            return
 
     def listen(self):
         """
@@ -151,7 +157,7 @@ class MAC:
         passed to the controller for further handling.
         """
 
-        while True:
+        while not self.stop_event.is_set():
             # Listen to incoming MPIF traffic.
             try:
                 message = self._mpif_socket.recv(65536)
@@ -165,6 +171,7 @@ class MAC:
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.warning(f"({self._identifier}) MAC MPIF listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) MAC MPIF listen error:")
@@ -184,11 +191,7 @@ class MAC:
         Note - This method is intended to be run in a background thread or process, as it contains an infinite loop.
         """
 
-        while True:
-            if self._is_shutdown:
-                self._tx_queue = []  # Flush the TX queue.
-                break
-
+        while not self.stop_event.is_set():
             if self._tx_queue:
                 # There are command(s) in the queue.
                 if self._is_confirmed == "No confirmation required" and not self._is_retry:
@@ -198,7 +201,10 @@ class MAC:
                     # Timing delay to avoid collisions. TODO: Should be enhanced.
                     if transmission_details[0]["TYPE"] not in ("ACK", "CTS"):
                         # Allow the transmission to end before initiating another one.
-                        time.sleep(CONFIRMATION_WAIT_TIME + 0.5)
+                        waited = 0
+                        while waited < (CONFIRMATION_WAIT_TIME + 0.5) and not self.stop_event.is_set():
+                            time.sleep(0.1)
+                            waited += 0.1
 
                     # Rate selection.
                     if self.is_fixed_rate:
@@ -264,6 +270,26 @@ class MAC:
                 self._last_phy_rate = legal_rates[index + 1]
                 return
 
+    def network_discovery(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        if self._role == "STA":
+            # Scan for APs to associate with.
+            scanning_thread = threading.Thread(target=self.scanning, daemon=True,
+                                               name=f"({self._identifier}) Scanning thread")
+            scanning_thread.start()
+            self._threads.append(scanning_thread)
+        elif self._role == "AP":  # AP.
+            # Send beacons to notify STAs.
+            beacon_broadcast_thread = threading.Thread(target=self.beacon_broadcast, daemon=True,
+                                                       name=f"({self._identifier}) Beacon broadcast thread")
+            beacon_broadcast_thread.start()
+            self._threads.append(beacon_broadcast_thread)
+        else:
+            log.warning(f"({self._identifier}) Chip doesn't have a defined role, will remain passive")
+
     def beacon_broadcast(self):
         """
         Periodically broadcasts a beacon frame to indicate the presence of the device to other nodes in the network.
@@ -273,10 +299,7 @@ class MAC:
         receivers.
         """
 
-        while True:
-            if self._is_shutdown:
-                break
-
+        while not self.stop_event.is_set():
             log.mac(f"({self._identifier}) Sending beacon")
             frame_parameters = {
                 "TYPE": "Beacon",
@@ -285,7 +308,11 @@ class MAC:
             }
             self._tx_queue.append((frame_parameters, []))
 
-            time.sleep(BEACON_BROADCAST_INTERVAL)  # Buffer time between consecutive beacon broadcasts.
+            # Buffer time between consecutive beacon broadcasts.
+            waited = 0
+            while waited < BEACON_BROADCAST_INTERVAL and not self.stop_event.is_set():
+                time.sleep(0.1)
+                waited += 0.1
 
     def scanning(self):
         """
@@ -301,7 +328,7 @@ class MAC:
         log.mac(f"({self._identifier}) Passive scanning - Listening for beacons")
         time.sleep(PASSIVE_SCANNING_TIME)
 
-        while True:
+        while not self.stop_event.is_set():
             if not self._probed_ap:
                 # No AP probe responded yet, send probe request.
                 log.mac(f"({self._identifier}) Active scanning - Probing")
@@ -312,9 +339,13 @@ class MAC:
                 }
                 self._tx_queue.append((frame_parameters, []))
 
-                time.sleep(PROBE_REQUEST_BROADCAST_INTERVAL)  # Buffer time between consecutive probing requests.
+                # Buffer time between consecutive probing requests.
+                waited = 0
+                while waited < PROBE_REQUEST_BROADCAST_INTERVAL and not self.stop_event.is_set():
+                    time.sleep(0.1)
+                    waited += 0.1
             else:
-                # Buffer time to avoid a heavy while True loop.
+                # Buffer time to avoid a very fast while loop.
                 time.sleep(0.01)
 
     def controller(self, primitive, data):
@@ -1004,7 +1035,10 @@ class MAC:
                 log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
                 self._statistics[-1]["RETRY_ATTEMPTS"] = 0  # Set retry attempts counter.
                 self._is_confirmed = "Waiting for confirmation"
-                threading.Thread(target=self.wait_for_confirmation, args=(frame_parameters, data), daemon=True).start()
+                confirmation_thread = threading.Thread(target=self.wait_for_confirmation,
+                                                       args=(frame_parameters, data), daemon=True)
+                confirmation_thread.start()
+                self._threads.append(confirmation_thread)
 
     def send_data_frame(self, data: str, destination_address: list[int]):
         """
@@ -1014,7 +1048,7 @@ class MAC:
         destination address and frame type, and enqueues the frame for transmission via the MAC layer.
 
         :param data: The textual message to be sent.
-        :param destination_address: ??
+        :param destination_address: TODO: Complete.
         """
 
         # TODO: Add a check that destination address is legal (for UL/DL).
@@ -1107,7 +1141,11 @@ class MAC:
 
         # Waiting for confirmation.
         for i in range(SHORT_RETRY_LIMIT):
-            time.sleep(CONFIRMATION_WAIT_TIME)  # Allow reception time for the ACK response.
+            # Allow reception time for the ACK response.
+            waited = 0
+            while waited < CONFIRMATION_WAIT_TIME and not self.stop_event.is_set():
+                time.sleep(0.1)
+                waited += 0.1
 
             if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
                 log.success(f"({self._identifier}) Frame confirmed, "

@@ -68,8 +68,7 @@ class CHIP:
 
         log.info(f"({self._identifier}) Activating the chip")
 
-        log.debug(f"({self._identifier}) Establishing internal and external connections")
-        # Internal connections.
+        log.debug(f"({self._identifier}) Establishing internal connections")
         mpif_establishment_thread = threading.Thread(target=self.establish_mpif, daemon=True,
                                                      name=f"{self._identifier} MPIF establishment")
         mpif_establishment_thread.start()
@@ -81,20 +80,12 @@ class CHIP:
                                                      daemon=True, name=f"{self._identifier} MAC transmission queue")
         transmission_queue_thread.start()
         self._threads.append(transmission_queue_thread)
-        # External connection.
+
+        log.debug(f"({self._identifier}) Establishing external connection")
         self.phy.channel_connection(host=HOST, port=CHANNEL_PORT)
 
         log.mac(f"({self._identifier}) Starting (WLAN) network discovery")
-        if self._role == "STA":
-            # Scan for APs to associate with.
-            threading.Thread(target=self.mac.scanning, daemon=True).start()
-            time.sleep(0.1)  # Buffer time.
-        elif self._role == "AP":  # AP.
-            # Send beacons to notify STAs.
-            threading.Thread(target=self.mac.beacon_broadcast, daemon=True).start()
-            time.sleep(0.1)  # Buffer time.
-        else:
-            log.warning(f"({self._identifier}) Chip doesn't have a defined role, will remain passive")
+        self.mac.network_discovery()
 
     def establish_mpif(self):
         """
