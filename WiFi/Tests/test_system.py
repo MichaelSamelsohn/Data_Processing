@@ -39,14 +39,20 @@ def test_basic_association(authentication_algorithm):
     # Step (2) - Buffer time to allow for the association to happen.
     time.sleep(60)
 
-    # Step (3) - Check that AP and STA are authenticated and associated (both sides).
-    assert len(ap.mac._associated_sta) == 1,                           "AP is not associated with STA"
-    assert ap.mac._encryption_type[str(sta.mac._mac_address)] == authentication_algorithm, \
-        "Encryption method not saved for AP"
-    assert ap.mac._associated_sta[0] == sta.mac._mac_address,          "AP is not associated with STA"
-    assert sta.mac._associated_ap == ap.mac._mac_address,              "STA is not associated with AP"
-    assert sta.mac._encryption_type[str(ap.mac._mac_address)] == authentication_algorithm, \
-        "Encryption method not saved for AP"
+    try:
+        # Step (3) - Check that AP and STA are authenticated and associated (both sides).
+        assert len(ap.mac._associated_sta) == 1,                           "AP is not associated with STA"
+        assert ap.mac._encryption_type[str(sta.mac._mac_address)] == authentication_algorithm, \
+            "Encryption method not saved for AP"
+        assert ap.mac._associated_sta[0] == sta.mac._mac_address,          "AP is not associated with STA"
+        assert sta.mac._associated_ap == ap.mac._mac_address,              "STA is not associated with AP"
+        assert sta.mac._encryption_type[str(ap.mac._mac_address)] == authentication_algorithm, \
+            "Encryption method not saved for AP"
+    finally:
+        # Step (4) - Shutdown.
+        ap.shutdown()
+        sta.shutdown()
+        channel.shutdown()
 
 
 def test_failed_authentication_incorrect_wep_keys():
@@ -74,12 +80,18 @@ def test_failed_authentication_incorrect_wep_keys():
     # Step (2) - Buffer time to allow for several authentication failures to happen.
     time.sleep(120)
 
-    # Step (3) - Check that AP and STA are not authenticated (both sides) and AP is blacklisted for STA.
-    assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
-    assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
-    assert sta.mac._authenticated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
-    assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
-    assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
+    try:
+        # Step (3) - Check that AP and STA are not authenticated (both sides) and AP is blacklisted for STA.
+        assert len(ap.mac._authenticated_sta) == 0, "AP is authenticated with STA, although it shouldn't be"
+        assert ap.mac._encryption_type == {},       "AP encryption dictionary is not empty"
+        assert sta.mac._authenticated_ap is None,      "STA is authenticated with AP, although it shouldn't be"
+        assert sta.mac._encryption_type == {},      "STA encryption dictionary is not empty"
+        assert ap.mac._mac_address in sta.mac._probed_ap_blacklist, "AP is not blacklisted for STA"
+    finally:
+        # Step (4) - Shutdown.
+        ap.shutdown()
+        sta.shutdown()
+        channel.shutdown()
 
 
 def test_send_data_with_association():
@@ -121,9 +133,15 @@ def test_send_data_with_association():
         # Step (4) - Buffer time to allow for the data to be sent and received.
         time.sleep(15)
 
-        # Step (5) - Asserting that the message was received successfully.
-        assert sta.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
-                                                                      "original one")
+        try:
+            # Step (5) - Asserting that the message was received successfully.
+            assert sta.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                          "original one")
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
 
 
 def test_send_data_without_association():
@@ -158,8 +176,14 @@ def test_send_data_without_association():
         # Step (3) - Buffer time to allow for the data to be sent and received.
         time.sleep(60)
 
-        # Step (4) - Asserting that the message was discarded at all times.
-        assert sta.mac._last_data is None, "Data was sent without association"
+        try:
+            # Step (4) - Asserting that the message was discarded at all times.
+            assert sta.mac._last_data is None, "Data was sent without association"
+        finally:
+            # Step (5) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
 
 
 def test_fixed_rate_configuration():
@@ -200,13 +224,19 @@ def test_fixed_rate_configuration():
         # Buffer time between consecutive checks.
         time.sleep(1)
 
-    # Step (3) - Assert that AP remains with same initial rate and STA has different rates.
-    if not is_ap_rate_fixed and is_sta_rate_not_fixed:
-        assert False, "AP rate is not fixed, although it should be"
-    elif is_ap_rate_fixed and not is_sta_rate_not_fixed:
-        assert False, "STA rate is fixed, although it shouldn't be"
-    elif not is_ap_rate_fixed and not is_sta_rate_not_fixed:
-        assert False, "AP rate is not fixed and STA rate is fixed, should be reversed"
+    try:
+        # Step (3) - Assert that AP remains with same initial rate and STA has different rates.
+        if not is_ap_rate_fixed and is_sta_rate_not_fixed:
+            assert False, "AP rate is not fixed, although it should be"
+        elif is_ap_rate_fixed and not is_sta_rate_not_fixed:
+            assert False, "STA rate is fixed, although it shouldn't be"
+        elif not is_ap_rate_fixed and not is_sta_rate_not_fixed:
+            assert False, "AP rate is not fixed and STA rate is fixed, should be reversed"
+    finally:
+        # Step (4) - Shutdown.
+        ap.shutdown()
+        sta.shutdown()
+        channel.shutdown()
 
 
 def test_rts_cts_mechanism():
@@ -255,10 +285,16 @@ def test_rts_cts_mechanism():
             # Buffer time between consecutive checks.
             time.sleep(1)
 
-        # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
-        assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
-                                                                     "original one")
-        assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
+        try:
+            # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
+            assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                         "original one")
+            assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
 
 
 def test_rts_cts_configuration():
@@ -309,7 +345,13 @@ def test_rts_cts_configuration():
             # Buffer time between consecutive checks.
             time.sleep(1)
 
-        # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
-        assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
-                                                                     "original one")
-        assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
+        try:
+            # Step (5) - Asserting that the message was received successfully and RTS-CTS mechanism was used.
+            assert ap.mac._last_data.decode('utf-8') == random_message, ("Received message is not the same as "
+                                                                         "original one")
+            assert is_rts_cts_active is True, "RTS-CTS mechanism wasn't used"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()

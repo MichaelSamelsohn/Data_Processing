@@ -206,11 +206,10 @@ class Channel:
 
     def shutdown(self):
         """Channel shutdown (no more traffic allowed)."""
-        log.info("Shutdown of the channel")
-
-        self.server.close()
+        log.channel("Shutdown of the channel")
 
         self.stop_event.set()  # tells threads to stop.
+        self.server.close()
+
         for t in self._threads:
             t.join()  # wait for clean exit.
-

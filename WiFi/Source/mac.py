@@ -1147,6 +1147,9 @@ class MAC:
                 time.sleep(0.1)
                 waited += 0.1
 
+            if self.stop_event.is_set():
+                return
+
             if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
                 log.success(f"({self._identifier}) Frame confirmed, "
                             f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
