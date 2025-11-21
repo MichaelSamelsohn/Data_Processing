@@ -114,7 +114,7 @@ class CHIP:
                     log.success(f"({self._identifier}) PHY layer connected")
                     clients['PHY'] = conn
                 else:
-                    log.error(f"Unknown client ID '{id_msg}', closing connection")
+                    log.error(f"({self._identifier}) Unknown client ID '{id_msg}', closing connection")
                     conn.close()
             else:
                 break
@@ -149,8 +149,26 @@ class CHIP:
                     break
                 dst.sendall(data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.debug(f"({self._identifier}) MPIF forwarding connection reset/aborted")
                 return
             except Exception as e:
-                log.error(f"MPIF forwarding error:")
+                log.error(f"({self._identifier}) MPIF forwarding error:")
                 log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)), log_level="error")
                 return
+
+    def shutdown(self):
+        """
+        TODO: Complete the docstring.
+        """
+
+        self.phy.stop_event.set()  # tells PHY threads to stop.
+        self.mac.stop_event.set()  # tells PHY threads to stop.
+        self.stop_event.set()      # tells CHIP threads to stop.
+
+        self.mac._mpif_socket.close()
+        self.phy._mpif_socket.close()
+        self.phy._channel_socket.close()
+        self.server.close()
+
+        for t in self.mac._threads + self.phy._threads + self._threads:
+            t.join()  # wait for clean exit of all threads.

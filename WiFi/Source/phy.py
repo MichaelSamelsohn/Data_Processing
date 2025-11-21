@@ -111,7 +111,7 @@ class PHY:
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
-                log.warning(f"({self._identifier}) PHY MPIF listen connection reset/aborted")
+                log.debug(f"({self._identifier}) PHY MPIF listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY MPIF listen error:")
@@ -168,7 +168,7 @@ class PHY:
                 else:
                     break
             except (OSError, ConnectionResetError, ConnectionAbortedError):
-                log.warning(f"({self._identifier}) PHY channel listen connection reset/aborted")
+                log.debug(f"({self._identifier}) PHY channel listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) PHY channel listen error:")

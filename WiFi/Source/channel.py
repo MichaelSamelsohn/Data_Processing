@@ -37,6 +37,9 @@ class Channel:
         :param snr_db: The signal-to-noise ratio in decibels, representing the noise level in the channel.
         """
 
+        self.stop_event = threading.Event()
+        self._threads = []
+
         log.channel("Configuring listening socket for the channel")
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -52,7 +55,9 @@ class Channel:
         self._snr_db = snr_db
 
         log.channel("Starting listening thread")
-        threading.Thread(target=self.listen, daemon=True).start()
+        listen_thread = threading.Thread(target=self.listen, daemon=True)
+        listen_thread.start()
+        self._threads.append(listen_thread)
 
         log.channel(f"Server listening on {HOST}:{CHANNEL_PORT}")
 
@@ -65,7 +70,7 @@ class Channel:
         - Starts a dedicated daemon thread to handle communication with the client.
         """
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 conn, addr = self.server.accept()
                 log.channel(f"Accepted connection from {addr}")
@@ -75,8 +80,11 @@ class Channel:
                     self.clients.add(conn)
 
                 # Start new thread to handle the client.
-                threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True).start()
+                handle_client_thread = threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True)
+                handle_client_thread.start()
+                self._threads.append(handle_client_thread)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.debug(f"Channel listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"Channel listen error:")
@@ -102,7 +110,7 @@ class Channel:
         :param addr: The address of the connected client.
         """
 
-        while True:
+        while not self.stop_event.is_set():
             try:
                 message = conn.recv(65536)
                 if not message:
@@ -120,6 +128,7 @@ class Channel:
                 # Broadcast the result to all clients.
                 self.broadcast(primitive="RF-SIGNAL", data=self.pass_signal(rf_signal=data))
             except (OSError, ConnectionResetError, ConnectionAbortedError):
+                log.debug(f"Channel client handle connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"Error handling client {addr}:")
@@ -148,7 +157,8 @@ class Channel:
                 try:
                     conn.sendall(message)
                 except (OSError, ConnectionResetError, ConnectionAbortedError):
-                    return  # In case of shutdown.
+                    log.debug(f"Channel broadcast connection reset/aborted")
+                    return
                 except Exception as e:
                     log.error(f"Failed to send to a client:")
                     log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)),
@@ -196,5 +206,11 @@ class Channel:
 
     def shutdown(self):
         """Channel shutdown (no more traffic allowed)."""
-        log.info("Shutdown of the channel server socket")
+        log.info("Shutdown of the channel")
+
         self.server.close()
+
+        self.stop_event.set()  # tells threads to stop.
+        for t in self._threads:
+            t.join()  # wait for clean exit.
+

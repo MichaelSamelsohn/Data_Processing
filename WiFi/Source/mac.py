@@ -145,7 +145,7 @@ class MAC:
             message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
             self._mpif_socket.sendall(message.encode())
         except (OSError, ConnectionResetError, ConnectionAbortedError):
-            log.warning(f"({self._identifier}) MAC MPIF send connection reset/aborted")
+            log.debug(f"({self._identifier}) MAC MPIF send connection reset/aborted")
             return
 
     def mpif_listen(self):
@@ -171,7 +171,7 @@ class MAC:
                                 f"({'no data' if not data else f'data length {len(data)}'})")
                     self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
-                log.warning(f"({self._identifier}) MAC MPIF listen connection reset/aborted")
+                log.debug(f"({self._identifier}) MAC MPIF listen connection reset/aborted")
                 return
             except Exception as e:
                 log.error(f"({self._identifier}) MAC MPIF listen error:")
