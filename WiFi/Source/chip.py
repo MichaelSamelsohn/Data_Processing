@@ -17,7 +17,6 @@ Created by Michael Samelsohn, 19/07/25.
 """
 
 # Imports #
-import time
 import socket
 import textwrap
 import json
@@ -56,11 +55,11 @@ class CHIP:
         self.mac = MAC(identifier=self._identifier, role=self._role)
 
         log.debug(f"({self._identifier}) Configuring listening socket for MAC-PHY interface")
-        self.mpif = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.mpif.bind((HOST, 0))  # The OS to choose a free port.
-        self.mpif.listen(2)
-        self.port = self.mpif.getsockname()[1]
-        log.debug(f"({self._identifier}) MPIF listening on {HOST}:{self.port}")
+        self._mpif_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._mpif_socket.bind((HOST, 0))  # The OS to choose a free port.
+        self._mpif_socket.listen(2)
+        self._mpif_port = self._mpif_socket.getsockname()[1]
+        log.debug(f"({self._identifier}) MPIF listening on {HOST}:{self._mpif_port}")
 
     def activation(self):
         """
@@ -80,8 +79,8 @@ class CHIP:
                                                      name=f"{self._identifier} MPIF establishment")
         mpif_establishment_thread.start()
         self._threads.append(mpif_establishment_thread)
-        self.phy.mpif_connection(host=HOST, port=self.port)
-        self.mac.mpif_connection(host=HOST, port=self.port)
+        self.phy.mpif_connection(host=HOST, port=self._mpif_port)
+        self.mac.mpif_connection(host=HOST, port=self._mpif_port)
         # Activating transmission queue.
         transmission_queue_thread = threading.Thread(target=self.mac.transmission_queue,
                                                      daemon=True, name=f"{self._identifier} MAC transmission queue")
@@ -108,7 +107,7 @@ class CHIP:
         clients = {}
         while not self.stop_event.is_set():
             if len(clients) < 2:
-                conn, addr = self.mpif.accept()
+                conn, addr = self._mpif_socket.accept()
                 id_msg = conn.recv(1024)
 
                 # Unpacking the message.
@@ -201,20 +200,20 @@ class CHIP:
             rows.append((direction, description, retries, mac_hex))
 
         # Column widths, ensure headers fit.
-        DIR_COL_WIDTH = max(max(len(dir_) for dir_, _, _, _ in rows), len("Direction")) + 2
-        DESC_COL_WIDTH = max(max(len(desc) for _, desc, _, _ in rows), len("Frame Description")) + 2
-        RETRIES_COL_WIDTH = max(max(len(retries) for _, _, retries, _ in rows), len("Retries")) + 2
-        MAC_COL_WIDTH = max(max(len(mac) for _, _, _, mac in rows), len("MAC Address (HEX)")) + 2
+        dir_col_width = max(max(len(dir_) for dir_, _, _, _ in rows), len("Direction")) + 2
+        desc_col_width = max(max(len(desc) for _, desc, _, _ in rows), len("Frame Description")) + 2
+        retries_col_width = max(max(len(retries) for _, _, retries, _ in rows), len("Retries")) + 2
+        mac_col_width = max(max(len(mac) for _, _, _, mac in rows), len("MAC Address (HEX)")) + 2
 
         # Headers.
-        header_dir = "Direction".center(DIR_COL_WIDTH)
-        header_desc = "Frame Description".center(DESC_COL_WIDTH)
-        header_retries = "Retries".center(RETRIES_COL_WIDTH)
-        header_mac = "MAC Address (HEX)".center(MAC_COL_WIDTH)
+        header_dir = "Direction".center(dir_col_width)
+        header_desc = "Frame Description".center(desc_col_width)
+        header_retries = "Retries".center(retries_col_width)
+        header_mac = "MAC Address (HEX)".center(mac_col_width)
 
         # Borders.
-        top_border = ("+" + "-" * DIR_COL_WIDTH + "+" + "-" * DESC_COL_WIDTH + "+" + "-" * RETRIES_COL_WIDTH + "+" +
-                      "-" * MAC_COL_WIDTH + "+")
+        top_border = ("+" + "-" * dir_col_width + "+" + "-" * desc_col_width + "+" + "-" * retries_col_width + "+" +
+                      "-" * mac_col_width + "+")
         mid_border = top_border
         bottom_border = top_border
 
@@ -226,13 +225,13 @@ class CHIP:
 
         for direction, description, retries, mac_hex in rows:
             # Wrap description if needed.
-            wrapped_desc = textwrap.wrap(description, width=DESC_COL_WIDTH - 2) or [""]
+            wrapped_desc = textwrap.wrap(description, width=desc_col_width - 2) or [""]
 
             for i, line in enumerate(wrapped_desc):
-                dir_col = direction.center(DIR_COL_WIDTH) if i == 0 else " " * DIR_COL_WIDTH
-                desc_col = line.center(DESC_COL_WIDTH)
-                retries_col = retries.center(RETRIES_COL_WIDTH) if i == 0 else " " * RETRIES_COL_WIDTH
-                mac_col = mac_hex.center(MAC_COL_WIDTH) if i == 0 else " " * MAC_COL_WIDTH
+                dir_col = direction.center(dir_col_width) if i == 0 else " " * dir_col_width
+                desc_col = line.center(desc_col_width)
+                retries_col = retries.center(retries_col_width) if i == 0 else " " * retries_col_width
+                mac_col = mac_hex.center(mac_col_width) if i == 0 else " " * mac_col_width
                 log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{retries_col}|{mac_col}|")
 
         log.info(f"({self._identifier}) {bottom_border}")
@@ -257,7 +256,7 @@ class CHIP:
         self.mac._mpif_socket.close()
         self.phy._mpif_socket.close()
         self.phy._channel_socket.close()
-        self.mpif.close()
+        self._mpif_socket.close()
 
         for t in self.mac._threads + self.phy._threads + self._threads:
             t.join()  # wait for clean exit of all threads.

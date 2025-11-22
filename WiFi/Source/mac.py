@@ -2,7 +2,6 @@
 import json
 import random
 import socket
-import textwrap
 import threading
 import time
 import traceback
@@ -126,7 +125,7 @@ class MAC:
         # Start listener thread.
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
         mpif_listen_thread = threading.Thread(target=self.mpif_listen, daemon=True,
-                                         name=f"({self._identifier}) MAC MPIF listen thread")
+                                              name=f"({self._identifier}) MAC MPIF listen thread")
         mpif_listen_thread.start()
         self._threads.append(mpif_listen_thread)
 
@@ -733,7 +732,7 @@ class MAC:
                             case [0x00, 0x02]:  # Sequence 2 - Challenge text.
                                 # Checking that we are STA (authentication sequence 2, is relevant for STA only) and AP
                                 # is the probed one.
-                                if self._role == "STA" and cast == "Unicast"  and source_address == self._probed_ap:
+                                if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                                     log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
                                     # Add to statistics.
                                     self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",

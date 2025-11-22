@@ -85,7 +85,7 @@ class PHY:
         # Start listener thread.
         time.sleep(0.1)  # Allow server to read ID before sending other messages.
         mpif_listen_thread = threading.Thread(target=self.mpif_listen, daemon=True,
-                                         name=f"({self._identifier}) PHY MPIF listen thread")
+                                              name=f"({self._identifier}) PHY MPIF listen thread")
         mpif_listen_thread.start()
         self._threads.append(mpif_listen_thread)
 
@@ -579,7 +579,7 @@ class PHY:
                                 First 7 bits of Scrambling
                                 Sequence as defined in (*)
                        -------------------------------------------+
-                                                                   \ <-----------During bits 0-6 of Scrambling Sequence
+                                                                   \ <---------- During bits 0-6 of Scrambling Sequence
                                                                     \            when CH_BANDWIDTH_IN_NON_HT is present
                                                                      \
                                                                      |
@@ -737,7 +737,6 @@ class PHY:
 
         :return: List of complex values representing the mapped bits.
         """
-
 
         # Mapped bits array initialization.
         symbols = []
@@ -1092,7 +1091,7 @@ class PHY:
             log.debug(f"({self._identifier}) Demapping DATA symbol #{i+1}")
             # TODO: Change the variable name to data instead of signal.
             interleaved_data_symbol = self.hard_decision_demapping(equalized_symbol=equalized_symbol,
-                                                                     modulation=self._modulation)
+                                                                   modulation=self._modulation)
 
             log.debug(f"({self._identifier}) Deinterleaving DATA symbol #{i+1}")
             encoded_data_symbol = self.deinterleave(bits=interleaved_data_symbol, phy_rate=self._phy_rate)
@@ -1105,7 +1104,7 @@ class PHY:
 
         log.debug(f"({self._identifier}) Descrambling all DATA bits")
         service_field = decoded_data[:16]
-        for seed in range(1,128):
+        for seed in range(1, 128):
             if ([a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=16, seed=seed), service_field)]
                     == 16 * [0]):
                 log.debug(f"({self._identifier}) Seed found - {seed}")
@@ -1259,8 +1258,8 @@ class PHY:
 
         pattern = puncturing_patterns[coding_rate]
         pattern_len = len(pattern)
-        K = 7  # Constraint length
-        n_states = 2 ** (K - 1)
+        k = 7  # Constraint length
+        n_states = 2 ** (k - 1)
 
         # Initialize trellis
         path_metrics = np.full(n_states, np.inf)
@@ -1283,7 +1282,7 @@ class PHY:
                 if path_metrics[state] < np.inf:
                     for input_bit in [0, 1]:
                         # Shift register: input_bit + current state bits
-                        shift_register = [input_bit] + [int(x) for x in format(state, f'0{K - 1}b')]
+                        shift_register = [input_bit] + [int(x) for x in format(state, f'0{k - 1}b')]
 
                         # Encoder outputs (rate 1/2)
                         out1 = sum(a * b for a, b in zip(shift_register, G1)) % 2
@@ -1306,7 +1305,7 @@ class PHY:
                             local_puncture_idx = (local_puncture_idx + 1) % pattern_len
                         else:
                             # Only update trellis if we didn’t break early
-                            next_state = ((state >> 1) | (input_bit << (K - 2))) & (n_states - 1)
+                            next_state = ((state >> 1) | (input_bit << (k - 2))) & (n_states - 1)
                             total_metric = path_metrics[state] + metric
 
                             if total_metric < new_metrics[next_state]:
