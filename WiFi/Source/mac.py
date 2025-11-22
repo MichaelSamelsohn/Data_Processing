@@ -271,7 +271,12 @@ class MAC:
 
     def network_discovery(self):
         """
-        TODO: Complete the docstring.
+        Start the network-discovery procedure based on the device role.
+        - If the device is a STA (station), a background scanning thread is started to discover nearby access points
+          (APs) for potential association.
+        - If the device is an **AP** (access point), a background beacon-broadcast thread is started so that stations
+          can detect and identify the AP.
+        - If the role is undefined, the device remains passive and no discovery activity is performed.
         """
 
         if self._role == "STA":

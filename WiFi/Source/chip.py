@@ -249,14 +249,21 @@ class CHIP:
         - Join all threads belonging to PHY, MAC, and CHIP to wait for complete termination.
         """
 
+        log.info(f"({self._identifier}) Performing shutdown")
+
+        log.debug(f"({self._identifier}) Setting stop event to abort non-blocking threads")
         self.phy.stop_event.set()  # tells PHY threads to stop.
-        self.mac.stop_event.set()  # tells PHY threads to stop.
+        self.mac.stop_event.set()  # tells MAC threads to stop.
         self.stop_event.set()      # tells CHIP threads to stop.
 
+        log.debug(f"({self._identifier}) Closing sockets to abort blocking threads")
         self.mac._mpif_socket.close()
         self.phy._mpif_socket.close()
         self.phy._channel_socket.close()
         self._mpif_socket.close()
 
+        log.debug(f"({self._identifier}) Confirming all threads are closed")
         for t in self.mac._threads + self.phy._threads + self._threads:
             t.join()  # wait for clean exit of all threads.
+
+        log.success(f"({self._identifier}) Shutdown successful")

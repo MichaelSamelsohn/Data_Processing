@@ -19,8 +19,9 @@ sta.activation()
 time.sleep(60)
 text = """Joy, bright spark of divinity,\nDaughter of Elysium,\nFire-insired we trea"""
 ap.mac.send_data_frame(data=text, destination_address=sta.mac._mac_address)
-time.sleep(300)
+time.sleep(30)
+ap.print_statistics()
+sta.print_statistics()
 
 ap.shutdown()
 sta.shutdown()
-channel.shutdown()
