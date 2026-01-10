@@ -51,7 +51,7 @@ class Dummy(Player):
         log.logic(f"{self.name} - Never bidding at an auction")
         return "pass"
 
-    def raise_cash_logic(self):
+    def raise_cash_logic(self, board):
         """Automate cash raising."""
         return "automate"
 

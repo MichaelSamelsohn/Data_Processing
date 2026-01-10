@@ -208,42 +208,10 @@ class Easy(Player):
             log.logic(f"{self.name} - Emergency buffer ({self.emergency_buffer}$) breached, trying to raise cash")
             self.is_emergency_freeze = True
 
-            # Check if there are any non-mortgaged spaces left.
-            if all(space.is_mortgaged for space in self.spaces):
-                log.logic(f"{self.name} - No houses to sell or spaces to mortgage, cannot raise cash")
-            else:
-                # At least a space to mortgage.
-
-                # DEVELOPMENT - SELLING HOUSE/HOTEL #
-
-                # Find valid spaces to sell from.
-                valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
-                if valid_spaces_to_sell_from:
-                    for monopoly in valid_spaces_to_sell_from:
-                        log.logic(f"{self.name} - Selling a building to reach emergency buffer - "
-                                  f"{self.emergency_buffer}$ "
-                                  f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
-
-                        # Not much thought over monopoly selection - First found that we are able to develop.
-                        self.monopoly_sell = monopoly
-                        # Not much thought over space selection - Select a random space.
-                        self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
-                        self.development_action = "sell"
-                        return "develop"
-
-                else:
-                    # No valid spaces to sell from, we can only mortgage.
-
-                    # MANAGEMENT - MORTGAGE #
-
-                    # Find valid spaces to mortgage.
-                    valid_spaces_to_mortgage = find_valid_spaces_to_mortgage(player=self)
-                    # We already checked there are spaces to mortgage above, no need to check again.
-
-                    # Not much thought over space selection - Select a random space.
-                    self.space_mortgage = random.randint(0, len(valid_spaces_to_mortgage) - 1)
-                    self.management_action = "mortgage"
-                    return "manage"
+            # Raise cash to maintain emergency buffer.
+            action_type = self.raise_emergency_cash(board=board)
+            if action_type:
+                return action_type
 
         # Got to this point -> No active action possible/required.
         if not self.post_roll:
@@ -319,9 +287,57 @@ class Easy(Player):
                       f"purchase value ({space.purchase_price}$) and doesn't breach safety buffer")
             return str(potential_bid)
 
-    def raise_cash_logic(self):
-        """Automate cash raising."""
-        return "automate"
+    def raise_emergency_cash(self, board):
+        # Check if there are any non-mortgaged spaces left.
+        if all(space.is_mortgaged for space in self.spaces):
+            log.logic(f"{self.name} - No houses to sell or spaces to mortgage, cannot raise cash")
+            return None
+        else:
+            # At least a space to mortgage.
+
+            # DEVELOPMENT - SELLING HOUSE/HOTEL #
+
+            # Find valid spaces to sell from.
+            valid_spaces_to_sell_from = find_valid_spaces_to_sell_from(player=self, board=board)
+            if valid_spaces_to_sell_from:
+                for monopoly in valid_spaces_to_sell_from:
+                    log.logic(f"{self.name} - Selling a building to reach emergency buffer - "
+                              f"{self.emergency_buffer}$ "
+                              f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
+
+                    # Not much thought over monopoly selection - First found that we are able to develop.
+                    self.monopoly_sell = monopoly
+                    # Not much thought over space selection - Select a random space.
+                    self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
+                    self.development_action = "sell"
+                    return "develop"
+
+            else:
+                # No valid spaces to sell from, we can only mortgage.
+
+                # MANAGEMENT - MORTGAGE #
+
+                # Find valid spaces to mortgage.
+                valid_spaces_to_mortgage = find_valid_spaces_to_mortgage(player=self)
+                # We already checked there are spaces to mortgage above, no need to check again.
+
+                # Not much thought over space selection - Select the first space.
+                self.space_mortgage = 0
+                self.management_action = "mortgage"
+                return "manage"
+
+    def raise_cash_logic(self, board):
+        """
+        TODO: Complete the docstring.
+        """
+
+        action_type = self.raise_emergency_cash(board=board)
+        if action_type == "develop":
+            return "sell"
+        elif action_type == "manage":
+            return "mortgage"
+        else:
+            log.warning(f"Unknown action - {action_type}")
 
     # Trade #
 

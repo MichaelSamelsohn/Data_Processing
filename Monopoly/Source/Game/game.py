@@ -486,7 +486,7 @@ class Game:
                     if isinstance(debtor, Human):
                         choice = input("Choose one of the following: sell / mortgage: ")
                     else:  # Bot.
-                        choice = debtor.raise_cash_logic()
+                        choice = debtor.raise_cash_logic(board=self.board)
 
                     match choice:
                         case "sell":

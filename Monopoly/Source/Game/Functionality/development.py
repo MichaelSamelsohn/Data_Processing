@@ -264,8 +264,10 @@ def find_valid_spaces_to_sell_from(player, board: Board):
             even_sell_monopoly_spaces = [space for space in monopoly_spaces if space.hotel
                                          or space.houses == max_houses]
 
-            # Criteria (3) - Check that space has any building to sell.
-            valid_spaces_to_sell_from[color] = [space for space in even_sell_monopoly_spaces if space.houses > 0]
+            # Criteria (3) - Check that space has any building to sell (precedence for hotels).
+            spaces_with_hotels = [space for space in even_sell_monopoly_spaces if space.hotel]
+            valid_spaces_to_sell_from[color] = spaces_with_hotels if spaces_with_hotels \
+                else [space for space in even_sell_monopoly_spaces if space.houses > 0]
 
     # Filter any monopolies which have no available spaces to build on.
     return {k: v for k, v in valid_spaces_to_sell_from.items() if v != []}
