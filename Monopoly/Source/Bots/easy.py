@@ -125,7 +125,7 @@ class Easy(Player):
                             return "manage"
                         else:
                             # Lacking the cash to develop.
-                            cash_needed.append(self.emergency_buffer - (self.cash - space.redeem_value))
+                            cash_needed.append(int(self.emergency_buffer - (self.cash - space.redeem_value)))
 
                     # Check if we lack the cash to redeem.
                     if not self.space_redeem:
@@ -174,13 +174,13 @@ class Easy(Player):
                                     post trade).
                                     """
                                     space_trade_value = space.purchase_price if not space.is_mortgaged \
-                                        else 0.55 * space.purchase_price
+                                        else int(0.55 * space.purchase_price)
                                     if self.cash - space_trade_value > self.emergency_buffer:
                                         missing_spaces.append([
                                             player.name,                                          # Name of the player.
                                             valid_spaces_to_trade.index(space),                   # Index of the space.
                                             space_trade_value - (0 if not space.is_mortgaged      # Cash offer.
-                                                                 else 0.05 * space.purchase_price)])
+                                                                 else int(0.05 * space.purchase_price))])
 
                         # Check that any "missing" spaces exist that can be traded.
                         if missing_spaces:

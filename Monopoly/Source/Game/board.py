@@ -21,7 +21,7 @@ class RealEstate(Space):
         self.purchase_price = purchase_price
         self.is_mortgaged = False
         self.mortgage_value = self.purchase_price // 2
-        self.redeem_value = self.mortgage_value * 1.1  # 10% interest.
+        self.redeem_value = int(self.mortgage_value * 1.1)  # 10% interest.
 
         # Rent prices.
         self.base_rent = base_rent
@@ -65,7 +65,7 @@ class Railroad(Space):
         self.owner = None
         self.is_mortgaged = False
         self.mortgage_value = self.purchase_price // 2
-        self.redeem_value = self.mortgage_value * 1.1  # 10% interest.
+        self.redeem_value = int(self.mortgage_value * 1.1)  # 10% interest.
 
     def print_information(self):
         log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name}, position - {self.position}, "
@@ -80,7 +80,7 @@ class Utility(Space):
         self.owner = None
         self.is_mortgaged = False
         self.mortgage_value = self.purchase_price // 2
-        self.redeem_value = self.mortgage_value * 1.1  # 10% interest.
+        self.redeem_value = int(self.mortgage_value * 1.1)  # 10% interest.
 
     def print_information(self):
         log.info(f"{"[MORTGAGED] " if self.is_mortgaged else ""}{self.name}, position - {self.position}, "
