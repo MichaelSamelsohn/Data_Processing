@@ -95,7 +95,7 @@ class Player:
         pass
 
     @abstractmethod
-    def raise_cash_logic(self):
+    def raise_cash_logic(self, board):
         pass
 
     @abstractmethod
