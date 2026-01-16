@@ -21,7 +21,7 @@ def jail_handler(player: Player):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'pay', 'free', or 'end': ")
                       .strip().lower())
         else:  # Bot.
-            choice = player.jail_logic()
+            choice = player.jail_choice()
 
         match choice:
             case "pay":

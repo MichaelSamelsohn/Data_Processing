@@ -38,7 +38,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
             if trade_offer_recipient_name == "end":
                 return
         else:  # Bot.
-            trade_offer_recipient_name = trade_offer_initiator.trade_partner_logic()
+            trade_offer_recipient_name = trade_offer_initiator.trade_partner_choice()
         trade_offer_recipient = next((player for player in players if player.name == trade_offer_recipient_name),
                                      trade_offer_initiator)
         # Make sure the recipient exists and is not the same player as the initiator.
@@ -91,7 +91,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
             if isinstance(trade_offer_recipient, Human):
                 confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
             else:  # Bot.
-                confirm = trade_offer_recipient.trade_acceptance_logic(
+                confirm = trade_offer_recipient.trade_acceptance_choice(
                     trade_offer_initiator,
                     initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                     recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer
@@ -158,7 +158,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
         if isinstance(trade_master, Human):
             offer_spaces_selection = input("Enter indices of properties to offer (comma separated): ")
         else:  # Bot.
-            offer_spaces_selection = trade_master.trade_spaces_logic()
+            offer_spaces_selection = trade_master.trade_spaces_choice()
             # Differentiate between space offer for the initiator/recipient.
             offer_spaces_selection = offer_spaces_selection["initiator"] if trade_partner == trade_master \
                 else offer_spaces_selection["recipient"]
@@ -178,7 +178,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
         if isinstance(trade_master, Human):
             offer_cash = input("Enter cash to offer (in $): ")
         else:  # Bot.
-            offer_cash = trade_master.trade_cash_logic()
+            offer_cash = trade_master.trade_cash_choice()
             # Differentiate between cash offer for the initiator/recipient.
             offer_cash = offer_cash["initiator"] if trade_partner == trade_master else offer_cash["recipient"]
 
@@ -202,7 +202,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
             if isinstance(trade_master, Human):
                 offer_free_cards = input("Enter 'Get out of jail free' card(s) to offer: ")
             else:  # Bot.
-                offer_free_cards = trade_master.trade_cards_logic()
+                offer_free_cards = trade_master.trade_cards_choice()
                 # Differentiate between cash offer for the initiator/recipient.
                 offer_free_cards = offer_free_cards["initiator"] if trade_partner == trade_master \
                     else offer_free_cards["recipient"]
@@ -291,12 +291,12 @@ def transfer_spaces(sender: Player, recipient: Player, spaces_to_transfer: list)
                 # Recipient to choose between redeeming or paying mortgage fee for mortgaged properties.
 
                 if isinstance(recipient, Human):
-                    action = input("Redeem property or pay mortgage fee (10%): ")
+                    choice = input("Redeem property or pay mortgage fee (10%): ")
                 else:  # Bot.
-                    action = recipient.post_transfer_redeem_logic()
+                    choice = recipient.post_transfer_redeem_choice(space=space)
 
                 while True:
-                    match action:
+                    match choice:
                         case "y":
                             # Redeem space.
                             recipient.cash -= space.redeem_value

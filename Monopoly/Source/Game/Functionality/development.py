@@ -20,7 +20,7 @@ def development_handler(player: Player, board: Board):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'build', 'sell', or 'end': ")
                       .strip().lower())
         else:  # Bot.
-            choice = player.development_logic()
+            choice = player.development_choice()
 
         match choice:
             case "build":
@@ -66,7 +66,7 @@ def build(player: Player, board: Board):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.monopoly_build_selection_logic()
+            choice = player.monopoly_build_selection_choice()
 
         if choice not in valid_spaces_to_build_on.keys():
             log.warning("Invalid choice, try again")
@@ -83,7 +83,7 @@ def build(player: Player, board: Board):
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.space_build_selection_logic()
+                choice = player.space_build_selection_choice()
 
             if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_build_on) - 1):
                 log.warning("Invalid choice, try again")
@@ -144,7 +144,7 @@ def sell(player: Player, board: Board):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.monopoly_sell_selection_logic()
+            choice = player.monopoly_sell_selection_choice()
 
         if choice not in valid_spaces_to_sell_from.keys():
             log.warning("Invalid choice, try again")
@@ -161,7 +161,7 @@ def sell(player: Player, board: Board):
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.space_sell_selection_logic()
+                choice = player.space_sell_selection_choice()
 
             if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_sell_from)):
                 log.warning("Invalid choice, try again")

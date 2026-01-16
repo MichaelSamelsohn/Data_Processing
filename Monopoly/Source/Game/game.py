@@ -217,18 +217,18 @@ class Game:
                         return
 
                     if isinstance(player, Human):
-                        decision = input(f"Purchase {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
+                        choice = input(f"Purchase {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
                     else:  # Bot.
-                        decision = player.buy_space_logic(space=space)
+                        choice = player.buy_space_choice(space=space)
 
-                    if decision == "y":
+                    if choice == "y":
                         # Player decided to buy the property.
                         player.cash -= space.purchase_price
                         space.owner = player
                         player.spaces.append(space)
                         log.info(f"{player.name} bought {space.name} for {space.purchase_price}$")
                         return
-                    elif decision == "n":
+                    elif choice == "n":
                         log.info(f"{player.name} declined to buy the space. An auction will determine the new owner")
                         self.auction(space=space)
                         return
@@ -365,7 +365,7 @@ class Game:
                         if isinstance(player, Human):
                             new_bid = input(f"{player.name}, offer new bid: ")
                         else:  # Bot.
-                            new_bid = player.auction_logic(space=space, latest_bid=latest_bid)
+                            new_bid = player.auction_choice(space=space, latest_bid=latest_bid)
 
                         if new_bid.isdigit() and latest_bid < int(new_bid):
                             # Check that new bid is within the player ability to pay.
@@ -486,7 +486,7 @@ class Game:
                     if isinstance(debtor, Human):
                         choice = input("Choose one of the following: sell / mortgage: ")
                     else:  # Bot.
-                        choice = debtor.raise_cash_logic(board=self.board)
+                        choice = debtor.raise_cash_choice(board=self.board)
 
                     match choice:
                         case "sell":

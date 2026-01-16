@@ -20,7 +20,7 @@ def management_handler(player: Player):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'mortgage', 'redeem', "
                             f"or 'done': ").strip().lower())
         else:  # Bot.
-            choice = player.management_logic()
+            choice = player.management_choice()
 
         match choice:
             case "mortgage":
@@ -68,7 +68,7 @@ def mortgage(player: Player):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.mortgage_logic()
+            choice = player.mortgage_choice()
 
         if not choice.isdigit() or not (0 <= int(choice) <= len(valid_spaces_to_mortgage) - 1):
             log.warning("Invalid choice, try again")
@@ -113,7 +113,7 @@ def redeem(player: Player):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.redeem_logic()
+            choice = player.redeem_choice()
 
         if not choice.isdigit() or not (0 <= int(choice) <= len(valid_spaces_to_redeem) - 1):
             log.warning("Invalid choice, try again")
