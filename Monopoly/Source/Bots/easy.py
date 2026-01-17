@@ -166,9 +166,20 @@ class Easy(Player):
     def auction_choice(self, space, latest_bid):
         return self.auction_logic(space=space, latest_bid=latest_bid)
 
-    def raise_cash_logic(self, board):
+    def raise_cash_logic(self, board) -> str | None:
         """
-        TODO: Complete the docstring.
+        Logic for raising cash in case of two situations:
+        1) Emergency cash buffer breached.
+        2) Owning money to another player. We reach this state only if there are available spaces to mortgage or
+           buildings to sell (if not, we are declared bankrupt and losr the game without reaching this code).
+
+        First priority is to sell buildings and only if no buildings to sell, mortgage spaces. In both cases, there is
+        no consideration to the type of space mortgaged or a building is sold from. The selected choice is simply the
+        first one.
+
+        :param board: ??
+
+        :return: "develop" for selling action, "manage" for mortgage action. None if no action selected.
         """
 
         # Check if there are any non-mortgaged spaces left.
@@ -186,10 +197,10 @@ class Easy(Player):
                               f"{self.emergency_buffer}$ "
                               f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
 
-                    # Not much thought over monopoly selection - First found that we are able to develop.
+                    # Not much thought over monopoly selection - First found that we are able to sell from.
                     self.monopoly_sell = monopoly
-                    # Not much thought over space selection - Select a random space.
-                    self.space_sell = random.randint(0, len(valid_spaces_to_sell_from[monopoly]) - 1)
+                    # Not much thought over space selection - Select the first space.
+                    self.space_sell = 0
                     self.development_action = "sell"
                     return "develop"
 
@@ -200,10 +211,6 @@ class Easy(Player):
                 return "manage"
 
     def raise_cash_choice(self, board):
-        """
-        TODO: Complete the docstring.
-        """
-
         action_type = self.raise_cash_logic(board=board)
         if action_type == "develop":
             return "sell"
@@ -214,9 +221,18 @@ class Easy(Player):
 
     # Trade #
 
-    def trade_logic(self, players):
+    def trade_logic(self, players) -> bool:
         """
-        TODO: Complete the docstring.
+        Logic for proposing a trade. The following conditions need to apply for a trade to take place:
+        1) There is a space we can trade for that completes a monopoly. The space can only be of type real-estate.
+        2) We have enough cash to trade for it. We only give cash for space (neither cards nor other spaces). A space is
+           valued by its original price unless it is mortgaged, in which case, we price it at 55% of original value
+           (mortgaged value + fee).
+        Note - There is no consideration regarding which monopoly we complete with the trade.
+
+        :param players: ??
+
+        :return: True if trade conditions apply, False otherwise.
         """
 
         # Find monopolies that are "missing" one space to completion.
@@ -266,8 +282,8 @@ class Easy(Player):
             if missing_spaces:
                 # Offer to trade space for cash.
 
-                # Not much thought over space selection - Select a random space.
-                space_to_trade = random.choice(missing_spaces)
+                # Not much thought over space selection - Select the first space.
+                space_to_trade = missing_spaces[0]
                 self.trade_partner = space_to_trade[0]
                 self.trade_spaces = {"initiator": "", "recipient": str(space_to_trade[1])}
                 self.trade_cash = {"initiator": str(space_to_trade[2]), "recipient": str(0)}
@@ -362,9 +378,14 @@ class Easy(Player):
     def development_choice(self):
         return self.development_action
 
-    def build_logic(self, board):
+    def build_logic(self, board) -> bool:
         """
-        TODO: Complete the docstring.
+        Logic for buying buildings (developing spaces).
+        If there is a monopoly to develop on -> Develop the first found one, within the first space available.
+
+        :param board: ??
+
+        :return: True if a space is developed, False otherwise.
         """
 
         # Find valid spaces to build on.
@@ -381,8 +402,8 @@ class Easy(Player):
 
                     # Not much thought over monopoly selection - First found that we are able to develop.
                     self.monopoly_build = monopoly
-                    # Not much thought over space selection - Select a random space.
-                    self.space_build = random.randint(0, len(valid_spaces_to_build_on[monopoly]) - 1)
+                    # Not much thought over space selection - Select the first space.
+                    self.space_build = 0
                     self.is_active_action_taken = True
                     self.development_action = "build"
                     return True
@@ -390,7 +411,7 @@ class Easy(Player):
                     # Lacking the cash to develop.
                     cash_needed.append(self.emergency_buffer - (self.cash - build_cost))
 
-            # Check if we lack the cash to develop.
+            # Calculate how much minimal cash is missing to develop.
             if not self.monopoly_build and not self.space_build:
                 log.logic(f"{self.name} - Unable to develop an owned monopoly due to lack of cash, need at "
                           f"least {min(cash_needed)}$ to develop without breaching emergency buffer")
@@ -421,7 +442,10 @@ class Easy(Player):
 
     def redeem_logic(self):
         """
-        TODO: Complete the docstring.
+        Logic for redeeming a mortgaged space.
+        If such a space exists and there is enough cash -> redeem it (first one).
+
+        :return: True if a space is redeemed, False otherwise.
         """
 
         # Find valid spaces to redeem.
@@ -436,8 +460,8 @@ class Easy(Player):
                               f"(cash balance after purchase, "
                               f"{self.cash}$ - {space.redeem_value}$ > {self.emergency_buffer}$)")
 
-                    # Not much thought over space selection - Select a random space.
-                    self.space_redeem = random.randint(0, len(valid_spaces_to_redeem) - 1)
+                    # Not much thought over space selection - Select the first space.
+                    self.space_redeem = 0
                     self.is_active_action_taken = True
                     self.management_action = "redeem"
                     return True
@@ -462,7 +486,12 @@ class Easy(Player):
 
     def jail_logic(self):
         """
-        TODO: Complete the docstring.
+        Logic for handling jail stay. The following logic applies:
+        1) If there is a 'Get out of jail free' card, use it.
+        2) If there is enough cash (not breaching emergency buffer) to pay the jail fine, pay it.
+        If both conditions above do not apply, try to roll a double.
+
+        :return: True if getting out of jail, False otherwise.
         """
 
         log.logic(f"{self.name} - In jail, trying to get as soon as possible")
