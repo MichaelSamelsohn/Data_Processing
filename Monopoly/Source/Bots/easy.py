@@ -9,8 +9,8 @@ class Easy(Player):
         super().__init__(name=name, role="Easy bot")
 
         # Cash buffers.
-        self.safety_buffer = 500     # This buffer is defined for purchasing houses/hotels.
-        self.emergency_buffer = 200  # This emergency buffer is used to pay fines and rent.
+        self.SAFETY_BUFFER = 500     # This buffer is defined for purchasing/auction of spaces.
+        self.EMERGENCY_BUFFER = 200  # This emergency buffer is used to pay fines and rent.
 
         # Action parameters.
         self.development_action = None
@@ -50,7 +50,7 @@ class Easy(Player):
                 return "jail"
 
         # Check if we are able to make an active cash spending action.
-        if self.cash >= self.emergency_buffer and not self.is_emergency_freeze:
+        if self.cash >= self.EMERGENCY_BUFFER and not self.is_emergency_freeze:
             # We have enough cash, consider building a house/hotel (one per turn).
             if not self.is_active_action_taken:
                 # Able to perform an active cash spending action - buy/redeem.
@@ -69,13 +69,13 @@ class Easy(Player):
                     if self.trade_logic(players=players):
                         return "trade"
 
-        elif self.cash > self.emergency_buffer and self.is_emergency_freeze:
+        elif self.cash > self.EMERGENCY_BUFFER and self.is_emergency_freeze:
             # Unable to perform an active cash spending action - buy/redeem.
             log.logic(f"{self.name} - Since emergency buffer was breached this turn, avoid active spending")
 
         else:
             # Emergency buffer is breached, self.cash < self.emergency_buffer.
-            log.logic(f"{self.name} - Emergency buffer ({self.emergency_buffer}$) breached, trying to raise cash")
+            log.logic(f"{self.name} - Emergency buffer ({self.EMERGENCY_BUFFER}$) breached, trying to raise cash")
             self.is_emergency_freeze = True
 
             # Raise cash to maintain emergency buffer.
@@ -122,17 +122,20 @@ class Easy(Player):
 
     # Passive #
 
-    def buy_space_logic(self, space):
+    def buy_space_logic(self, space) -> str:
+        """
+        TODO: Complete the docstring.
+        """
+
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
         balance_after_purchase = self.cash - space.purchase_price
-
-        if balance_after_purchase < self.safety_buffer:
+        if balance_after_purchase < self.SAFETY_BUFFER:
             log.logic(f"{self.name} - Will not buy space (price - {space.purchase_price}$) due to breach of safety "
-                      f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
+                      f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.SAFETY_BUFFER}$)")
             return "n"
         else:
             log.logic(f"{self.name} - Buying space (price - {space.purchase_price}$) without breaching safety buffer "
-                      f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
+                      f"(cash balance after purchase, {balance_after_purchase}$ >= {self.SAFETY_BUFFER}$)")
             return "y"
 
     def buy_space_choice(self, space):
@@ -154,9 +157,9 @@ class Easy(Player):
                       f"will be greater than space purchase price ({space.purchase_price}$)")
             return "pass"
         # Principal (3) - Check that bid value doesn't breach safety buffer.
-        elif self.cash - potential_bid < self.safety_buffer:
+        elif self.cash - potential_bid < self.SAFETY_BUFFER:
             log.logic(f"{self.name} - Pass this round as new potential bid ({potential_bid}$) will breach safety "
-                      f"buffer (cash balance after purchase, {self.cash - potential_bid}$ < {self.safety_buffer}$")
+                      f"buffer (cash balance after purchase, {self.cash - potential_bid}$ < {self.SAFETY_BUFFER}$")
             return "pass"
         else:
             log.logic(f"{self.name} - Making a new bid (fixed increment of 30$ to {potential_bid}$) that is less than "
@@ -194,7 +197,7 @@ class Easy(Player):
             if valid_spaces_to_sell_from:
                 for monopoly in valid_spaces_to_sell_from:
                     log.logic(f"{self.name} - Selling a building to reach emergency buffer - "
-                              f"{self.emergency_buffer}$ "
+                              f"{self.EMERGENCY_BUFFER}$ "
                               f"(gain - {valid_spaces_to_sell_from[monopoly][0].building_sell}$)")
 
                     # Not much thought over monopoly selection - First found that we are able to sell from.
@@ -271,7 +274,7 @@ class Easy(Player):
                         """
                         space_trade_value = space.purchase_price if not space.is_mortgaged \
                             else int(0.55 * space.purchase_price)
-                        if self.cash - space_trade_value > self.emergency_buffer:
+                        if self.cash - space_trade_value > self.EMERGENCY_BUFFER:
                             missing_spaces.append([
                                 player.name,  # Name of the player.
                                 valid_spaces_to_trade.index(space),  # Index of the space.
@@ -292,7 +295,7 @@ class Easy(Player):
                 log.logic(f"{self.name} - Offering to trade space for cash ({space_to_trade[2]}$) to "
                           f"complete a monopoly, without breaching emergency buffer "
                           f"(cash balance after purchase, "
-                          f"{self.cash}$ - {space_to_trade[2]}$ > {self.emergency_buffer}$)")
+                          f"{self.cash}$ - {space_to_trade[2]}$ > {self.EMERGENCY_BUFFER}$)")
                 return True
 
         return False
@@ -395,10 +398,10 @@ class Easy(Player):
             for monopoly in valid_spaces_to_build_on:
                 # Check if we have enough cash to build without dropping below emergency buffer.
                 build_cost = valid_spaces_to_build_on[monopoly][0].building_cost
-                if self.cash - build_cost > self.emergency_buffer:
+                if self.cash - build_cost > self.EMERGENCY_BUFFER:
                     log.logic(f"{self.name} - Buying a building (cost - {build_cost}$) to gain higher "
                               f"rent, without breaching emergency buffer (cash balance after purchase, "
-                              f"{self.cash}$ - {build_cost}$ > {self.emergency_buffer}$)")
+                              f"{self.cash}$ - {build_cost}$ > {self.EMERGENCY_BUFFER}$)")
 
                     # Not much thought over monopoly selection - First found that we are able to develop.
                     self.monopoly_build = monopoly
@@ -409,7 +412,7 @@ class Easy(Player):
                     return True
                 else:
                     # Lacking the cash to develop.
-                    cash_needed.append(self.emergency_buffer - (self.cash - build_cost))
+                    cash_needed.append(self.EMERGENCY_BUFFER - (self.cash - build_cost))
 
             # Calculate how much minimal cash is missing to develop.
             if not self.monopoly_build and not self.space_build:
@@ -454,11 +457,11 @@ class Easy(Player):
             cash_needed = []  # To track the cash lacking to redeem, in case we can't redeem anything.
             for space in valid_spaces_to_redeem:
                 # Check if we have enough cash to redeem without dropping below emergency buffer.
-                if self.cash - space.redeem_value > self.emergency_buffer:
+                if self.cash - space.redeem_value > self.EMERGENCY_BUFFER:
                     log.logic(f"{self.name} - Redeeming space (cost - {space.redeem_value}$) to gain "
                               f"opportunity to build, without breaching emergency buffer "
                               f"(cash balance after purchase, "
-                              f"{self.cash}$ - {space.redeem_value}$ > {self.emergency_buffer}$)")
+                              f"{self.cash}$ - {space.redeem_value}$ > {self.EMERGENCY_BUFFER}$)")
 
                     # Not much thought over space selection - Select the first space.
                     self.space_redeem = 0
@@ -467,7 +470,7 @@ class Easy(Player):
                     return True
                 else:
                     # Lacking the cash to develop.
-                    cash_needed.append(int(self.emergency_buffer - (self.cash - space.redeem_value)))
+                    cash_needed.append(int(self.EMERGENCY_BUFFER - (self.cash - space.redeem_value)))
 
             # Check if we lack the cash to redeem.
             if not self.space_redeem:
@@ -503,9 +506,9 @@ class Easy(Player):
             return True
 
         # Secondary option - Pay to get out of jail.
-        if self.cash - JAIL_FINE > self.emergency_buffer:
+        if self.cash - JAIL_FINE > self.EMERGENCY_BUFFER:
             log.logic(f"{self.name} - Paying jail fine ({JAIL_FINE}$) without breaching emergency buffer "
-                      f"(cash balance after fine - {self.cash}$ - {JAIL_FINE}$ > {self.emergency_buffer})")
+                      f"(cash balance after fine - {self.cash}$ - {JAIL_FINE}$ > {self.EMERGENCY_BUFFER})")
             self.jail_action = "pay"
             return True
 

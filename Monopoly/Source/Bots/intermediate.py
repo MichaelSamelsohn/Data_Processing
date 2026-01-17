@@ -9,8 +9,20 @@ class Intermediate(Player):
         super().__init__(name=name, role="Intermediate bot")
 
         # Cash buffers.
-        self.safety_buffer = 500     # This buffer is defined for purchasing houses/hotels.
+        self.safety_buffer = 500     # This buffer is defined for purchasing/auction of spaces.
         self.emergency_buffer = 200  # This emergency buffer is used to pay fines and rent.
+
+        # TODO: Numbers to be balanced.
+        self.MONOPOLY_PRIORITY = {
+            # High priority.
+            "Orange": 1.3,
+            "Pink": 1.3,
+            # Medium priority.
+            "Red": 1.2,
+            "Light Blue": 1.2,
+            # Low priority.
+            "Yellow": 1.1
+        }
 
         # Action parameters.
         self.development_action = None
@@ -122,18 +134,45 @@ class Intermediate(Player):
 
     # Passive #
 
-    def buy_space_logic(self, space):
+    def buy_space_logic(self, space) -> str:
+        """
+        Logic for purchasing spaces. To purchase a space, the following conditions need to apply:
+        1) Space is of type railroad.
+        2) Space is of type real-estate and high priority.
+        3) Safety buffer is not breached.
+
+        :param space: ??
+
+        :return: "y" if space is to be purchased, "n" otherwise.
+        """
+
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
         balance_after_purchase = self.cash - space.purchase_price
-
-        if balance_after_purchase < self.safety_buffer:
+        if balance_after_purchase >= self.safety_buffer:
+            if isinstance(space, Railroad):
+                log.logic(
+                    f"{self.name} - Buying railroad (price - {space.purchase_price}$) without breaching safety buffer "
+                    f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
+                return "y"
+            elif isinstance(space, RealEstate):
+                # Check that space is of a priority for us ("jail side").
+                if space.color in self.MONOPOLY_PRIORITY:
+                    log.logic(
+                        f"{self.name} - Buying high priority (priority index - {self.MONOPOLY_PRIORITY[space.color]}) "
+                        f"space (price - {space.purchase_price}$) without breaching safety buffer (cash balance after "
+                        f"purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
+                    return "y"
+                else:
+                    log.logic(f"{self.name} - Not buying space as it is not a high priority")
+                    return "n"
+            else:
+                # Space is of type utility.
+                log.logic(f"{self.name} - Not purchasing utility spaces")
+                return "n"
+        else:
             log.logic(f"{self.name} - Will not buy space (price - {space.purchase_price}$) due to breach of safety "
                       f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
             return "n"
-        else:
-            log.logic(f"{self.name} - Buying space (price - {space.purchase_price}$) without breaching safety buffer "
-                      f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
-            return "y"
 
     def buy_space_choice(self, space):
         return self.buy_space_logic(space=space)
