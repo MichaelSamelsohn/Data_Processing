@@ -141,12 +141,12 @@ class Intermediate(Player):
     def auction_logic(self, space, latest_bid):
         """
         The auction logic is based on three principals:
-        1) Bid increments are fixed at 30$.
+        1) Bid increments are fixed at 10$.
         2) Bid value doesn't exceed space purchase value.
         3) Bid value doesn't breach safety buffer in the cash balance.
         """
 
-        potential_bid = latest_bid + 30  # Principal (1).
+        potential_bid = latest_bid + 10  # Principal (1).
 
         # Principal (2) - Check that bid value doesn't exceed space purchase value.
         if potential_bid > space.purchase_price:
@@ -159,7 +159,7 @@ class Intermediate(Player):
                       f"buffer (cash balance after purchase, {self.cash - potential_bid}$ < {self.safety_buffer}$")
             return "pass"
         else:
-            log.logic(f"{self.name} - Making a new bid (fixed increment of 30$ to {potential_bid}$) that is less than "
+            log.logic(f"{self.name} - Making a new bid (fixed increment of 10$ to {potential_bid}$) that is less than "
                       f"purchase value ({space.purchase_price}$) and doesn't breach safety buffer")
             return str(potential_bid)
 
