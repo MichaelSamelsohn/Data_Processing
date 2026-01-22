@@ -17,6 +17,7 @@ class Intermediate(Player):
             # High priority.
             "Orange": 1.3,
             "Pink": 1.3,
+            "Railroad": 1.3,
             # Medium priority.
             "Red": 1.2,
             "Light Blue": 1.2,
@@ -148,6 +149,7 @@ class Intermediate(Player):
 
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
         balance_after_purchase = self.cash - space.purchase_price
+        # TODO: Adjust check to highest rent buffer.
         if balance_after_purchase >= self.safety_buffer:
             if isinstance(space, Railroad):
                 log.logic(
@@ -158,7 +160,7 @@ class Intermediate(Player):
                 # Check that space is of a priority for us ("jail side").
                 if space.color in self.MONOPOLY_PRIORITY:
                     log.logic(
-                        f"{self.name} - Buying high priority (priority index - {self.MONOPOLY_PRIORITY[space.color]}) "
+                        f"{self.name} - Buying high priority (priority factor - {self.MONOPOLY_PRIORITY[space.color]}) "
                         f"space (price - {space.purchase_price}$) without breaching safety buffer (cash balance after "
                         f"purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
                     return "y"
@@ -177,30 +179,107 @@ class Intermediate(Player):
     def buy_space_choice(self, space):
         return self.buy_space_logic(space=space)
 
-    def auction_logic(self, space, latest_bid):
+    def auction_logic(self, space, latest_bid) -> str:
         """
         The auction logic is based on three principals:
         1) Bid increments are fixed at 10$.
-        2) Bid value doesn't exceed space purchase value.
-        3) Bid value doesn't breach safety buffer in the cash balance.
+        2) Bid value doesn't exceed space purchase value for priority spaces.
+        3) Bid value doesn't exceed space mortgage value (-20$) for non-priority spaces.
+        4) Bid value doesn't breach safety buffer in the cash balance.
+
+        :param space: ??
+        :param latest_bid: ??
+
+        :return: "pass" if passing the bid, bid value otherwise.
         """
 
-        potential_bid = latest_bid + 10  # Principal (1).
+        # Calculating new bid.
+        potential_bid = latest_bid + 10
 
-        # Principal (2) - Check that bid value doesn't exceed space purchase value.
-        if potential_bid > space.purchase_price:
-            log.logic(f"{self.name} - Pass this round as new potential bid ({potential_bid}$) "
-                      f"will be greater than space purchase price ({space.purchase_price}$)")
-            return "pass"
-        # Principal (3) - Check that bid value doesn't breach safety buffer.
-        elif self.cash - potential_bid < self.safety_buffer:
-            log.logic(f"{self.name} - Pass this round as new potential bid ({potential_bid}$) will breach safety "
-                      f"buffer (cash balance after purchase, {self.cash - potential_bid}$ < {self.safety_buffer}$")
-            return "pass"
+        # Check that potential bid will not breach safety buffer.
+        if self.cash - potential_bid >= self.safety_buffer:
+            # Potential bid will not breach safety buffer.
+
+            # Railroads - High priority.
+            if isinstance(space, Railroad):
+                priority_factor = self.MONOPOLY_PRIORITY["Railroad"]
+                priority_value = int(space.purchase_price * priority_factor)
+                if potential_bid > priority_value:
+                    log.logic(f"{self.name} - Railroad is high priority "
+                              f"(priority factor - {priority_factor}), but bid is too high "
+                              f"({potential_bid}$ > {space.purchase_price} * {priority_factor} = {priority_value}$), "
+                              f"therefore, passing this round")
+                    return "pass"
+                else:
+                    log.logic(
+                        f"{self.name} - Making a new bid (fixed increment of 10$ to {potential_bid}$) that is less "
+                        f"than prioritized value ({space.purchase_price} * {priority_factor} = {priority_value}$) and "
+                        f"doesn't breach safety buffer")
+                    return str(potential_bid)
+
+            # Real-estate - Priority varies depending on the priority factor.
+            elif isinstance(space, RealEstate):
+                # Check that space is of a priority for us ("jail side").
+                if space.color in self.MONOPOLY_PRIORITY:
+                    # Space is of high-priority for us.
+
+                    # Calculate priority value.
+                    priority_factor = self.MONOPOLY_PRIORITY[space.color]
+                    priority_value = int(space.purchase_price * priority_factor)
+                    # Check that potential bid is less than prioritized value.
+                    if potential_bid > priority_value:
+                        # Bid is higher than priority value, passing this round.
+                        log.logic(f"{self.name} - Space is high priority (priority factor - {priority_factor}), "
+                                  f"but bid is too high ({potential_bid}$ > {priority_value}$ = "
+                                  f"{space.purchase_price} * {priority_factor}), therefore, passing this round")
+                        return "pass"
+                    else:
+                        log.logic(
+                            f"{self.name} - Making a new bid (fixed increment of 10$ to {potential_bid}$) that is less "
+                            f"than prioritized value ({space.purchase_price} * {priority_factor} = {priority_value}$) "
+                            f"and doesn't breach safety buffer")
+                        return str(potential_bid)
+                else:
+                    # Space is not a priority for us.
+                    return self.non_priority_bid_evaluation(space=space, potential_bid=potential_bid)
+
+            # Utility - Low priority.
+            else:
+                return self.non_priority_bid_evaluation(space=space, potential_bid=potential_bid)
+
+        # Bid is too high.
         else:
-            log.logic(f"{self.name} - Making a new bid (fixed increment of 10$ to {potential_bid}$) that is less than "
-                      f"purchase value ({space.purchase_price}$) and doesn't breach safety buffer")
+            # Potential bid will breach safety buffer, passing this round.
+            log.logic(f"{self.name} - Passing this round as new potential bid ({potential_bid}$) will breach "
+                      f"safety buffer (cash balance after purchase, "
+                      f"{self.cash - potential_bid}$ < {self.safety_buffer}$")
+            return "pass"
+
+    def non_priority_bid_evaluation(self, space, potential_bid) -> str:
+        """
+        Bid evaluation for non-priority spaces.
+
+        Although this space is not a priority for us, we will still attempt to bid for it, as it can be mortgaged for
+        profit. Therefore, if potential bid is less than the mortgage value (minus a small profit buffer), bid is
+        incremented.
+
+        :param space: ??
+        :param potential_bid: ??
+
+        :return: "pass" if passing the bid, bid value otherwise.
+        """
+
+        # Check that potential bid is less than (mortgage value - small buffer).
+        priority_value = space.mortgage_value - 20
+        if potential_bid < priority_value:
+            log.logic(f"{self.name} - Making a new bid (fixed increment of 10$ to {potential_bid}$) that is "
+                      f"less than acceptable mortgage value ({space.mortgage_value} - 20 = {priority_value}$), "
+                      f"therefore, make future profit from mortgaging it, and doesn't breach safety buffer")
             return str(potential_bid)
+        else:
+            log.logic(f"{self.name} - Space is not a priority, and bid is too high "
+                      f"({space.mortgage_value} - 20 = {priority_value}$), therefore, passing the bid")
+            return "pass"
 
     def auction_choice(self, space, latest_bid):
         return self.auction_logic(space=space, latest_bid=latest_bid)
