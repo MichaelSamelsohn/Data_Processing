@@ -9,8 +9,8 @@ class Intermediate(Player):
         super().__init__(name=name, role="Intermediate bot")
 
         # Cash buffers.
-        self.safety_buffer = 500     # This buffer is defined for purchasing/auction of spaces.
         self.emergency_buffer = 200  # This emergency buffer is used to pay fines and rent.
+        # TODO: Add a serious explanation for this.
 
         # TODO: Numbers to be balanced.
         self.MONOPOLY_PRIORITY = {
@@ -135,6 +135,45 @@ class Intermediate(Player):
 
     # Passive #
 
+    def calculate_emergency_buffer(self, board, players) -> int:
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Calculate the potential highest debt (rent/fine) on the board.
+
+        # Base highest debt.
+        highest_debt = 200  # Income tax (space #4).
+        logic_message = "income tax (space #4)"
+
+        # Calculate fines that comes from chance / community chest cards.
+        # Street repairs community chest card.
+        repairs_cost = 0
+        for space in self.spaces:
+            if isinstance(space, RealEstate):
+                repairs_cost += space.houses * 40 + (115 if space.hotel else 0)
+        if repairs_cost > highest_debt:
+            highest_debt = repairs_cost
+            logic_message = "street repairs (community chest card)"
+
+        # Board chairman chance card.
+        board_chairman_debt = 50 * len(players)
+        if board_chairman_debt > highest_debt:
+            highest_debt = board_chairman_debt
+            logic_message = "board chairman (chance card)"
+
+        # Calculate highest rent.
+        for space in board.spaces:
+            rent = calculate_rent(board=board, space=space, dice_roll=12)
+            # The dice roll is set to the highest possible outcome (2 * 6 = 12), to take into account the highest
+            # potential debt.
+            if rent > highest_debt:
+                highest_debt = rent
+                logic_message = f"Rent ({space.name})"
+
+        log.logic(f"{self.name} - Highest debt is calculated based on {logic_message} = {highest_debt}$")
+        return highest_debt
+
     def buy_space_logic(self, space) -> str:
         """
         Logic for purchasing spaces. To purchase a space, the following conditions need to apply:
@@ -150,11 +189,11 @@ class Intermediate(Player):
         # Make sure that the space purchase leaves a safe buffer in the cash balance.
         balance_after_purchase = self.cash - space.purchase_price
         # TODO: Adjust check to highest rent buffer.
-        if balance_after_purchase >= self.safety_buffer:
+        if balance_after_purchase >= self.emergency_buffer:
             if isinstance(space, Railroad):
                 log.logic(
                     f"{self.name} - Buying railroad (price - {space.purchase_price}$) without breaching safety buffer "
-                    f"(cash balance after purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
+                    f"(cash balance after purchase, {balance_after_purchase}$ >= {self.emergency_buffer}$)")
                 return "y"
             elif isinstance(space, RealEstate):
                 # Check that space is of a priority for us ("jail side").
@@ -162,18 +201,17 @@ class Intermediate(Player):
                     log.logic(
                         f"{self.name} - Buying high priority (priority factor - {self.MONOPOLY_PRIORITY[space.color]}) "
                         f"space (price - {space.purchase_price}$) without breaching safety buffer (cash balance after "
-                        f"purchase, {balance_after_purchase}$ >= {self.safety_buffer}$)")
+                        f"purchase, {balance_after_purchase}$ >= {self.emergency_buffer}$)")
                     return "y"
                 else:
                     log.logic(f"{self.name} - Not buying space as it is not a high priority")
                     return "n"
-            else:
-                # Space is of type utility.
-                log.logic(f"{self.name} - Not purchasing utility spaces")
+            elif isinstance(space, Utility):
+                log.logic(f"{self.name} - Never purchasing utility spaces")
                 return "n"
         else:
             log.logic(f"{self.name} - Will not buy space (price - {space.purchase_price}$) due to breach of safety "
-                      f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.safety_buffer}$)")
+                      f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.emergency_buffer}$)")
             return "n"
 
     def buy_space_choice(self, space):
@@ -197,7 +235,7 @@ class Intermediate(Player):
         potential_bid = latest_bid + 10
 
         # Check that potential bid will not breach safety buffer.
-        if self.cash - potential_bid >= self.safety_buffer:
+        if self.cash - potential_bid >= self.emergency_buffer:
             # Potential bid will not breach safety buffer.
 
             # Railroads - High priority.
@@ -252,7 +290,7 @@ class Intermediate(Player):
             # Potential bid will breach safety buffer, passing this round.
             log.logic(f"{self.name} - Passing this round as new potential bid ({potential_bid}$) will breach "
                       f"safety buffer (cash balance after purchase, "
-                      f"{self.cash - potential_bid}$ < {self.safety_buffer}$")
+                      f"{self.cash - potential_bid}$ < {self.emergency_buffer}$")
             return "pass"
 
     def non_priority_bid_evaluation(self, space, potential_bid) -> str:
