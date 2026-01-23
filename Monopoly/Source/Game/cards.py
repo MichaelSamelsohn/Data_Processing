@@ -17,7 +17,7 @@ class Card:
 class Deck:
     def __init__(self, cards):
         self.cards = cards[:]  # TODO: Is this slicing necessary?
-        log.debug("Shuffling deck cards")
+        log.info("Shuffling deck cards")
         random.shuffle(self.cards)
 
     def draw(self):

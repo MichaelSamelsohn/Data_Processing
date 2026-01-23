@@ -1,6 +1,69 @@
+# Imports #
 from Monopoly.Settings.monopoly_settings import log
-from Monopoly.Source.Game.board import RealEstate, Board
+from Monopoly.Source.Game.board import RealEstate, Board, Space, Railroad, Utility
 from Monopoly.Source.Game.player import Human, Player
+import random
+
+
+def calculate_rent(board: Board, space: Space, dice_roll=None):
+    """
+    Calculates the rent owed by a player who lands on a given space.
+
+    :param board: TODO: Complete.
+    :param space: The board space the player has landed on. This can be an instance of RealEstate, Railroad, or
+    Utility.
+    :param dice_roll: The result of the player's dice roll. This is required only for Utility rent calculations.
+
+    :return: The amount of rent owed. Returns 0 if the property is mortgaged.
+    """
+
+    # Check that property isn't mortgaged.
+    # Note - dice_roll == None only when a chance card sends the player to a utility/railroad with special rent
+    # fee override.
+    if space.is_mortgaged and dice_roll is not None:
+        return 0
+
+    # Handle real estate property.
+    if isinstance(space, RealEstate):
+        # Handle basic rent, full set rent, houses and hotel cases.
+        if space.hotel:
+            return space.hotel_rent
+        elif space.houses > 0:
+            return {
+                1: space.one_house_rent,
+                2: space.two_house_rent,
+                3: space.three_house_rent,
+                4: space.four_house_rent,
+            }.get(space.houses)
+        elif is_monopoly_owned_by_player(player=space.owner, color=space.color, board=board):
+            return 2 * space.base_rent
+        else:  # Owner doesn't own the monopoly.
+            return space.base_rent
+
+    # Handle railroad property.
+    elif isinstance(space, Railroad):
+        # Count how many railroads the owner has and multiply the rent accordingly.
+        owner = space.owner
+        rent = 25 * sum(1 for s in board.spaces if isinstance(s, Railroad) and s.owner == owner)
+        # Check if we got here through a chance card.
+        rent *= 2 if dice_roll is None else 1
+        return rent
+
+    # Handle utility property.
+    elif isinstance(space, Utility):
+        # Check if we got here through a chance card.
+        if dice_roll is None:
+            log.info(f"Rolling dice to determine rent")
+            die1, die2 = random.randint(1, 6), random.randint(1, 6)
+            dice_roll = die1 + die2
+            log.info(f"Rolled {die1} + {die2} = {dice_roll}")
+            return 10 * dice_roll  # Chance card overrides normal rent rules.
+
+        # Utilities rent based on dice roll and how many utilities owned.
+        owner = space.owner
+        count = sum(1 for s in board.spaces if isinstance(s, Utility) and s.owner == owner)
+        multiplier = 4 if count == 1 else 10 if count == 2 else 0
+        return multiplier * dice_roll
 
 
 def development_handler(player: Player, board: Board):
