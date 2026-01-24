@@ -149,10 +149,14 @@ def find_valid_spaces_to_mortgage(player: Player) -> list:
         if not space.is_mortgaged:
             # Space is not already mortgaged.
             if isinstance(space, RealEstate):
+                # Filter all spaces a player has that are of type real-estate.
                 realestate_spaces = [space_ for space_ in player.spaces if isinstance(space_, RealEstate)]
+                # Filter all real-estate spaces that belong to the same monopoly.
                 monopoly_spaces = [space_ for space_ in realestate_spaces if space_.color == space.color]
+                # Filter all real-estate spaces that belong to the same monopoly and have a building.
                 monopoly_spaces_with_buildings = [space_ for space_ in monopoly_spaces if
                                                   space_.houses > 0 or space_.hotel]
+                # Check that there are no buildings on the associated monopoly.
                 if not monopoly_spaces_with_buildings:
                     # Real estate is part of a monopoly with no houses or hotels at all.
                     spaces_to_mortgage.append(space)
