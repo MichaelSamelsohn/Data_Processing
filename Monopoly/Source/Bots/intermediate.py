@@ -133,6 +133,62 @@ class Intermediate(Player):
 
             return "end"
 
+    # Helper functions #
+
+    def calculate_emergency_buffer(self, board, players) -> int:
+        """
+        TODO: Complete the docstring.
+        """
+
+        # Calculate the potential highest debt (rent/fine) on the board.
+
+        # Base highest debt.
+        highest_debt = 200  # Income tax (space #4).
+        logic_message = "income tax (space #4)"
+
+        # Calculate fines that comes from chance / community chest cards.
+        # Street repairs community chest card.
+        repairs_cost = 0
+        for space in self.spaces:
+            if isinstance(space, RealEstate):
+                repairs_cost += space.houses * 40 + (115 if space.hotel else 0)
+        if repairs_cost > highest_debt:
+            highest_debt = repairs_cost
+            logic_message = "street repairs (community chest card)"
+
+        # Board chairman chance card.
+        board_chairman_debt = 50 * len(players)
+        if board_chairman_debt > highest_debt:
+            highest_debt = board_chairman_debt
+            logic_message = "board chairman (chance card)"
+
+        # Calculate highest rent.
+        for space in board.spaces:
+            rent = calculate_rent(board=board, space=space, dice_roll=12)
+            # The dice roll is set to the highest possible outcome (2 * 6 = 12), to take into account the highest
+            # potential debt.
+            if rent > highest_debt:
+                highest_debt = rent
+                logic_message = f"Rent ({space.name})"
+
+        log.logic(f"{self.name} - Highest debt is calculated based on {logic_message} = {highest_debt}$")
+        return highest_debt
+
+    def calculate_total_assets(self) -> int:
+        """
+        Function to calculate all the assets that we qualify for paying debts (rent/fines).
+        The assets we consider as qualifying are:
+        1) Cash.
+        2) Spaces that we can mortgage.
+        Note - Houses/hotels we own can also be used for covering debts, but we treat this as a last resort. Therefore,
+        our consideration for buying spaces, buying houses/hotels, auction bidding considers only the assets which we
+        care less about (because we value houses/hotels more).
+
+        :return: Sum of all assets that qualify for debt payout.
+        """
+
+        return self.cash + sum([space.mortgage_value for space in find_valid_spaces_to_mortgage(player=self)])
+
     # Passive #
 
     def calculate_emergency_buffer(self, board, players) -> int:
