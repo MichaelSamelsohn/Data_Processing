@@ -129,14 +129,14 @@ def redeem(player: Player):
         return
 
 
-def find_valid_spaces_to_mortgage(player):
+def find_valid_spaces_to_mortgage(player: Player) -> list:
     """
     Returns a list of the player's properties that are eligible to be mortgaged. A property (space) is considered valid
     for mortgaging if:
     - It is not already mortgaged, and
     - One of the following is true:
       * It is a non-RealEstate property (e.g., a Railroad or Utility), or
-      * It is a RealEstate property that has no houses and no hotel built on it.
+      * It is a RealEstate property that the monopoly it is part of has no houses and no hotel built on it.
 
     :param player: The player whose owned spaces are to be checked. The player is expected to have an attribute
     `spaces` which is an iterable of property objects.
@@ -148,11 +148,16 @@ def find_valid_spaces_to_mortgage(player):
     for space in player.spaces:
         if not space.is_mortgaged:
             # Space is not already mortgaged.
-            if not isinstance(space, RealEstate):
+            if isinstance(space, RealEstate):
+                realestate_spaces = [space_ for space_ in player.spaces if isinstance(space_, RealEstate)]
+                monopoly_spaces = [space_ for space_ in realestate_spaces if space_.color == space.color]
+                monopoly_spaces_with_buildings = [space_ for space_ in monopoly_spaces if
+                                                  space_.houses > 0 or space_.hotel]
+                if not monopoly_spaces_with_buildings:
+                    # Real estate is part of a monopoly with no houses or hotels at all.
+                    spaces_to_mortgage.append(space)
+            else:
                 # Either railroad or utility.
-                spaces_to_mortgage.append(space)
-            elif space.houses == 0 and not space.hotel:
-                # Real estate space with no houses or hotels.
                 spaces_to_mortgage.append(space)
 
     return spaces_to_mortgage
