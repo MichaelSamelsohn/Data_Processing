@@ -66,7 +66,7 @@ def calculate_rent(board: Board, space: Space, dice_roll=None):
         return multiplier * dice_roll
 
 
-def development_handler(player: Player, board: Board):
+def development_handler(board: Board, players, player: Player, ):
     """
     Handles development-related actions for the given player. This method allows the player to interactively choose
     one of the following actions:
@@ -83,14 +83,14 @@ def development_handler(player: Player, board: Board):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'build', 'sell', or 'end': ")
                       .strip().lower())
         else:  # Bot.
-            choice = player.development_choice()
+            choice = player.development_choice(board=board, players=players)
 
         match choice:
             case "build":
-                build(player, board)
+                build(board=board, players=players, player=player)
                 return
             case "sell":
-                sell(player, board)
+                sell(board=board, players=players, player=player)
                 return
             case "end":
                 return
@@ -98,7 +98,7 @@ def development_handler(player: Player, board: Board):
                 log.warning(f"'{choice}' is an unidentified action")
 
 
-def build(player: Player, board: Board):
+def build(board: Board, players, player: Player):
     """
     Allows a player to build houses or hotels on properties within full color sets they own. This method first
     identifies all full color groups (monopolies) owned by the player. If any are found, the player is prompted to
@@ -129,7 +129,7 @@ def build(player: Player, board: Board):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.monopoly_build_selection_choice()
+            choice = player.monopoly_build_selection_choice(board=board, players=players)
 
         if choice not in valid_spaces_to_build_on.keys():
             log.warning("Invalid choice, try again")
@@ -146,7 +146,7 @@ def build(player: Player, board: Board):
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.space_build_selection_choice()
+                choice = player.space_build_selection_choice(board=board, players=players)
 
             if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_build_on) - 1):
                 log.warning("Invalid choice, try again")
@@ -168,7 +168,7 @@ def build(player: Player, board: Board):
             return
 
 
-def sell(player: Player, board: Board):
+def sell(board: Board, players, player: Player):
     """
     Allows a player to sell houses or hotels from properties they own. This method facilitates the selling of houses
     or hotels in accordance with the Monopoly rules, including the even building/selling rule. The player must own a
@@ -207,7 +207,7 @@ def sell(player: Player, board: Board):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.monopoly_sell_selection_choice()
+            choice = player.monopoly_sell_selection_choice(board=board, players=players)
 
         if choice not in valid_spaces_to_sell_from.keys():
             log.warning("Invalid choice, try again")
@@ -224,7 +224,7 @@ def sell(player: Player, board: Board):
                 if choice == "end":
                     return
             else:  # Bot.
-                choice = player.space_sell_selection_choice()
+                choice = player.space_sell_selection_choice(board=board, players=players)
 
             if not choice.isdigit() or not (0 <= int(choice) <= len(selected_spaces_to_sell_from)):
                 log.warning("Invalid choice, try again")

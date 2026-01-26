@@ -74,15 +74,15 @@ class Game:
                             self.bankruptcy_handler(player=player)
                             return  # Turn ends for bankrupt player.
                 case "trade":
-                    trade_handler(trade_offer_initiator=player, players=self.players)
+                    trade_handler(board=self.board, players=self.players, trade_offer_initiator=player)
                 case "develop":
-                    development_handler(player=player, board=self.board)
+                    development_handler(board=self.board, players=self.players, player=player)
                 case "manage":
-                    management_handler(player=player)
+                    management_handler(board=self.board, players=self.players, player=player)
 
                 # Handling jail.
                 case "jail":
-                    jail_handler(player=player)
+                    jail_handler(board=self.board, players=self.players, player=player)
 
                 # Ending the turn.
                 case "end":
@@ -219,7 +219,7 @@ class Game:
                     if isinstance(player, Human):
                         choice = input(f"Purchase {space.name} for ${space.purchase_price}? (y/n): ").strip().lower()
                     else:  # Bot.
-                        choice = player.buy_space_choice(space=space)
+                        choice = player.buy_space_choice(board=self.board, players=self.players, space=space)
 
                     if choice == "y":
                         # Player decided to buy the property.
@@ -306,7 +306,8 @@ class Game:
                         if isinstance(player, Human):
                             new_bid = input(f"{player.name}, offer new bid: ")
                         else:  # Bot.
-                            new_bid = player.auction_choice(space=space, latest_bid=latest_bid)
+                            new_bid = player.auction_choice(board=self.board, players=self.players,
+                                                            space=space, latest_bid=latest_bid)
 
                         if new_bid.isdigit() and latest_bid < int(new_bid):
                             # Check that new bid is within the player ability to pay.
@@ -405,7 +406,8 @@ class Game:
                     # Transfer 'Get out of jail free' cards.
                     creditor.free_cards += debtor.free_cards
                     # Transfer all (mortgaged) spaces.
-                    transfer_spaces(sender=debtor, recipient=creditor, spaces_to_transfer=debtor.spaces)
+                    transfer_spaces(board=self.board, players=self.players,
+                                    sender=debtor, recipient=creditor, spaces_to_transfer=debtor.spaces)
                 else:
                     # Bank is the creditor. Auction all spaces (unmortgaged).
                     for space in debtor.spaces:
@@ -427,13 +429,13 @@ class Game:
                     if isinstance(debtor, Human):
                         choice = input("Choose one of the following: sell / mortgage: ")
                     else:  # Bot.
-                        choice = debtor.raise_cash_choice(board=self.board)
+                        choice = debtor.raise_cash_choice(board=self.board, players=self.players, )
 
                     match choice:
                         case "sell":
-                            sell(player=debtor, board=self.board)
+                            sell(board=self.board, players=self.players, player=debtor)
                         case "mortgage":
-                            mortgage(player=debtor)
+                            mortgage(board=self.board, players=self.players, player=debtor)
                         case "automate":
                             # Relevant only for dummy bot.
                             if isinstance(debtor, Human):

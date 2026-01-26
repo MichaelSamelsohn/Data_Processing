@@ -138,7 +138,7 @@ class Easy(Player):
                       f"(cash balance after purchase, {balance_after_purchase}$ >= {self.SAFETY_BUFFER}$)")
             return "y"
 
-    def buy_space_choice(self, space):
+    def buy_space_choice(self, board, players, space):
         return self.buy_space_logic(space=space)
 
     def auction_logic(self, space, latest_bid):
@@ -166,7 +166,7 @@ class Easy(Player):
                       f"purchase value ({space.purchase_price}$) and doesn't breach safety buffer")
             return str(potential_bid)
 
-    def auction_choice(self, space, latest_bid):
+    def auction_choice(self, board, players, space, latest_bid):
         return self.auction_logic(space=space, latest_bid=latest_bid)
 
     def raise_cash_logic(self, board) -> str | None:
@@ -213,7 +213,7 @@ class Easy(Player):
                 self.management_action = "mortgage"
                 return "manage"
 
-    def raise_cash_choice(self, board):
+    def raise_cash_choice(self, board, players):
         action_type = self.raise_cash_logic(board=board)
         if action_type == "develop":
             return "sell"
@@ -300,16 +300,16 @@ class Easy(Player):
 
         return False
 
-    def trade_partner_choice(self):
+    def trade_partner_choice(self, board, players):
         return self.trade_partner
 
-    def trade_spaces_choice(self):
+    def trade_spaces_choice(self, board, players):
         return self.trade_spaces
 
-    def trade_cash_choice(self):
+    def trade_cash_choice(self, board, players):
         return self.trade_cash
 
-    def trade_cards_choice(self):
+    def trade_cards_choice(self, board, players):
         """Easy bot doesn't trade 'Get out of jail free' cards."""
         return {"initiator": str(0), "recipient": str(0)}
 
@@ -359,7 +359,7 @@ class Easy(Player):
 
         return offer_value
 
-    def trade_acceptance_choice(self, trade_offer_initiator,
+    def trade_acceptance_choice(self, board, players, trade_offer_initiator,
                                 initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                 recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
         return self.trade_acceptance_logic(
@@ -373,12 +373,12 @@ class Easy(Player):
         log.logic(f"{self.name} - Never redeeming a space ({space.name}) post transfer")
         return "n"
 
-    def post_transfer_redeem_choice(self, space):
+    def post_transfer_redeem_choice(self, board, players, space):
         return self.post_transfer_redeem_logic(space=space)
 
     # Development #
 
-    def development_choice(self):
+    def development_choice(self, board, players):
         return self.development_action
 
     def build_logic(self, board) -> bool:
@@ -423,24 +423,24 @@ class Easy(Player):
         # Got to this point, no valid spaces to build on.
         return False
 
-    def monopoly_build_selection_choice(self):
+    def monopoly_build_selection_choice(self, board, players):
         return self.monopoly_build
 
-    def space_build_selection_choice(self):
+    def space_build_selection_choice(self, board, players):
         return str(self.space_build)
 
-    def monopoly_sell_selection_choice(self):
+    def monopoly_sell_selection_choice(self, board, players):
         return self.monopoly_sell
 
-    def space_sell_selection_choice(self):
+    def space_sell_selection_choice(self, board, players):
         return str(self.space_sell)
 
     # Management #
 
-    def management_choice(self):
+    def management_choice(self, board, players):
         return self.management_action
 
-    def mortgage_choice(self):
+    def mortgage_choice(self, board, players):
         return str(self.space_mortgage)
 
     def redeem_logic(self):
@@ -481,7 +481,7 @@ class Easy(Player):
         # Got to this point, no valid spaces to redeem.
         return False
 
-    def redeem_choice(self):
+    def redeem_choice(self, board, players):
         """Never redeem a space."""
         return str(self.space_redeem)
 
@@ -516,5 +516,5 @@ class Easy(Player):
         log.logic("Unable to forcibly get out of jail, will try rolling a double")
         return False
 
-    def jail_choice(self):
+    def jail_choice(self, board, players):
         return self.jail_action

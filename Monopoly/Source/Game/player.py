@@ -87,77 +87,77 @@ class Player:
         pass
 
     @abstractmethod
-    def buy_space_choice(self, space):
+    def buy_space_choice(self, board, players, space):
         pass
 
     @abstractmethod
-    def auction_choice(self, space, latest_bid):
+    def auction_choice(self, board, players, space, latest_bid):
         pass
 
     @abstractmethod
-    def raise_cash_choice(self, board):
+    def raise_cash_choice(self, board, players):
         pass
 
     @abstractmethod
-    def trade_partner_choice(self):
+    def trade_partner_choice(self, board, players):
         pass
 
     @abstractmethod
-    def trade_spaces_choice(self):
+    def trade_spaces_choice(self, board, players):
         pass
 
     @abstractmethod
-    def trade_cash_choice(self):
+    def trade_cash_choice(self, board, players):
         pass
 
     @abstractmethod
-    def trade_cards_choice(self):
+    def trade_cards_choice(self, board, players):
         pass
 
     @abstractmethod
-    def trade_acceptance_choice(self, trade_offer_initiator,
+    def trade_acceptance_choice(self, board, players, trade_offer_initiator,
                                 initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                 recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
         pass
 
     @abstractmethod
-    def post_transfer_redeem_choice(self, space):
+    def post_transfer_redeem_choice(self, board, players, space):
         pass
 
     @abstractmethod
-    def development_choice(self):
+    def development_choice(self, board, players):
         pass
 
     @abstractmethod
-    def monopoly_build_selection_choice(self):
+    def monopoly_build_selection_choice(self, board, players):
         pass
 
     @abstractmethod
-    def space_build_selection_choice(self):
+    def space_build_selection_choice(self, board, players):
         pass
 
     @abstractmethod
-    def monopoly_sell_selection_choice(self):
+    def monopoly_sell_selection_choice(self, board, players):
         pass
 
     @abstractmethod
-    def space_sell_selection_choice(self):
+    def space_sell_selection_choice(self, board, players):
         pass
 
     @abstractmethod
-    def management_choice(self):
+    def management_choice(self, board, players):
         pass
 
     @abstractmethod
-    def mortgage_choice(self):
+    def mortgage_choice(self, board, players):
         pass
 
     @abstractmethod
-    def redeem_choice(self):
+    def redeem_choice(self, board, players):
         pass
 
     @abstractmethod
-    def jail_choice(self):
+    def jail_choice(self, board, players):
         pass
 
 

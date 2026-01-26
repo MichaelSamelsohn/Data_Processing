@@ -63,6 +63,7 @@ class Intermediate(Player):
                 return "jail"
 
         # Check if we are able to make an active cash spending action.
+        # TODO: Consider all assets.
         if self.cash >= self.emergency_buffer and not self.is_emergency_freeze:
             # We have enough cash, consider building a house/hotel (one per turn).
             if not self.is_active_action_taken:
@@ -164,12 +165,13 @@ class Intermediate(Player):
 
         # Calculate highest rent.
         for space in board.spaces:
-            rent = calculate_rent(board=board, space=space, dice_roll=12)
-            # The dice roll is set to the highest possible outcome (2 * 6 = 12), to take into account the highest
-            # potential debt.
-            if rent > highest_debt:
-                highest_debt = rent
-                logic_message = f"Rent ({space.name})"
+            if isinstance(space, RealEstate) or isinstance(space, Railroad) or isinstance(space, Utility):
+                rent = calculate_rent(board=board, space=space, dice_roll=12)
+                # The dice roll is set to the highest possible outcome (2 * 6 = 12), to take into account the highest
+                # potential debt.
+                if rent > highest_debt:
+                    highest_debt = rent
+                    logic_message = f"Rent ({space.name})"
 
         log.logic(f"{self.name} - Highest debt is calculated based on {logic_message} = {highest_debt}$")
         return highest_debt
@@ -231,7 +233,7 @@ class Intermediate(Player):
                       f"buffer (cash balance after purchase, {balance_after_purchase}$ < {self.emergency_buffer}$)")
             return "n"
 
-    def buy_space_choice(self, space):
+    def buy_space_choice(self, board, players, space):
         return self.buy_space_logic(space=space)
 
     def auction_logic(self, space, latest_bid) -> str:
@@ -336,7 +338,7 @@ class Intermediate(Player):
                       f"({space.mortgage_value} - 20 = {priority_value}$), therefore, passing the bid")
             return "pass"
 
-    def auction_choice(self, space, latest_bid):
+    def auction_choice(self, board, players, space, latest_bid):
         return self.auction_logic(space=space, latest_bid=latest_bid)
 
     def raise_cash_logic(self, board) -> str | None:
@@ -344,7 +346,7 @@ class Intermediate(Player):
         Logic for raising cash in case of two situations:
         1) Emergency cash buffer breached.
         2) Owning money to another player. We reach this state only if there are available spaces to mortgage or
-           buildings to sell (if not, we are declared bankrupt and losr the game without reaching this code).
+           buildings to sell (if not, we are declared bankrupt and lose the game without reaching this code).
 
         First priority is to sell buildings and only if no buildings to sell, mortgage spaces. In both cases, there is
         no consideration to the type of space mortgaged or a building is sold from. The selected choice is simply the
@@ -383,7 +385,7 @@ class Intermediate(Player):
                 self.management_action = "mortgage"
                 return "manage"
 
-    def raise_cash_choice(self, board):
+    def raise_cash_choice(self, board, players):
         action_type = self.raise_cash_logic(board=board)
         if action_type == "develop":
             return "sell"
@@ -470,16 +472,16 @@ class Intermediate(Player):
 
         return False
 
-    def trade_partner_choice(self):
+    def trade_partner_choice(self, board, players):
         return self.trade_partner
 
-    def trade_spaces_choice(self):
+    def trade_spaces_choice(self, board, players):
         return self.trade_spaces
 
-    def trade_cash_choice(self):
+    def trade_cash_choice(self, board, players):
         return self.trade_cash
 
-    def trade_cards_choice(self):
+    def trade_cards_choice(self, board, players):
         """Easy bot doesn't trade 'Get out of jail free' cards."""
         return {"initiator": str(0), "recipient": str(0)}
 
@@ -529,7 +531,7 @@ class Intermediate(Player):
 
         return offer_value
 
-    def trade_acceptance_choice(self, trade_offer_initiator,
+    def trade_acceptance_choice(self, board, players, trade_offer_initiator,
                                 initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
                                 recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer):
         return self.trade_acceptance_logic(
@@ -543,12 +545,12 @@ class Intermediate(Player):
         log.logic(f"{self.name} - Never redeeming a space ({space.name}) post transfer")
         return "n"
 
-    def post_transfer_redeem_choice(self, space):
+    def post_transfer_redeem_choice(self, board, players, space):
         return self.post_transfer_redeem_logic(space=space)
 
     # Development #
 
-    def development_choice(self):
+    def development_choice(self, board, players):
         return self.development_action
 
     def build_logic(self, board) -> bool:
@@ -593,24 +595,24 @@ class Intermediate(Player):
         # Got to this point, no valid spaces to build on.
         return False
 
-    def monopoly_build_selection_choice(self):
+    def monopoly_build_selection_choice(self, board, players):
         return self.monopoly_build
 
-    def space_build_selection_choice(self):
+    def space_build_selection_choice(self, board, players):
         return str(self.space_build)
 
-    def monopoly_sell_selection_choice(self):
+    def monopoly_sell_selection_choice(self, board, players):
         return self.monopoly_sell
 
-    def space_sell_selection_choice(self):
+    def space_sell_selection_choice(self, board, players):
         return str(self.space_sell)
 
     # Management #
 
-    def management_choice(self):
+    def management_choice(self, board, players):
         return self.management_action
 
-    def mortgage_choice(self):
+    def mortgage_choice(self, board, players):
         return str(self.space_mortgage)
 
     def redeem_logic(self):
@@ -651,7 +653,7 @@ class Intermediate(Player):
         # Got to this point, no valid spaces to redeem.
         return False
 
-    def redeem_choice(self):
+    def redeem_choice(self, board, players):
         """Never redeem a space."""
         return str(self.space_redeem)
 
@@ -686,5 +688,5 @@ class Intermediate(Player):
         log.logic("Unable to forcibly get out of jail, will try rolling a double")
         return False
 
-    def jail_choice(self):
+    def jail_choice(self, board, players):
         return self.jail_action

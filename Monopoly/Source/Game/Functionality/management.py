@@ -4,7 +4,7 @@ from Monopoly.Source.Game.board import RealEstate
 from Monopoly.Source.Game.player import Player, Human
 
 
-def management_handler(player: Player):
+def management_handler(board, players, player: Player):
     """
     Handles mortgage-related actions for the given player. This method allows the player to interactively choose one
     of the following actions:
@@ -20,14 +20,14 @@ def management_handler(player: Player):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'mortgage', 'redeem', "
                             f"or 'done': ").strip().lower())
         else:  # Bot.
-            choice = player.management_choice()
+            choice = player.management_choice(board=board, players=players)
 
         match choice:
             case "mortgage":
-                mortgage(player=player)
+                mortgage(board=board, players=players, player=player)
                 return
             case "redeem":
-                redeem(player=player)
+                redeem(board=board, players=players, player=player)
                 return
             case "done":
                 return
@@ -35,7 +35,7 @@ def management_handler(player: Player):
                 log.warning(f"'{choice}' is an unidentified action")
 
 
-def mortgage(player: Player):
+def mortgage(board, players, player: Player):
     """
     Allows a player to mortgage one or more of their eligible properties in exchange for cash. A property is
     eligible for mortgaging if:
@@ -68,7 +68,7 @@ def mortgage(player: Player):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.mortgage_choice()
+            choice = player.mortgage_choice(board=board, players=players)
 
         if not choice.isdigit() or not (0 <= int(choice) <= len(valid_spaces_to_mortgage) - 1):
             log.warning("Invalid choice, try again")
@@ -84,7 +84,7 @@ def mortgage(player: Player):
         return
 
 
-def redeem(player: Player):
+def redeem(board, players, player: Player):
     """
     Allows the player to redeem (unmortgage) eligible properties. This method checks all properties owned by the
     given player and presents a list of mortgaged properties that the player can afford to redeem based on their
@@ -113,7 +113,7 @@ def redeem(player: Player):
             if choice == "end":
                 return
         else:  # Bot.
-            choice = player.redeem_choice()
+            choice = player.redeem_choice(board=board, players=players)
 
         if not choice.isdigit() or not (0 <= int(choice) <= len(valid_spaces_to_redeem) - 1):
             log.warning("Invalid choice, try again")

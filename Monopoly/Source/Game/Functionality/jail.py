@@ -3,7 +3,7 @@ from Monopoly.Settings.monopoly_settings import *
 from Monopoly.Source.Game.player import Player, Human
 
 
-def jail_handler(player: Player):
+def jail_handler(board, players, player: Player):
     """
     Handles a player's turn while they are in jail. This function continuously prompts the player (human or bot) to
     choose one of several possible jail actions until a valid choice is made or the player ends their turn.
@@ -21,7 +21,7 @@ def jail_handler(player: Player):
             choice = (input(f"{player.name} ({player.cash}$), Please choose action 'pay', 'free', or 'end': ")
                       .strip().lower())
         else:  # Bot.
-            choice = player.jail_choice()
+            choice = player.jail_choice(board=board, players=players)
 
         match choice:
             case "pay":

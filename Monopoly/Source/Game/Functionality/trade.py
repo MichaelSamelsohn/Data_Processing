@@ -1,10 +1,10 @@
 # Imports #
 from Monopoly.Settings.monopoly_settings import log
-from Monopoly.Source.Game.board import RealEstate
+from Monopoly.Source.Game.board import RealEstate, Board
 from Monopoly.Source.Game.player import Player, Human
 
 
-def trade_handler(trade_offer_initiator: Player, players: list):
+def trade_handler(board: Board, players: list, trade_offer_initiator: Player):
     """
     Handles the trade interaction between two players in the game. This function manages the full trade flow between a
     trade initiator and a recipient. It allows a player to propose a trade, validates that both parties exist and can
@@ -38,7 +38,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
             if trade_offer_recipient_name == "end":
                 return
         else:  # Bot.
-            trade_offer_recipient_name = trade_offer_initiator.trade_partner_choice()
+            trade_offer_recipient_name = trade_offer_initiator.trade_partner_choice(board=board, players=players)
         trade_offer_recipient = next((player for player in players if player.name == trade_offer_recipient_name),
                                      trade_offer_initiator)
         # Make sure the recipient exists and is not the same player as the initiator.
@@ -49,9 +49,11 @@ def trade_handler(trade_offer_initiator: Player, players: list):
         # Got to this point, trade offer recipient name is valid.
 
         initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer = (
-            make_offer(trade_master=trade_offer_initiator, trade_partner=trade_offer_initiator))
+            make_offer(board=board, players=players,
+                       trade_master=trade_offer_initiator, trade_partner=trade_offer_initiator))
         recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer = (
-            make_offer(trade_master=trade_offer_initiator, trade_partner=trade_offer_recipient))
+            make_offer(board=board, players=players,
+                       trade_master=trade_offer_initiator, trade_partner=trade_offer_recipient))
 
         # Check that trade is legal (no side goes bankrupt due to it).
         if not is_trade_legal(trade_offer_initiator=trade_offer_initiator, initiator_cash_offer=initiator_cash_offer,
@@ -92,9 +94,13 @@ def trade_handler(trade_offer_initiator: Player, players: list):
                 confirm = input(f"Does {trade_offer_recipient.name} accept the trade? (y/n): ")
             else:  # Bot.
                 confirm = trade_offer_recipient.trade_acceptance_choice(
-                    trade_offer_initiator,
-                    initiator_space_offer, initiator_cash_offer, initiator_free_cards_offer,
-                    recipient_space_offer, recipient_cash_offer, recipient_free_cards_offer
+                    board=board, players=players, trade_offer_initiator=trade_offer_initiator,
+                    # Initiator side.
+                    initiator_space_offer=initiator_space_offer, initiator_cash_offer=initiator_cash_offer,
+                    initiator_free_cards_offer=initiator_free_cards_offer,
+                    # Recipient side.
+                    recipient_space_offer=recipient_space_offer, recipient_cash_offer=recipient_cash_offer,
+                    recipient_free_cards_offer=recipient_free_cards_offer
                 )
 
             match confirm:
@@ -102,7 +108,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
                     log.info(f"Trade confirmed by {trade_offer_recipient.name}")
 
                     # Perform trade.
-                    execute_trade(
+                    execute_trade(board=board, players=players,
                         # Player 1.
                         player1=trade_offer_initiator, player1_spaces=initiator_space_offer,
                         player1_cash=initiator_cash_offer, player1_free_cards=initiator_free_cards_offer,
@@ -120,7 +126,7 @@ def trade_handler(trade_offer_initiator: Player, players: list):
                     continue
 
 
-def make_offer(trade_master: Player, trade_partner: Player):
+def make_offer(board, players, trade_master: Player, trade_partner: Player):
     """
     Facilitates a trade offer between two players in a property-trading game. This function allows the `trade_master`
     (the player initiating the trade) to propose an offer to the `trade_partner`. The offer can include:
@@ -158,7 +164,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
         if isinstance(trade_master, Human):
             offer_spaces_selection = input("Enter indices of properties to offer (comma separated): ")
         else:  # Bot.
-            offer_spaces_selection = trade_master.trade_spaces_choice()
+            offer_spaces_selection = trade_master.trade_spaces_choice(board=board, players=players)
             # Differentiate between space offer for the initiator/recipient.
             offer_spaces_selection = offer_spaces_selection["initiator"] if trade_partner == trade_master \
                 else offer_spaces_selection["recipient"]
@@ -178,7 +184,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
         if isinstance(trade_master, Human):
             offer_cash = input("Enter cash to offer (in $): ")
         else:  # Bot.
-            offer_cash = trade_master.trade_cash_choice()
+            offer_cash = trade_master.trade_cash_choice(board=board, players=players)
             # Differentiate between cash offer for the initiator/recipient.
             offer_cash = offer_cash["initiator"] if trade_partner == trade_master else offer_cash["recipient"]
 
@@ -202,7 +208,7 @@ def make_offer(trade_master: Player, trade_partner: Player):
             if isinstance(trade_master, Human):
                 offer_free_cards = input("Enter 'Get out of jail free' card(s) to offer: ")
             else:  # Bot.
-                offer_free_cards = trade_master.trade_cards_choice()
+                offer_free_cards = trade_master.trade_cards_choice(board=board, players=players)
                 # Differentiate between cash offer for the initiator/recipient.
                 offer_free_cards = offer_free_cards["initiator"] if trade_partner == trade_master \
                     else offer_free_cards["recipient"]
@@ -216,7 +222,8 @@ def make_offer(trade_master: Player, trade_partner: Player):
     return offer_spaces, int(offer_cash), int(offer_free_cards)
 
 
-def execute_trade(player1: Player, player1_spaces: list, player1_cash: int, player1_free_cards: int,
+def execute_trade(board, players,
+                  player1: Player, player1_spaces: list, player1_cash: int, player1_free_cards: int,
                   player2: Player, player2_spaces: list, player2_cash: int, player2_free_cards: int):
     """
     Executes a trade between two players involving properties, cash and 'Get out of jail free' cards. This method
@@ -254,12 +261,12 @@ def execute_trade(player1: Player, player1_spaces: list, player1_cash: int, play
     # Transfer spaces.
 
     # Transfer spaces from player 1 to player 2.
-    transfer_spaces(sender=player1, recipient=player2, spaces_to_transfer=player1_spaces)
+    transfer_spaces(board=board, players=players, sender=player1, recipient=player2, spaces_to_transfer=player1_spaces)
     # Transfer spaces from player 2 to player 1.
-    transfer_spaces(sender=player2, recipient=player1, spaces_to_transfer=player2_spaces)
+    transfer_spaces(board=board, players=players, sender=player2, recipient=player1, spaces_to_transfer=player2_spaces)
 
 
-def transfer_spaces(sender: Player, recipient: Player, spaces_to_transfer: list):
+def transfer_spaces(board, players, sender: Player, recipient: Player, spaces_to_transfer: list):
     """
     Transfers ownership of a list of properties from one player to another. For each property being transferred:
     - Ownership is moved from `sender` to `recipient`.
@@ -293,7 +300,7 @@ def transfer_spaces(sender: Player, recipient: Player, spaces_to_transfer: list)
                 if isinstance(recipient, Human):
                     choice = input("Redeem property or pay mortgage fee (10%): ")
                 else:  # Bot.
-                    choice = recipient.post_transfer_redeem_choice(space=space)
+                    choice = recipient.post_transfer_redeem_choice(board=board, players=players, space=space)
 
                 while True:
                     match choice:
