@@ -84,8 +84,10 @@ class Image:
         """
 
         log.debug("Displaying the last image")
-        plt.imshow(self._last_image, cmap='gray') if len(self._last_image.shape) == 2 else plt.imshow(self._last_image)
-        plt.title("Last image")
+        last_image = self._image_buffer[-1]
+        plt.imshow(last_image["Image"], cmap='gray') if len(last_image["Image"].shape) == 2 else (
+            plt.imshow(last_image["Image"]))
+        plt.title(last_image["Name"])
         # TODO: Add option to have grid lines.
         self.plt_show()
 
