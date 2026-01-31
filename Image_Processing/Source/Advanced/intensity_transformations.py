@@ -16,7 +16,6 @@ Created by Michael Samelsohn, 13/05/22
 """
 
 # Imports #
-import numpy as np
 from numpy import ndarray
 from Image_Processing.Source.Basic.common import use_lookup_table, scale_pixel_values
 from Image_Processing.Settings.image_settings import *

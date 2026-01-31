@@ -243,6 +243,12 @@ class Image:
                                                     threshold_value=threshold_value)
         self._image_buffer.append({"Name": "Isolated point detection", "Image": self._last_image})
 
+    def harris_corner_detector(self, padding_type=DEFAULT_PADDING_TYPE, k=DEFAULT_HARRIS_K_VALUE,
+                               sigma=DEFAULT_SIGMA_VALUE, radius=DEFAULT_HARRIS_RADIUS):
+        self._last_image = harris_corner_detector(image=self._last_image, padding_type=padding_type, sigma=sigma, k=k,
+                                                  radius=radius)
+        self._image_buffer.append({"Name": "Harris corner detection", "Image": self._last_image})
+
     def line_detection(self, padding_type=DEFAULT_PADDING_TYPE, normalization_method=DEFAULT_NORMALIZATION_METHOD,
                        threshold_value=DEFAULT_THRESHOLD_VALUE):
         self._last_image = line_detection(image=self._last_image, padding_type=padding_type,

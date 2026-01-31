@@ -46,13 +46,12 @@ Created by Michael Samelsohn, 20/05/22
 
 # Imports #
 import copy
-import numpy as np
 from numpy import ndarray
 
-from Image_Processing.Source.Basic.common import convolution_2d, extract_sub_image, calculate_histogram
+from Image_Processing.Source.Basic.common import *
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference, article_reference
-from spatial_filtering import laplacian_gradient, blur_image, sobel_filter
+from spatial_filtering import laplacian_gradient, blur_image, sobel_filter, SOBEL_OPERATORS
 
 
 @book_reference(book=GONZALES_WOODS_BOOK,
@@ -83,6 +82,67 @@ def isolated_point_detection(image: ndarray, padding_type: str, normalization_me
 
     # Thresholding the remaining values to remove "weak" points.
     return thresholding(image=np.abs(post_laplacian_image), threshold_value=threshold_value)
+
+
+@article_reference(article="Chris Harris and Mike Stephens (1988). A Combined Corner and Edge Detector. Alvey Vision "
+                           "Conference. Vol. 15")
+def harris_corner_detector(image: ndarray, padding_type: str, sigma: float, k: float, radius: int) -> ndarray:
+    """
+    TODO: Complete the docstring.
+    """
+
+    log.info("Performing Harris corner detection")
+
+    log.debug("Calculating the horizontal-directional derivative")
+    ix = convolution_2d(image=image, kernel=SOBEL_OPERATORS["HORIZONTAL"], padding_type=padding_type,
+                        normalization_method='unchanged')
+    log.debug("Calculating the vertical-directional derivative")
+    iy = convolution_2d(image=image, kernel=SOBEL_OPERATORS["VERTICAL"], padding_type=padding_type,
+                        normalization_method='unchanged')
+    log.debug("Structuring tensor setup")
+    ix_2 = ix * ix
+    iy_2 = iy * iy
+    ixy = ix * iy
+
+    log.debug("Applying Gaussian smoothing")
+    sxx = blur_image(image=ix_2, filter_type='gaussian', filter_size=3, padding_type=padding_type, sigma=sigma,
+                     normalization_method='unchanged')
+    syy = blur_image(image=iy_2, filter_type='gaussian', filter_size=3, padding_type=padding_type, sigma=sigma,
+                     normalization_method='unchanged')
+    sxy = blur_image(image=ixy, filter_type='gaussian', filter_size=3, padding_type=padding_type, sigma=sigma,
+                     normalization_method='unchanged')
+
+    log.debug("Calculating Harris response")
+    r = np.zeros((image.shape[0], image.shape[1]))
+    corner_image = copy.deepcopy(image)
+    for row in range(1, image.shape[0] - 1):
+        for col in range(1, image.shape[1] - 1):
+            # Building the structuring tensor.
+            m = np.array([[sxx[row][col], sxy[row][col]],
+                          [sxy[row][col], syy[row][col]]])
+
+            # Calculating the Harris response.
+            r[row][col] = np.linalg.det(m) - k * np.power(np.trace(m), 2)
+
+    log.debug("Performing non-maximum suppression")
+    # Preparing a filter image for quick identification of non corners or suspected corners below the threshold.
+    threshold_image = r > 0.01 * r.max()
+    offset = radius // 2
+    # Padding the R matrix to account for the selected radius.
+    padded_r = pad_image(image=r, padding_type=padding_type, padding_size=offset)
+    for row in range(offset, padded_r.shape[0] - offset):
+        for col in range(offset, padded_r.shape[1] - offset):
+            # Filtering any pixels below the threshold.
+            if not threshold_image[row - offset][col - offset]:
+                continue
+
+            # Checking current suspected corner for local maxima.
+            if padded_r[row][col] == np.max(extract_sub_image(
+                    image=padded_r, position=(row, col), sub_image_size=radius)):
+                # Identified a corner, marking it as white.
+                corner_image[row - offset][col - offset] = 1
+
+    return corner_image
 
 
 @book_reference(book=GONZALES_WOODS_BOOK,
