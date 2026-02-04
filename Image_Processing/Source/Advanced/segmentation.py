@@ -88,11 +88,44 @@ def isolated_point_detection(image: ndarray, padding_type: str, normalization_me
                            "Conference. Vol. 15")
 def harris_corner_detector(image: ndarray, padding_type: str, sigma: float, k: float, radius: int) -> ndarray:
     """
-    TODO: Complete the docstring.
+    Without loss of generality, we will assume a grayscale 2-dimensional image is used. Let this image be given by I.
+    Consider taking an image patch (x,y) in W(window) and shifting it by (Δx,Δy). The sum of squared differences (SSD)
+    between these two patches, denoted f is given by:
+                            (1) f(Δx,Δy) = SUM(for (xk,yk) in W) [I(xk,yk) - I(xk+Δx,yk+Δy)]^2
+    I(x+Δx,y+Δy) can be approximated by a Taylor expansion. Let Ix and Iy be the partial derivatives of I, such that:
+                            (2)    I(xk+Δx,yk+Δy) = Ix(x,y) + Ix(x,y)Δx + Iy(x,y)Δy
+    This produces the approximation (input (2) in (1)):
+                            (3)   f(Δx,Δy) = SUM(for (x,y) in W) [Ix(x,y)Δx + Iy(x,y)Δy]^2
+    which can be written in matrix form:
+                                                                 [ Δx ]
+                            (4)             f(Δx,Δy) = (Δx Δy) M |    |
+                                                                 [ Δy ]
+    where M is the structure tensor:
+                                                              [ Ix^2  IxIy ]
+                            (5)       M = SUM(for (x,y) in W) |            |
+                                                              [ IxIy  Iy^2 ]
+
+    Harris corner detector algorithm can be divided into five steps:
+    1) Spatial derivative calculation - find the derivative with respect to x and the derivative with respect to y,
+       Ix(x,y) and Iy(x,y). This can be approximated by applying Sobel operators.
+    2) Apply Gaussian smoothing.
+    3) Structure tensor setup.
+    4) Harris response calculation - R = det(M) - k*tr(M)^2 where k is an empirically determined constant k∈[0.04,0.06].
+    5) Non-maximum suppression - In order to pick up the optimal values to indicate corners, we find the local maxima as
+       corners within the window which is a radius by radius filter. Note - radius must be an odd integer.
+
+    :param image: The image for Harris corner detection.
+    :param padding_type: Padding type used for applying the Gaussian kernel.
+    :param sigma: Value of the sigma used in the Gaussian kernel.
+    :param k: Empirically determined constant for Harris corner detection, k∈[0.04,0.06].
+    :param radius: Radius of the neighborhood for the non-maximum suppression.
+
+    :return: Corner image where the corners are of value 1 (white).
     """
 
     log.info("Performing Harris corner detection")
 
+    log.debug("Spatial derivative calculation")
     log.debug("Calculating the horizontal-directional derivative")
     ix = convolution_2d(image=image, kernel=SOBEL_OPERATORS["HORIZONTAL"], padding_type=padding_type,
                         normalization_method='unchanged')
