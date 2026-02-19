@@ -319,7 +319,7 @@ class Image:
         self._last_image = add_rayleigh_noise(image=self._last_image, a=a, b=b)
         self._image_buffer.append({"Name": "Rayleigh noise", "Image": self._last_image})
 
-    def add_erlang_noise(self, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_A):
+    def add_erlang_noise(self, a=DEFAULT_ERLANG_A, b=DEFAULT_ERLANG_B):
         self._last_image = add_erlang_noise(image=self._last_image, a=a, b=b)
         self._image_buffer.append({"Name": "Erlang noise", "Image": self._last_image})
 
