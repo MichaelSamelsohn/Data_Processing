@@ -42,6 +42,7 @@ def intensity_transformations(image):
     reset_image(image=image)
 
     image.display_all_images()
+    image._image_buffer = image._image_buffer[:-3]
 
 
 def noise_models(image):
@@ -60,15 +61,30 @@ def noise_models(image):
     reset_image(image=image)
 
     image.display_all_images()
+    image._image_buffer = image._image_buffer[:-6]
+
+
+def image_restoration(image):
+    image.add_salt_and_pepper(salt=0.01, pepper=0.01)
+    image.blur_image(filter_type="gaussian", filter_size=5)
+    image.mean_filter(filter_type="contra-harmonic", q=0)
+
+    reset_image(image=image)
+
+    image.display_all_images()
+
 
 def main():
     image = Image(image_path=r"C:\Users\micha\PycharmProjects\Data_Processing\Image_Processing\Images\Lena.png")
     image.convert_to_grayscale()
 
     # Intensity transformations.
-    # intensity_transformations(image=image)
-    # Nosie models.
+    intensity_transformations(image=image)
+    # Noise models.
     noise_models(image=image)
+
+    # Image restoration.
+    image_restoration(image=image)
 
 
 if __name__ == "__main__":
