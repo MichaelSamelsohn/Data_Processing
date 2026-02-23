@@ -1,8 +1,6 @@
 """
 Script Name - morphological_operations.py
 
-TODO: Add page reference for all the functions.
-
 Purpose - Listed below are rules when working with morphological operations:
     1) Images are binary.
     2) Structuring elements are square-shaped, odd-sized matrices.
@@ -61,7 +59,13 @@ def dilation(image: ndarray, structuring_element: ndarray, padding_type: str) ->
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
 def opening(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
-    TODO: Complete the docstring.
+    Perform a morphological opening operation on an image using the structuring element.
+
+    Opening is defined as an erosion followed by a dilation with the same structuring element: A ∘ B = (A ⊖ B) ⊕ B
+    where ⊖ denotes erosion and ⊕ denotes dilation.
+
+    Opening smooths contours, breaks narrow isthmuses, and removes thin protrusions and small isolated foreground
+    regions (noise specks) that are smaller than the structuring element, while leaving larger objects mostly unchanged.
 
     :param image: The image to be opened.
     :param structuring_element: Structuring element.
@@ -81,7 +85,13 @@ def opening(image: ndarray, structuring_element: ndarray, padding_type: str) -> 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.3 - Opening and Closing, p.644-648")
 def closing(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
-    TODO: Complete the docstring.
+    Perform a morphological closing operation on an image using the structuring element.
+
+    Closing is defined as a dilation followed by an erosion with the same structuring element: A • B = (A ⊕ B) ⊖ B
+    where ⊕ denotes dilation and ⊖ denotes erosion.
+
+    Closing smooths contours by fusing narrow breaks and thin gulfs, eliminates small holes, and fills gaps in the
+    boundary of foreground objects. It is the morphological dual of opening.
 
     :param image: The image to be closed.
     :param structuring_element: Structuring element.
@@ -101,7 +111,19 @@ def closing(image: ndarray, structuring_element: ndarray, padding_type: str) -> 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 9.5 - Some Basic Morphological Algorithms, p.653-655")
 def boundary_extraction(image: ndarray, structuring_element: ndarray, padding_type: str) -> ndarray:
     """
-    TODO: Complete the docstring.
+    Extract the boundary of foreground objects in a binary image.
+
+    The boundary β(A) is obtained by subtracting the erosion of the image from the original: β(A) = A − (A ⊖ B)
+    where ⊖ denotes erosion with structuring element B.
+
+    The result retains only the pixels that lie on the outer boundary of each foreground object: pixels that are
+    foreground in the original but become background after erosion.
+
+    :param image: The binary image from which to extract boundaries.
+    :param structuring_element: Structuring element.
+    :param padding_type: The padding type used for extending the image boundaries.
+
+    :return: Binary image containing only the extracted boundaries.
     """
 
     return image - erosion(image=image, structuring_element=structuring_element, padding_type=padding_type)

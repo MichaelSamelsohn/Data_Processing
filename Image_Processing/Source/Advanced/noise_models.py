@@ -17,7 +17,12 @@ from Utilities.decorators import book_reference
 def add_gaussian_noise(image: ndarray, mean: float, sigma: float) -> ndarray:
     """
     Add Gaussian noise to an image.
-    TODO: Extend the docstring.
+
+    Gaussian noise follows the probability density function: p(z) = 1/(√(2π)·σ) · exp(−(z−μ)² / (2σ²))
+    where μ is the mean and σ is the standard deviation. It is the most common type of noise in electronic imaging 
+    sensors and is fully characterised by these two parameters alone. The noise values are sampled from the range 
+    [−1, 1] according to the distribution above and added pixel-wise to the image. The result is clipped to [0, 1] to 
+    maintain valid intensities.
 
     Assumption - The image pixel values range is [0, 1].
 
@@ -47,7 +52,14 @@ def add_gaussian_noise(image: ndarray, mean: float, sigma: float) -> ndarray:
 def add_rayleigh_noise(image: ndarray, a: float, b: float) -> ndarray:
     """
     Add Rayleigh noise to an image.
-    TODO: Extend the docstring.
+
+    Rayleigh noise follows the probability density function:
+                                        p(z) = (2/b)(z−a) · exp(−(z−a)²/b),   z ≥ a
+                                        p(z) = 0,                               z < a
+    where a is the left-side cutoff and b controls the spread. The mode (most probable value) is a + √(b/2). Rayleigh 
+    noise is commonly used to model noise in range images and radar. The noise values are sampled from the range [−1, 1] 
+    according to the distribution above and added pixel-wise to the image. The result is clipped to [0, 1] to maintain 
+    valid intensities.
 
     Assumption - The image pixel values range is [0, 1].
 
@@ -87,14 +99,20 @@ def add_rayleigh_noise(image: ndarray, a: float, b: float) -> ndarray:
 def add_erlang_noise(image: ndarray, a: int, b: int) -> ndarray:
     """
     Add Erlang (Gamma) noise to an image.
-    TODO: Extend the docstring.
+
+    The Erlang (Gamma) distribution follows the probability density function:
+                                p(z) = (a^b · z^(b−1) · e^(−az)) / (b−1)!,   z ≥ 0
+    where a is the rate parameter and b is a positive integer shape parameter. The mean of the distribution is b/a and 
+    the variance is b/a². Higher values of b produce a more symmetric, bell-shaped distribution; higher values of a 
+    concentrate the distribution closer to zero. The noise values are sampled from the range [0, 1] according to the 
+    distribution above and added pixel-wise to the image. The result is clipped to [0, 1] to maintain valid intensities.
 
     Assumption - The image pixel values range is [0, 1].
 
     :param image: The image for distortion.
-    TODO: Complete the description fro a, b parameters.
-    :param a: Must be bigger than b.
-    :param b: Positive integer.
+    :param a: Rate parameter of the Erlang distribution. Controls the scale; larger values shift probability mass toward 
+    zero. Must be greater than b so that the mean (b/a) stays within the normalised pixel range [0, 1].
+    :param b: Shape parameter (positive integer). Determines the number of exponential stages.
 
     :return: Noisy image.
     """
@@ -120,7 +138,14 @@ def add_erlang_noise(image: ndarray, a: int, b: int) -> ndarray:
 def add_exponential_noise(image: ndarray, a: float) -> ndarray:
     """
     Add exponential noise to an image.
-    TODO: Extend the docstring.
+
+    Exponential noise follows the probability density function:
+                                            p(z) = a · exp(−a·z),   z ≥ 0
+                                            p(z) = 0,               z < 0
+    where a > 0 is the rate (decay) parameter. The mean of the distribution equals 1/a. Exponential noise is a special 
+    case of the Erlang distribution with shape parameter b = 1. The noise values are sampled from the range [0, 1] 
+    according to the distribution above and added pixel-wise to the image. The result is clipped to [0, 1] to maintain 
+    valid intensities.
 
     Assumption - The image pixel values range is [0, 1].
 
@@ -148,7 +173,14 @@ def add_exponential_noise(image: ndarray, a: float) -> ndarray:
 def add_uniform_noise(image: ndarray, a: float, b: float) -> ndarray:
     """
     Add uniform noise to an image.
-    TODO: Extend the docstring.
+
+    Uniform noise follows the probability density function:
+                                            p(z) = 1/(b−a),   a ≤ z ≤ b
+                                            p(z) = 0,         otherwise
+    where a and b are the lower and upper bounds of the distribution respectively. All noise values in [a, b] are 
+    equally probable and the mean is (a+b)/2. This model is useful for representing quantisation noise and other bounded 
+    random disturbances. The noise values are sampled from the range [−1, 1] (with zero probability outside [a, b]) and 
+    added pixel-wise to the image. The result is clipped to [0, 1] to maintain valid intensities.
 
     Assumption - The image pixel values range is [0, 1].
 
@@ -178,8 +210,12 @@ def add_uniform_noise(image: ndarray, a: float, b: float) -> ndarray:
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 5.2 - Noise Models, p.322-324")
 def add_salt_and_pepper(image: ndarray, pepper: float, salt: float) -> ndarray:
     """
-    Add salt and pepper (white and black) pixels to an image at random.
-    TODO: Extend the docstring.
+    Add salt and pepper (impulse) noise to an image.
+
+    Salt-and-pepper noise, also known as impulse noise, randomly replaces individual pixels with either the minimum 
+    intensity value (pepper — black, 0) or the maximum intensity value (salt — white, 1). It typically arises from 
+    sudden signal disturbances, faulty sensors, or transmission errors. Each pixel is independently set to black, white, 
+    or left unchanged according to the probabilities pepper, salt, and 1−(pepper+salt) respectively.
 
     :param image: The image for distortion.
     :param pepper: Percentage of black pixels to be randomized into the image.

@@ -115,7 +115,8 @@ class Image:
         Display image histogram. Histogram is a graph showing the pixel count per pixel value. It provides an insight of
         the dominant pixel values in the image.
 
-        :param normalize: TODO: Complete.
+        :param normalize: If True, the histogram is normalized to show the relative frequency (probability) of each 
+        pixel intensity level rather than the raw pixel count.
         """
 
         # TODO: Handle color image histogram display.

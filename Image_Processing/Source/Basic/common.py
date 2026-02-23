@@ -143,11 +143,24 @@ def calculate_histogram(image: ndarray,
 def generate_filter(filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_SIZE,
                     sigma=DEFAULT_SIGMA_VALUE) -> ndarray:
     """
-    TODO: Add more explanation about the kernels/filters (p. 164, p. 168/727 (for sigma values and filter size)).
+    Generate a spatial filter (kernel) of the specified type and size.
+
+    A filter (kernel) is a small matrix used to perform neighbourhood operations on an image via convolution. The choice
+    of filter type determines the frequency-domain characteristics of the operation (e.g., low-pass blurring). The
+    filter size should be an odd integer so that the kernel has a well-defined center pixel. Larger kernels capture
+    wider neighbourhoods but increase computation time. For Gaussian filters, the size should be at least 2·ceil(3σ)+1
+    to cover ±3σ of the bell curve.
 
     Types of filters:
-        * Box filter - An all ones filter (with normalization).
-        * Gaussian filter - TODO: Explain the principle behind the construction of the filter (formula 3-46 in page 167).
+        * Box filter      - A uniform averaging filter: an all-ones matrix divided by the total number of elements. All
+                            pixels in the neighbourhood contribute equally to the output, providing simple low-pass
+                            (blurring) behaviour.
+        * Gaussian filter - A weighted averaging filter constructed from the 2D Gaussian function:
+                                                        G(x, y) = exp(−(x² + y²) / (2·σ²))
+                            Pixels closer to the center of the kernel contribute more than those at the edges, producing
+                            smoother blurring with less ringing than the box filter. After computing the kernel values,
+                            the matrix is normalised so its elements sum to 1. The σ parameter controls the width of the
+                            bell curve: larger σ yields heavier blurring.
 
     :param filter_type: The type of filter to be generated.
     :param filter_size: The size of the filter to be generated. Can be either an integer or a tuple of integers.
@@ -195,7 +208,7 @@ def pad_image(image: ndarray, padding_type=DEFAULT_PADDING_TYPE, padding_size=DE
     :param image: The image for padding.
     :param padding_type: The padding type.
     Types of padding methods:
-        * Zero padding ("zero_padding") - Add zeros to the boundaries.
+        * Zero padding ("zero") - Add zeros to the boundaries.
         TODO: Add more padding types (mirror, boundary extension).
     :param padding_size: The padding size.
 

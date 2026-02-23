@@ -17,7 +17,18 @@ from Utilities.decorators import book_reference
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.328-330")
 def mean_filter(image: ndarray, filter_type: str, padding_type: str, filter_size: int, **kwargs) -> ndarray:
     """
-    TODO: Complete the docstring.
+    Apply a mean (spatial averaging) filter to an image to reduce noise.
+
+    Mean filters replace each pixel value with a measure of central tendency computed over a neighbourhood of the 
+    specified size. Different mean types offer different trade-offs between noise reduction and image detail 
+    preservation:
+        * Arithmetic      - Simple average; effective for Gaussian noise but blurs edges.
+        * Geometric       - Product-based mean; comparable smoothing to arithmetic but retains more image detail.
+        * Harmonic        - Effective for salt noise and Gaussian noise, but fails for pepper noise; a single zero pixel 
+                            in the neighbourhood drives the output to zero.
+        * Contra-harmonic - Eliminates salt-and-pepper noise selectively: positive order Q removes pepper noise, 
+                            negative Q removes salt noise (Q=0 reduces to arithmetic mean, Q=−1 reduces to harmonic 
+                            mean).
 
     Note - Since more computations are done than necessary, this implementation is not optimal, rather for simplicity
     of use.
@@ -107,7 +118,18 @@ def mean_filter(image: ndarray, filter_type: str, padding_type: str, filter_size
                 reference="Chapter 5.3 - Restoration in the Presence of Noise Only—Spatial Filtering, p.330-332")
 def order_statistic_filter(image: ndarray, filter_type: str, padding_type: str, filter_size: int, **kwargs) -> ndarray:
     """
-    TODO: Expand on order-statistic filters.
+    Apply an order-statistic filter to an image to reduce noise.
+
+    Order-statistic filters are nonlinear spatial filters whose response is based on the ordering (ranking) of pixel 
+    values within a neighbourhood. After sorting the intensities in the filter window, a specific rank is selected as 
+    the output value:
+        * Median     - Selects the middle value; highly effective against bipolar and unipolar impulse noise 
+                       (salt-and-pepper) with less blurring than mean filters.
+        * Max        - Selects the highest value; useful for finding bright regions and reducing pepper noise.
+        * Min        - Selects the lowest value; useful for finding dark regions and reducing salt noise.
+        * Midpoint   - Averages the minimum and maximum values; best for randomly distributed noise such as Gaussian or 
+                       uniform.
+        * Custom     - Selects the value at the user-specified percentile rank within the sorted neighbourhood.
 
     Note - Since more computations are done than necessary, this implementation is not optimal, rather for simplicity
     of use.
