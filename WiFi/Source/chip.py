@@ -164,7 +164,16 @@ class CHIP:
 
     def print_statistics(self):
         """
-        TODO: Complete the docstring.
+        Print a formatted table of MAC-layer frame statistics for this chip.
+
+        Iterates over all frames recorded in the MAC statistics buffer and displays a bordered table with one row per 
+        frame, containing the following columns:
+            * Direction         - TX --> (transmitted) or RX <-- (received).
+            * Frame Description - The frame type (e.g., DATA, ACK, RTS, CTS).
+            * Retries           - Number of retransmission attempts for TX frames; "N/A" for RX frames or frames with no 
+                                  retry tracking. Appends "(frame dropped)" if retries were exhausted.
+            * MAC Address (HEX) - Source address for RX frames, destination address for TX frames, formatted as a 
+                                  colon-separated hex string.
         """
 
         rows = []
