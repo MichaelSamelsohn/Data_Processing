@@ -11,7 +11,10 @@ Created by Michael Samelsohn, 05/05/22.
 import re
 
 from datetime import datetime
-from NASA_API.Source.api_utilities import *
+from NASA_API.Settings.api_settings import (
+    log, APOD_URL_PREFIX, API_KEY, APOD_FIRST_DATE, DEFAULT_IMAGE_DIRECTORY
+)
+from NASA_API.Source.api_utilities import get_request, download_image_url
 
 
 class APOD:
@@ -21,92 +24,126 @@ class APOD:
         self.image_directory = image_directory
         self.hd = False
         self._date = None
-
         self._apod_image = None
 
     @staticmethod
     def validate_date(date: str) -> bool:
         """
-        Validates whether the provided date string is in the correct format and within an acceptable range.
+        Validate whether the provided date string is in the correct format and within the APOD archive range.
 
         The date must:
         - Be in the 'YYYY-MM-DD' format.
         - Represent a valid calendar date (e.g., not February 30).
-        - Fall within the range from June 16, 1995 to September 1, 2025 (inclusive).
+        - Fall within the APOD archive range: June 16, 1995 (first APOD entry) to today (inclusive).
 
         :param date: The date string to validate.
 
-        :return: True if the date is valid and within the specified range, False otherwise.
+        :return: True if the date is valid and within the APOD range, False otherwise.
         """
 
-        # Match YYYY-MM-DD format.
-        pattern = r'^\d{4}-\d{2}-\d{2}$'
-        if not re.match(pattern, date):
-            log.error("Incorrect date pattern (acceptable - YYYY-MM-DD)")
+        log.debug(f"Validating date format - {date}")
+
+        # Step (1) - Verify the string matches the YYYY-MM-DD pattern.
+        if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+            log.error("Incorrect date format (expected - YYYY-MM-DD)")
             return False
 
+        # Step (2) - Verify the date represents a real calendar date.
         try:
-            date = datetime.strptime(date, "%Y-%m-%d")
+            parsed_date = datetime.strptime(date, "%Y-%m-%d")
         except ValueError:
-            log.error("Invalid date")
+            log.error("Invalid calendar date (e.g., February 30 does not exist)")
             return False
 
-        start = datetime(1995, 6, 16)
+        # Step (3) - Verify the date falls within the APOD archive range.
+        start = datetime.strptime(APOD_FIRST_DATE, "%Y-%m-%d")
         end = datetime.today()
 
-        return start <= date <= end
+        if not (start <= parsed_date <= end):
+            log.error(f"Date is outside the APOD archive range ({APOD_FIRST_DATE} to today)")
+            return False
+
+        return True
 
     @property
     def date(self):
-        """Get the image date."""
+        """Get the configured APOD date."""
         return self._date
 
     @date.setter
     def date(self, new_date: str):
         """
-        Set the image date, only if validated.
+        Set the APOD date after validation.
 
-        :param new_date: The new image date.
+        :param new_date: Date string in 'YYYY-MM-DD' format.
         """
 
-        log.apod(f"Validating the date - {new_date}")
+        log.apod(f"Validating date - {new_date}")
         if self.validate_date(date=new_date):
-            log.success("Date validated")
+            log.success("Date validated successfully")
             self._date = new_date
         else:
-            log.error("Date not valid")
+            log.error("Date validation failed - date was not set")
 
     @property
     def apod_image(self):
+        """Get the path of the most recently downloaded APOD image."""
         return self._apod_image
 
     def astronomy_picture_of_the_day(self) -> bool:
         """
-        Save APOD image in the selected directory.
-        Note - The images are saved as .JPG files.
+        Download the APOD image for the configured date and save it to the image directory.
+
+        Notes:
+        - Images are saved in JPEG format.
+        - If the APOD entry for the selected date is a video (not an image), the download is skipped.
+        - If HD is requested but an HD version is unavailable, the standard resolution image is used instead.
+
+        :return: True if the image was downloaded successfully, False otherwise.
         """
 
         log.apod("Retrieving APOD (Astronomy Picture Of the Day) image")
 
+        # Step (1) - Verify a date has been configured.
         log.apod("Checking if a date is set")
         if self._date is None:
-            log.error("No date set")
+            log.error("No date set - use the 'date' property before calling this method")
             return False
 
-        # Perform the API request.
+        # Step (2) - Perform the API request.
         json_object = get_request(url=f"{APOD_URL_PREFIX}date={self._date}&{API_KEY}")
-        if json_object is None:  # API request failed.
-            log.error("Check logs for more information on the failed API request")
+        if json_object is None:
+            log.error("API request failed - check logs for details")
             return False
 
-        log.apod("IMAGE INFORMATION:")
-        # Cleaning the dictionary values from unnecessary \n characters.
-        log.print_data(data={k: v.replace('\n', '') for k, v in json_object.items()}, log_level="apod")
+        # Step (3) - Log image metadata.
+        log.apod("APOD INFORMATION:")
+        log.print_data(data={k: str(v).replace('\n', '') for k, v in json_object.items()}, log_level="apod")
 
-        # Download and save the image to the relevant directory.
+        # Step (4) - Skip download if the APOD entry for this date is a video.
+        media_type = json_object.get("media_type", "image")
+        if media_type != "image":
+            log.warning(f"APOD for {self._date} is a '{media_type}', not an image - download skipped")
+            return False
+
+        # Step (5) - Resolve the image URL (HD with automatic fallback to standard resolution).
+        if self.hd:
+            image_url = json_object.get("hdurl") or json_object.get("url")
+            if not json_object.get("hdurl"):
+                log.warning("HD image not available for this date - falling back to standard resolution")
+        else:
+            image_url = json_object.get("url")
+
+        if not image_url:
+            log.error("No valid image URL found in the API response")
+            return False
+
+        # Step (6) - Download and save the image.
         self._apod_image = download_image_url(
-            image_directory=self.image_directory, api_type="APOD",
-            image_url_list=[json_object["hdurl"] if self.hd else json_object["url"]], image_suffix=f"_{self._date}")
+            image_directory=self.image_directory,
+            api_type="APOD",
+            image_url_list=[image_url],
+            image_suffix=f"_{self._date}"
+        )
 
-        return True
-
+        return self._apod_image is not None

@@ -1,6 +1,6 @@
 # NASA API Module
 
-A Python client for querying multiple NASA public APIs: the Astronomy Picture of the Day (APOD), Earth Polychromatic Imaging Camera (EPIC), Mars Rover Photos, and the NASA Image and Video Library (NIL). Images are downloaded via `curl` subprocess calls with retry logic.
+A Python client for querying multiple NASA public APIs: the Astronomy Picture of the Day (APOD), Earth Polychromatic Imaging Camera (EPIC), Mars Rover Photos, and the NASA Image and Video Library (NIL). Images are downloaded via the `requests` library with automatic retry logic.
 
 ---
 
@@ -23,9 +23,10 @@ A Python client for querying multiple NASA public APIs: the Astronomy Picture of
 
 Each NASA data source is encapsulated in its own class (`APOD`, `EPIC`, `MARS`, `NIL`) with:
 - Input validation via property setters
-- HTTP GET requests via the `requests` library
-- Image downloading via `curl` subprocess with up to 3 retries
+- HTTP GET requests via the `requests` library (with timeout and exception handling)
+- Streaming image downloads with up to `MAX_RETRIES` attempts and `RETRY_DELAY` seconds between each
 - Custom log levels per API source
+- `@property` patterns throughout for safe, validated state management
 
 ---
 
@@ -34,9 +35,9 @@ Each NASA data source is encapsulated in its own class (`APOD`, `EPIC`, `MARS`, 
 ```
 NASA_API/
 ├── Images/                     # Downloaded images
-├── References/                 # Related articles/papers
+├── References/                 # Related articles and papers
 ├── Settings/
-│   └── api_settings.py         # API keys, URLs, retry config, log levels
+│   └── api_settings.py         # API key, URLs, retry config, log levels, rover date ranges
 ├── Source/
 │   ├── api_utilities.py        # Shared HTTP and download helpers
 │   ├── apod.py                 # APOD class
@@ -44,7 +45,11 @@ NASA_API/
 │   ├── mars.py                 # MARS class
 │   └── nil.py                  # NIL class
 ├── Tests/
-│   └── test_apod.py            # pytest tests for APOD
+│   ├── constants.py            # Shared test configuration (suppresses log output)
+│   ├── test_apod.py            # APOD unit + integration tests
+│   ├── test_epic.py            # EPIC unit tests
+│   ├── test_mars.py            # MARS unit tests
+│   └── test_nil.py             # NIL unit tests
 └── main.py                     # Demo script
 ```
 
@@ -54,24 +59,31 @@ NASA_API/
 
 **File:** `Settings/api_settings.py`
 
-| Constant | Value | Description |
+| Constant | Default | Description |
 |---|---|---|
-| `API_KEY` | `"..."` | NASA API key |
-| `MAX_RETRIES` | `3` | Maximum download attempts |
-| `RETRY_DELAY` | `5` | Seconds between retries |
-| `APOD_URL_PREFIX` | `"..."` | Base URL for APOD endpoint |
-| `EPIC_URL_PREFIX` | `"..."` | Base URL for EPIC endpoint |
-| `MARS_URL_PREFIX` | `"..."` | Base URL for Mars Rover endpoint |
-| `NIL_URL_PREFIX` | `"..."` | Base URL for NIL endpoint |
+| `API_KEY` | env `NASA_API_KEY` | NASA API key (reads from environment variable with a built-in fallback) |
+| `MAX_RETRIES` | `3` | Maximum download attempts per image URL |
+| `RETRY_DELAY` | `5` | Seconds between download retries |
+| `REQUEST_TIMEOUT` | `30` | HTTP request timeout in seconds |
+| `DEFAULT_IMAGE_DIRECTORY` | `NASA_API/Images/` | Default save directory (resolved relative to the settings file) |
+| `APOD_FIRST_DATE` | `"1995-06-16"` | Date of the first APOD entry (lower bound for date validation) |
+| `MARS_ROVER_DATE_RANGES` | dict | Per-rover mission date ranges (see MARS section) |
+| `NIL_FIRST_YEAR` | `1960` | Earliest valid start year for NIL queries |
 
 **Custom log levels** (registered per API):
 
-| Level Name | Level Number |
-|---|---|
-| `apod` | 11 |
-| `epic` | 12 |
-| `mars` | 13 |
-| `nil` | 14 |
+| Level Name | Level Number | Color |
+|---|---|---|
+| `apod` | 11 | Orange |
+| `epic` | 12 | Magenta |
+| `mars` | 13 | Red |
+| `nil` | 14 | Blue |
+
+**API key via environment variable:**
+
+```bash
+export NASA_API_KEY="your_key_here"
+```
 
 ---
 
@@ -79,20 +91,23 @@ NASA_API/
 
 **File:** `Source/api_utilities.py`
 
-### `get_request(url, params)`
-Performs an HTTP GET request using the `requests` library and verifies the HTTP status code.
+### `get_request(url)`
+Performs an HTTP GET request using `requests.get` with a `REQUEST_TIMEOUT` second timeout.
 
-Returns the response object on success, or `False` on failure.
+- Handles `Timeout`, `ConnectionError`, and general `RequestException` separately
+- Returns the response JSON as a dict on HTTP 200, or `None` on any failure
 
-### `download_image_url(url, image_directory, api_type, suffix, image_format)`
-Downloads an image from a URL using a `curl` subprocess call.
+### `download_image_url(image_directory, api_type, image_url_list, image_suffix="")`
+Downloads images from a list of URLs using streaming `requests.get` calls.
 
-- **Retry logic**: up to `MAX_RETRIES` (3) attempts with `RETRY_DELAY` (5s) between each
-- **Output filename**: `{api_type}{suffix}.{image_format}` (e.g., `APOD_2025-01-01.JPG`)
-- Saves the file to `image_directory`
+- **Retry logic**: up to `MAX_RETRIES` attempts with `RETRY_DELAY` seconds between each
+- **Single image filename**: `{api_type}{image_suffix}.{format}` (e.g., `APOD_2025-01-01.JPG`)
+- **Multiple image filenames**: `{api_type}{image_suffix}_{index}.{format}` (e.g., `MARS_Curiosity_2015-04-27_1.JPG`)
+- Creates the target directory automatically if it does not exist
+- Returns the path to the last successfully downloaded file, or `None` if all attempts fail
 
 ### `display_image(image_path)`
-Opens and displays a downloaded image using PIL (`Image.open().show()`).
+Opens and displays a downloaded image using the system's default viewer (PIL `Image.show()`). Checks both that a path was provided and that the file exists before opening.
 
 ---
 
@@ -105,35 +120,33 @@ Opens and displays a downloaded image using PIL (`Image.open().show()`).
 #### Constructor
 
 ```python
-apod = APOD(image_directory="path/to/save")
+apod = APOD(image_directory="NASA_API/Images")
 ```
 
 #### Properties
 
 | Property | Type | Description |
 |---|---|---|
-| `date` | `str` | Date of the picture (`YYYY-MM-DD`). Validated on set. |
-| `hd` | `bool` | If `True`, requests the HD version of the image. |
+| `date` | `str` | Query date in `YYYY-MM-DD` format. Validated on assignment. |
+| `hd` | `bool` | If `True`, requests the HD image URL. Falls back to standard if HD is unavailable. |
+| `apod_image` | `str` | Path to the most recently downloaded image. |
 
 #### `validate_date(date)` — `@staticmethod`
-Validates that a date string is:
-1. In `YYYY-MM-DD` format (regex check)
-2. A real calendar date (no Feb 30, etc.)
-3. Within the valid APOD range: **June 16, 1995** to **today**
-
-Returns `True` if valid, `False` otherwise.
+Validates a date string against three rules:
+1. Matches `YYYY-MM-DD` format (regex)
+2. Represents a real calendar date (no Feb 30)
+3. Falls within the APOD archive range: **June 16, 1995** to **today**
 
 #### `astronomy_picture_of_the_day()`
-Requests the APOD for the configured `date`.
+Downloads the APOD image for the configured date.
 
-- Returns `False` if no date is set
-- Sends GET request to the APOD API endpoint
-- Downloads the image using `download_image_url()`
-- Returns the API response JSON on success
+- Returns `False` if no date is set, the API request fails, or the entry is a **video** (gracefully skipped)
+- If `hd=True` but no `hdurl` is present in the response, automatically falls back to the standard URL
+- Returns `True` on successful download, `False` if the download fails
 
 **Example:**
 ```python
-apod = APOD(image_directory=r"NASA_API/Images")
+apod = APOD(image_directory="NASA_API/Images")
 apod.date = "2025-04-15"
 apod.hd = True
 apod.astronomy_picture_of_the_day()
@@ -147,13 +160,33 @@ apod.astronomy_picture_of_the_day()
 
 ### Class: `EPIC`
 
-Retrieves full-disk Earth images from the DSCOVR satellite.
+#### Constructor
 
-#### `earth_polychromatic_imaging_camera()`
-Queries the EPIC API for the latest available images and downloads them.
+```python
+epic = EPIC(image_directory="NASA_API/Images")
+```
 
-#### `reformat_images_url(response)` — `@staticmethod`
-Reformats the raw API image URLs into the correct downloadable format. The EPIC API returns metadata with image names that must be reconstructed into full URLs using the date embedded in the response.
+#### `earth_polychromatic_imaging_camera(date=None)`
+Downloads a full-disk Earth image from the DSCOVR satellite.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `date` | `None` | Optional `YYYY-MM-DD` date. If `None`, the most recent available image is retrieved. |
+
+- Returns `False` if the API request fails or the response contains no images
+- Returns `True` on successful download
+
+**Example:**
+```python
+# Latest image
+epic.earth_polychromatic_imaging_camera()
+
+# Specific date
+epic.earth_polychromatic_imaging_camera(date="2025-01-15")
+```
+
+#### `reformat_images_url(image_date)` — `@staticmethod`
+Parses an EPIC API date-time string (`'YYYY-MM-DD HH:MM:SS'`) into `(year, month, day)` for building archive URLs.
 
 ---
 
@@ -163,36 +196,58 @@ Reformats the raw API image URLs into the correct downloadable format. The EPIC 
 
 ### Class: `MARS`
 
-Retrieves photos taken by NASA Mars rovers. Supports three rovers with known operational date ranges.
+#### Constructor
 
-#### Valid Rover Date Ranges
+```python
+mars = MARS(image_directory="NASA_API/Images")
+```
 
-| Rover | Start Date | End Date |
+#### Supported Rovers and Mission Ranges
+
+| Rover | Mission Start | Mission End |
 |---|---|---|
+| Curiosity | 2012-08-06 | today (ongoing) |
 | Opportunity | 2004-01-25 | 2018-06-11 |
 | Spirit | 2004-01-04 | 2010-03-21 |
-| Curiosity | 2012-08-06 | today |
+
+Date ranges are centralized in `MARS_ROVER_DATE_RANGES` in `api_settings.py`.
 
 #### Properties
 
 | Property | Description |
 |---|---|
-| `rover` | Selected rover name (`"opportunity"`, `"spirit"`, `"curiosity"`) |
-| `date` | Earth date for photo query. Validated against rover's operational range. |
+| `rover` | Rover name. Validated against `MARS_ROVERS` on assignment. |
+| `date` | Earth date for the photo query. Validated against the rover's mission range. **Rover must be set first.** |
+| `mars_image` | Path to the most recently downloaded image. |
 
-#### `mars()`
-Queries the Mars Rover Photos API for the selected rover and date, then downloads all available images.
+#### `validate_date(date, rover)` — `@staticmethod`
+Validates a date string against:
+1. `YYYY-MM-DD` format
+2. Real calendar date
+3. The selected rover's mission date range
 
-#### `mars_rover_manifest()`
-Retrieves the mission manifest for the selected rover (total photos, mission status, date range, etc.).
+#### `mars(max_photos=1)`
+Downloads Mars rover photo(s) for the configured rover and date.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `max_photos` | `1` | Maximum photos to download. Pass `-1` to download all available photos. |
+
+- Returns `False` if rover/date not set, API fails, or no photos exist for that date
+- Returns `True` if at least one photo was downloaded successfully
 
 **Example:**
 ```python
-mars = MARS(image_directory=r"NASA_API/Images")
-mars.rover = "curiosity"
+mars = MARS(image_directory="NASA_API/Images")
+mars.rover = "Curiosity"
 mars.date = "2015-04-27"
-mars.mars()
+mars.mars()          # Download 1 photo (default)
+mars.mars(max_photos=-1)  # Download all photos for this date
 ```
+
+#### `mars_rover_manifest()`
+Retrieves the mission manifest (landing date, last active date, total photos, status).
+Returns a dict, or `None` if no rover is set or the request fails.
 
 ---
 
@@ -202,29 +257,38 @@ mars.mars()
 
 ### Class: `NIL`
 
-Queries the NASA Image and Video Library for images matching a text search.
+#### Constructor
+
+```python
+nil = NIL(image_directory="NASA_API/Images")
+```
 
 #### Properties
 
 | Property | Type | Description |
 |---|---|---|
-| `query` | `str` | Search term (spaces are URL-encoded automatically) |
-| `year_start` | `int` | Start year of search range |
-| `year_end` | `int` | End year of search range |
+| `query` | `str` | Search query. Spaces are automatically URL-encoded (`' '` → `'%20'`). |
+| `media_type` | `str` | Media type filter. Validated against `NIL_MEDIA_TYPES` (`'image'` or `'audio'`). |
+| `search_years` | `list/tuple` | Optional `[start_year, end_year]` range. Validated on assignment. |
+| `nil_image` | `str` | Path to the most recently downloaded image. |
 
-#### `validate_year_range(start, end)` — internal
-Validates that:
-- `1960 ≤ start ≤ end ≤ current_year`
+#### `validate_year_range(year_range)` — `@staticmethod`
+Validates a year range as `[int, int]` where `1960 ≤ start ≤ end ≤ current_year`.
 
 #### `nasa_image_library_query()`
-Sends the search request to the NIL API with the configured query and year range, then downloads the first matching image result.
+Queries the NASA Image Library and downloads the first matching result.
+
+- **`query` and `media_type` are required** before calling this method
+- `search_years` is **optional** — omitting it searches the entire archive
+- Returns `False` if required fields are missing, the API fails, or no results are found
+- Returns `True` on successful download
 
 **Example:**
 ```python
-nil = NIL(image_directory=r"NASA_API/Images")
+nil = NIL(image_directory="NASA_API/Images")
 nil.query = "Crab nebula"
-nil.year_start = 2000
-nil.year_end = 2020
+nil.media_type = "image"
+nil.search_years = [2000, 2020]   # Optional
 nil.nasa_image_library_query()
 ```
 
@@ -232,66 +296,108 @@ nil.nasa_image_library_query()
 
 ## Tests
 
-**File:** `Tests/test_apod.py`
+**File:** `Tests/test_apod.py`, `Tests/test_epic.py`, `Tests/test_mars.py`, `Tests/test_nil.py`
 
-Uses `pytest` with `selenium`, `requests`, and standard library components.
+All unit tests use `unittest.mock.patch` to mock network calls (`get_request`, `download_image_url`), making the test suite fully offline and deterministic. Log output is suppressed during tests via `Tests/constants.py`.
 
-### `test_validate_date` — Parametrized
-
-Tests the `APOD.validate_date()` static method with 6 cases:
-
-| Input | Expected | Reason |
-|---|---|---|
-| `"2000-01-01"` | `True` | Valid date within range |
-| Today's date | `True` | Edge case: today is valid |
-| `"1900-01-01"` | `False` | Too old (before June 1995) |
-| `"2000-02-30"` | `False` | Non-existent calendar date |
-| Tomorrow's date | `False` | Future dates are invalid |
-| `"INVALID_DATE"` | `False` | Wrong format |
-
-### `test_apod_no_date_set`
-
-Verifies that calling `astronomy_picture_of_the_day()` without setting a date returns `False`.
-
-```python
-apod = APOD()
-assert apod.astronomy_picture_of_the_day() == False
+Run all tests:
+```bash
+pytest NASA_API/Tests/
 ```
 
-### `test_apod_reference`
+Run only unit tests (excluding Selenium integration test):
+```bash
+pytest NASA_API/Tests/ -m "not integration"
+```
 
-End-to-end integration test using **Selenium WebDriver**:
+### APOD Tests (`test_apod.py`)
 
-1. Opens the official APOD website (`apod.nasa.gov`)
-2. Clicks the APOD image to get its direct URL
-3. Downloads the image via `requests` to a local file
-4. Downloads the same date's image using the `APOD` class API
-5. Compares the two files byte-by-byte using `f1.read() == f2.read()`
+| Test | Description |
+|---|---|
+| `test_validate_date` (×6) | Parametrized: valid dates, too old, non-existent, future, wrong format |
+| `test_apod_no_date_set` | `False` returned when date is not configured |
+| `test_apod_api_request_failure` | `False` returned when `get_request` returns `None` |
+| `test_apod_video_response` | `False` returned and download skipped for video entries |
+| `test_apod_success_standard_resolution` | `True` returned; standard URL passed to download |
+| `test_apod_success_hd` | `True` returned; HD URL passed to download |
+| `test_apod_hd_fallback_to_standard` | `True` returned; falls back to standard URL when `hdurl` absent |
+| `test_apod_download_failure` | `False` returned when download fails |
+| `test_apod_reference` *(integration)* | Selenium + `requests` vs API byte-for-byte comparison |
+
+### EPIC Tests (`test_epic.py`)
+
+| Test | Description |
+|---|---|
+| `test_reformat_images_url` (×3) | Parametrized: correct year/month/day extraction |
+| `test_epic_api_request_failure` | `False` returned on API failure |
+| `test_epic_empty_response` | `False` returned when API returns no images |
+| `test_epic_success_latest` | `True` returned; correct archive URL constructed |
+| `test_epic_success_specific_date` | `True` returned; date-specific URL used |
+| `test_epic_download_failure` | `False` returned when download fails |
+
+### MARS Tests (`test_mars.py`)
+
+| Test | Description |
+|---|---|
+| `test_validate_date` (×16) | Parametrized across all three rovers: valid dates, out-of-range, invalid format |
+| `test_rover_setter_valid` (×3) | All valid rover names accepted |
+| `test_rover_setter_invalid` | Unknown rover rejected; property stays `None` |
+| `test_date_setter_without_rover` | Date not set when no rover is configured |
+| `test_mars_no_rover_set` | `False` returned from `mars()` |
+| `test_mars_no_date_set` | `False` returned from `mars()` |
+| `test_mars_api_request_failure` | `False` returned on API failure |
+| `test_mars_no_photos_available` | `False` returned for empty photo list |
+| `test_mars_success_single_photo` | `True` returned; one URL passed to download |
+| `test_mars_success_multiple_photos` | `True` returned; all URLs passed when `max_photos=-1` |
+| `test_mars_download_failure` | `False` returned when download fails |
+| `test_mars_rover_manifest_no_rover` | `None` returned when no rover set |
+| `test_mars_rover_manifest_success` | Correct manifest dict returned |
+
+### NIL Tests (`test_nil.py`)
+
+| Test | Description |
+|---|---|
+| `test_validate_year_range` (×10) | Parametrized: valid ranges, wrong types, out-of-bounds |
+| `test_media_type_setter_valid` (×2) | Both `'image'` and `'audio'` accepted |
+| `test_media_type_setter_invalid` | Invalid type rejected; property stays `None` |
+| `test_query_setter_encodes_spaces` | Spaces replaced with `%20` |
+| `test_nil_no_query_set` | `False` returned when query missing |
+| `test_nil_no_media_type_set` | `False` returned when media type missing |
+| `test_nil_api_request_failure` | `False` returned on API failure |
+| `test_nil_no_results` | `False` returned for empty results collection |
+| `test_nil_success` | `True` returned; correct URL passed to download |
+| `test_nil_success_without_year_range` | `True` returned; no year params in request URL |
+| `test_nil_download_failure` | `False` returned when download fails |
 
 ---
 
 ## Demo (main.py)
 
 ```python
+from NASA_API.Source.apod import APOD
+from NASA_API.Source.epic import EPIC
+from NASA_API.Source.mars import MARS
+from NASA_API.Source.nil import NIL
+
 # APOD - April 27, 1999
-apod = APOD(image_directory=r"NASA_API/Images")
+apod = APOD()
 apod.date = "1999-04-27"
 apod.astronomy_picture_of_the_day()
 
-# EPIC - latest available
-epic = EPIC(image_directory=r"NASA_API/Images")
+# EPIC - most recent available
+epic = EPIC()
 epic.earth_polychromatic_imaging_camera()
 
 # MARS - Curiosity rover, April 27, 2015
-mars = MARS(image_directory=r"NASA_API/Images")
-mars.rover = "curiosity"
+mars = MARS()
+mars.rover = "Curiosity"
 mars.date = "2015-04-27"
 mars.mars()
 
 # NIL - "Crab nebula" images from 2000–2020
-nil = NIL(image_directory=r"NASA_API/Images")
+nil = NIL()
 nil.query = "Crab nebula"
-nil.year_start = 2000
-nil.year_end = 2020
+nil.search_years = [2000, 2020]
+nil.media_type = "image"
 nil.nasa_image_library_query()
 ```
