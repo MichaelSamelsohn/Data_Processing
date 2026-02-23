@@ -347,3 +347,144 @@ def test_deinterleave():
     # Steps (1)+(2) - Deinterleaving and assertion of SIGNAL symbol.
     assert (PHY(identifier="").deinterleave(bits=INTERLEAVED_SIGNAL_FIELD, phy_rate=6) ==
             ENCODED_SIGNAL_FIELD)
+
+
+def test_bcc_encode_2_3_rate():
+    """
+    Test purpose - Basic functionality of encoding using BCC at 2/3 rate.
+    Criteria - Generated coded data matches the 1/2-rate-encoded data with the 2/3 puncturing pattern applied [*].
+
+    Test steps:
+    1) Encode SIGNAL field data at 2/3 coding rate.
+    2) Assert that the result matches the expected punctured sequence.
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2821.
+    """
+
+    phy = PHY(identifier="")
+    phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
+
+    # Steps (1)+(2) - Encode at 2/3 rate and assert that it matches ENCODED_SIGNAL_FIELD with puncturing applied.
+    # Puncturing pattern [1, 1, 1, 0]: every 4th encoded bit is dropped.
+    expected = [bit for i, bit in enumerate(ENCODED_SIGNAL_FIELD) if i % 4 != 3]
+    assert phy.bcc_encode(bits=SIGNAL_FIELD, coding_rate='2/3') == expected
+
+
+def test_bcc_encode_3_4_rate():
+    """
+    Test purpose - Basic functionality of encoding using BCC at 3/4 rate.
+    Criteria - Generated coded data matches the 1/2-rate-encoded data with the 3/4 puncturing pattern applied [*].
+
+    Test steps:
+    1) Encode SIGNAL field data at 3/4 coding rate.
+    2) Assert that the result matches the expected punctured sequence.
+
+    [*] - IEEE Std 802.11-2020 OFDM PHY specification, 17.3.5.6 Convolutional encoder, p. 2821.
+    """
+
+    phy = PHY(identifier="")
+    phy._bcc_shift_register = 7 * [0]  # Initializing the shift register.
+
+    # Steps (1)+(2) - Encode at 3/4 rate and assert that it matches ENCODED_SIGNAL_FIELD with puncturing applied.
+    # Puncturing pattern [1, 1, 1, 0, 0, 1]: bits at positions 3 and 4 within each 6-bit group are dropped.
+    expected = [bit for i, bit in enumerate(ENCODED_SIGNAL_FIELD) if i % 6 not in [3, 4]]
+    assert phy.bcc_encode(bits=SIGNAL_FIELD, coding_rate='3/4') == expected
+
+
+def test_subcarrier_modulation_qpsk():
+    """
+    Test purpose - Basic functionality of QPSK sub-carrier modulation.
+    Criteria - Known input bit pairs produce the correct QPSK constellation points.
+
+    Test steps:
+    1) Modulate a known 8-bit sequence using QPSK (PHY rate 12).
+    2) Assert that each resulting symbol is bit-exact to the expected complex value.
+    """
+
+    # Input: 4 QPSK symbols worth of bits.
+    bits = [1, 0, 0, 1, 1, 1, 0, 0]
+
+    # Expected QPSK mapping: {0: -1, 1: +1}, normalised by 1/sqrt(2).
+    expected = [
+        complex(1,  -1) / np.sqrt(2),  # [1, 0].
+        complex(-1,  1) / np.sqrt(2),  # [0, 1].
+        complex(1,   1) / np.sqrt(2),  # [1, 1].
+        complex(-1, -1) / np.sqrt(2),  # [0, 0].
+    ]
+
+    # Steps (1)+(2) - Modulate the bits and assert each symbol matches the expected constellation point.
+    assert PHY(identifier="").subcarrier_modulation(bits=bits, phy_rate=12) == expected
+
+
+def test_pilot_subcarrier_insertion_negative_polarity():
+    """
+    Test purpose - Correct pilot subcarrier values for negative polarity.
+    Criteria - With polarity -1, pilot subcarriers at positions 5, 19, 32, 46 are set to [-1, -1, -1, +1].
+
+    Test steps:
+    1) Insert pilot subcarriers with polarity -1.
+    2) Assert that each pilot position holds the expected value.
+    3) Assert that all data subcarrier positions are unchanged.
+    """
+
+    pilot_positions = [5, 19, 32, 46]
+    expected_pilots = [-1, -1, -1, 1]
+
+    # Step (1) - Insert pilots with negative polarity.
+    result = PHY(identifier="").pilot_subcarrier_insertion(
+        modulated_subcarriers=MODULATED_SIGNAL_FIELD,
+        pilot_polarity=-1)
+
+    # Step (2) - Assert pilot positions hold the expected values.
+    for position, value in zip(pilot_positions, expected_pilots):
+        assert result[position] == value
+
+    # Step (3) - Assert data subcarrier positions are unchanged.
+    data_positions = [i for i in range(52) if i not in pilot_positions]
+    assert [result[i] for i in data_positions] == list(MODULATED_SIGNAL_FIELD)
+
+
+def test_interleave_deinterleave_roundtrip():
+    """
+    Test purpose - Round-trip correctness of interleaving and deinterleaving.
+    Criteria - Deinterleaving the output of interleave recovers the original bit sequence.
+
+    Test steps:
+    1) Interleave a known bit sequence at PHY rate 12 (QPSK, N_CBPS = 96).
+    2) Deinterleave the interleaved sequence.
+    3) Assert that the recovered sequence is bit-exact to the original input.
+    """
+
+    # Input: N_CBPS bits for PHY rate 12 (QPSK, N_CBPS = 96), alternating 0s and 1s.
+    phy_rate = 12
+    bits = [i % 2 for i in range(96)]
+    phy = PHY(identifier="")
+
+    # Step (1) - Interleave the input bits.
+    interleaved = phy.interleave(bits=bits, phy_rate=phy_rate)
+
+    # Steps (2)+(3) - Deinterleave and assert that the result is bit-exact to the original.
+    assert phy.deinterleave(bits=interleaved, phy_rate=phy_rate) == bits
+
+
+def test_hard_decision_demapping_qpsk():
+    """
+    Test purpose - Basic functionality of QPSK hard decision demapping.
+    Criteria - Known QPSK constellation points are correctly demapped to the original bit pairs.
+
+    Test steps:
+    1) Demap 4 known QPSK symbols.
+    2) Assert that the resulting bits are bit-exact to the expected output.
+    """
+
+    # Input: 4 QPSK symbols (inverse of the mapping in test_subcarrier_modulation_qpsk).
+    symbols = [
+        complex(1,  -1) / np.sqrt(2),  # Bits [1, 0].
+        complex(-1,  1) / np.sqrt(2),  # Bits [0, 1].
+        complex(1,   1) / np.sqrt(2),  # Bits [1, 1].
+        complex(-1, -1) / np.sqrt(2),  # Bits [0, 0].
+    ]
+    expected_bits = [1, 0, 0, 1, 1, 1, 0, 0]
+
+    # Steps (1)+(2) - Demap the symbols and assert the bits are bit-exact to the expected output.
+    assert PHY(identifier="").hard_decision_demapping(equalized_symbol=symbols, modulation='QPSK') == expected_bits
