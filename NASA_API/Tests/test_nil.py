@@ -62,61 +62,22 @@ def test_validate_year_range(year_range, result):
 
 
 # ──────────────────────────────────────────────────────────── #
-#  Property setter tests                                        #
+#  Attribute tests                                              #
 # ──────────────────────────────────────────────────────────── #
 
-@pytest.mark.parametrize("media_type", ["image", "audio"])
-def test_media_type_setter_valid(media_type):
+def test_nil_query_encoded_in_constructor():
     """
-    Test purpose - Successful assignment of a valid media type.
-    Criteria: The media_type property is set to the provided value.
+    Test purpose - Automatic URL encoding of spaces in the query at construction time.
+    Criteria: Spaces in the query string are replaced with '%20' by the constructor.
 
     Test steps:
-    1) Create a NIL instance.
-    2) Set the media type to a valid value.
-    3) Assert the media_type property equals the provided value.
+    1) Create a NIL instance with a query string containing spaces.
+    2) Assert the stored query attribute has spaces replaced with '%20'.
     """
 
-    nil = NIL()
-    nil.media_type = media_type
+    nil = NIL(query="Crab nebula")
 
-    # Step (3) - Assert media type was set.
-    assert nil.media_type == media_type
-
-
-def test_media_type_setter_invalid():
-    """
-    Test purpose - Rejection of an unsupported media type.
-    Criteria: The media_type property remains None when an invalid type is provided.
-
-    Test steps:
-    1) Create a NIL instance.
-    2) Set the media type to an unsupported value.
-    3) Assert the media_type property remains None.
-    """
-
-    nil = NIL()
-    nil.media_type = "video"  # Not in NIL_MEDIA_TYPES.
-
-    # Step (3) - Assert media type was not set.
-    assert nil.media_type is None
-
-
-def test_query_setter_encodes_spaces():
-    """
-    Test purpose - Automatic URL encoding of spaces in the search query.
-    Criteria: Spaces in the query string are replaced with '%20'.
-
-    Test steps:
-    1) Create a NIL instance.
-    2) Set the query to a string containing spaces.
-    3) Assert spaces are URL-encoded in the stored query.
-    """
-
-    nil = NIL()
-    nil.query = "Crab nebula"
-
-    # Step (3) - Assert spaces are encoded.
+    # Step (2) - Assert spaces are encoded.
     assert nil.query == "Crab%20nebula"
 
 
@@ -130,13 +91,12 @@ def test_nil_no_query_set():
     Criteria: False is returned when nasa_image_library_query() is called without a query.
 
     Test steps:
-    1) Create a NIL instance with a media type but no query.
+    1) Create a NIL instance with media type and year range but no query.
     2) Call nasa_image_library_query().
     3) Assert False is returned.
     """
 
-    nil = NIL()
-    nil.media_type = "image"
+    nil = NIL(media_type="image", search_years=[2000, 2020])
     assert nil.nasa_image_library_query() is False
 
 
@@ -146,13 +106,42 @@ def test_nil_no_media_type_set():
     Criteria: False is returned when nasa_image_library_query() is called without a media type.
 
     Test steps:
-    1) Create a NIL instance with a query but no media type.
+    1) Create a NIL instance with query and year range but no media type.
     2) Call nasa_image_library_query().
     3) Assert False is returned.
     """
 
-    nil = NIL()
-    nil.query = "Crab nebula"
+    nil = NIL(query="Crab nebula", search_years=[2000, 2020])
+    assert nil.nasa_image_library_query() is False
+
+
+def test_nil_invalid_media_type():
+    """
+    Test purpose - Correct error handling when an unsupported media type is provided.
+    Criteria: False is returned when the media type is not in the supported list.
+
+    Test steps:
+    1) Create a NIL instance with a query, an unsupported media type, and a valid year range.
+    2) Call nasa_image_library_query().
+    3) Assert False is returned.
+    """
+
+    nil = NIL(query="Crab nebula", media_type="video", search_years=[2000, 2020])
+    assert nil.nasa_image_library_query() is False
+
+
+def test_nil_no_search_years():
+    """
+    Test purpose - Correct error handling when no search year range is configured.
+    Criteria: False is returned when nasa_image_library_query() is called without a year range.
+
+    Test steps:
+    1) Create a NIL instance with query and media type but no search year range.
+    2) Call nasa_image_library_query().
+    3) Assert False is returned.
+    """
+
+    nil = NIL(query="Crab nebula", media_type="image")
     assert nil.nasa_image_library_query() is False
 
 
@@ -162,15 +151,13 @@ def test_nil_api_request_failure():
     Criteria: False is returned when get_request() returns None.
 
     Test steps:
-    1) Create a NIL instance with query and media type set.
+    1) Create a NIL instance with all required parameters.
     2) Mock get_request to return None.
     3) Call nasa_image_library_query().
     4) Assert False is returned.
     """
 
-    nil = NIL()
-    nil._query = "Crab%20nebula"
-    nil._media_type = "image"
+    nil = NIL(query="Crab nebula", media_type="image", search_years=[2000, 2020])
 
     with patch("NASA_API.Source.nil.get_request", return_value=None):
         # Steps (3)+(4) - Call and assert.
@@ -183,15 +170,13 @@ def test_nil_no_results():
     Criteria: False is returned when the items list is empty.
 
     Test steps:
-    1) Create a NIL instance with query and media type set.
+    1) Create a NIL instance with all required parameters.
     2) Mock get_request to return an empty items collection.
     3) Call nasa_image_library_query().
     4) Assert False is returned.
     """
 
-    nil = NIL()
-    nil._query = "Crab%20nebula"
-    nil._media_type = "image"
+    nil = NIL(query="Crab nebula", media_type="image", search_years=[2000, 2020])
 
     with patch("NASA_API.Source.nil.get_request", return_value=MOCK_NIL_EMPTY_RESPONSE):
         # Steps (3)+(4) - Call and assert.
@@ -204,17 +189,14 @@ def test_nil_success():
     Criteria: True is returned and download_image_url is called with the correct URL from the response.
 
     Test steps:
-    1) Create a NIL instance with query, media type, and year range set.
+    1) Create a NIL instance with all required parameters.
     2) Mock get_request to return a valid response with one result.
     3) Mock download_image_url to return a dummy path.
     4) Call nasa_image_library_query().
     5) Assert True is returned and the correct image URL was passed to the download function.
     """
 
-    nil = NIL()
-    nil._query = "Crab%20nebula"
-    nil._media_type = "image"
-    nil._search_years = [2000, 2020]
+    nil = NIL(query="Crab nebula", media_type="image", search_years=[2000, 2020])
 
     with patch("NASA_API.Source.nil.get_request", return_value=MOCK_NIL_RESPONSE), \
          patch("NASA_API.Source.nil.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -227,51 +209,20 @@ def test_nil_success():
         assert call_kwargs["image_url_list"] == [expected_url]
 
 
-def test_nil_success_without_year_range():
-    """
-    Test purpose - Successful query without a year range (search entire archive).
-    Criteria: True is returned and the request URL contains no year filter parameters.
-
-    Test steps:
-    1) Create a NIL instance with only query and media type set (no year range).
-    2) Mock get_request and download_image_url.
-    3) Call nasa_image_library_query().
-    4) Assert True is returned.
-    5) Assert the URL passed to get_request contains no year_start or year_end parameters.
-    """
-
-    nil = NIL()
-    nil._query = "Saturn"
-    nil._media_type = "image"
-    # Intentionally no search_years set.
-
-    with patch("NASA_API.Source.nil.get_request", return_value=MOCK_NIL_RESPONSE) as mock_get, \
-         patch("NASA_API.Source.nil.download_image_url", return_value=MOCK_IMAGE_PATH):
-        result = nil.nasa_image_library_query()
-
-        # Steps (4)+(5) - Assert result and URL has no year filters.
-        assert result is True
-        call_url = mock_get.call_args.kwargs["url"]
-        assert "year_start" not in call_url
-        assert "year_end" not in call_url
-
-
 def test_nil_download_failure():
     """
     Test purpose - Correct error handling when the image download fails.
     Criteria: False is returned when download_image_url returns None.
 
     Test steps:
-    1) Create a NIL instance with all required properties set.
+    1) Create a NIL instance with all required parameters.
     2) Mock get_request to return a valid response.
     3) Mock download_image_url to return None.
     4) Call nasa_image_library_query().
     5) Assert False is returned.
     """
 
-    nil = NIL()
-    nil._query = "Crab%20nebula"
-    nil._media_type = "image"
+    nil = NIL(query="Crab nebula", media_type="image", search_years=[2000, 2020])
 
     with patch("NASA_API.Source.nil.get_request", return_value=MOCK_NIL_RESPONSE), \
          patch("NASA_API.Source.nil.download_image_url", return_value=None):

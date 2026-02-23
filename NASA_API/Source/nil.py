@@ -16,13 +16,17 @@ from NASA_API.Source.api_utilities import get_request, download_image_url
 
 
 class NIL:
-    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
+    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY, media_type: str = None, query: str = None,
+                 search_years: list = None):
         log.nil("Initializing the NIL class")
 
         self.image_directory = image_directory
-        self._media_type = None
-        self._query = None
-        self._search_years = None
+        self.media_type = media_type
+        try:
+            self.query = query.replace(' ', '%20')
+        except AttributeError:
+            self.query = None
+        self.search_years = search_years
         self._nil_image = None
 
     @staticmethod
@@ -71,62 +75,6 @@ class NIL:
         return True
 
     @property
-    def search_years(self):
-        """Get the configured search year range."""
-        return self._search_years
-
-    @search_years.setter
-    def search_years(self, year_range):
-        """
-        Set the search year range after validation.
-
-        :param year_range: A tuple or list of the form [start_year, end_year].
-        """
-
-        log.nil(f"Validating year range - {year_range}")
-        if self.validate_year_range(year_range=year_range):
-            log.success("Year range validated successfully")
-            self._search_years = year_range
-        else:
-            log.error("Year range validation failed - year range was not set")
-
-    @property
-    def query(self):
-        """Get the configured search query string."""
-        return self._query
-
-    @query.setter
-    def query(self, new_query: str):
-        """
-        Set the search query string. Spaces are automatically URL-encoded.
-
-        :param new_query: The search query (e.g., 'Crab nebula').
-        """
-
-        log.nil(f"Setting search query - '{new_query}'")
-        self._query = new_query.replace(' ', '%20')
-
-    @property
-    def media_type(self):
-        """Get the configured media type filter."""
-        return self._media_type
-
-    @media_type.setter
-    def media_type(self, new_media_type: str):
-        """
-        Set the media type filter. Must be one of the supported types.
-
-        :param new_media_type: Media type ('image' or 'audio').
-        """
-
-        log.nil(f"Setting media type - '{new_media_type}'")
-        if new_media_type not in NIL_MEDIA_TYPES:
-            log.error(f"Unsupported media type '{new_media_type}' - valid options: {NIL_MEDIA_TYPES}")
-        else:
-            log.success(f"Media type set to '{new_media_type}'")
-            self._media_type = new_media_type
-
-    @property
     def nil_image(self):
         """Get the path of the most recently downloaded NIL image."""
         return self._nil_image
@@ -146,19 +94,23 @@ class NIL:
         log.nil("Querying the NASA Image and Video Library")
 
         # Step (1) - Verify required parameters are configured.
-        if self._query is None:
+        if self.query is None:
             log.error("No search query set - use the 'query' property before calling this method")
             return False
 
-        if self._media_type is None:
-            log.error("No media type set - use the 'media_type' property before calling this method")
+        if self.media_type not in NIL_MEDIA_TYPES:
+            log.error(f"Unsupported media type '{self.media_type}' - valid options: {NIL_MEDIA_TYPES}")
+            return False
+
+        if not self.validate_year_range(year_range=self.search_years):
+            log.error(f"Unsupported search years '{self.search_years}'")
             return False
 
         # Step (2) - Build the request URL (year range is optional).
-        url = f"{NIL_URL_PREFIX}q={self._query}&media_type={self._media_type}"
-        if self._search_years is not None:
-            url += f"&year_start={self._search_years[0]}&year_end={self._search_years[1]}"
-            log.nil(f"Filtering results to years {self._search_years[0]}–{self._search_years[1]}")
+        url = f"{NIL_URL_PREFIX}q={self.query}&media_type={self.media_type}"
+        if self.search_years is not None:
+            url += f"&year_start={self.search_years[0]}&year_end={self.search_years[1]}"
+            log.nil(f"Filtering results to years {self.search_years[0]}–{self.search_years[1]}")
 
         # Step (3) - Perform the API request.
         json_object = get_request(url=url)
@@ -176,7 +128,7 @@ class NIL:
         image_url = items[0]["links"][0]["href"]
 
         # Step (5) - Download and save the image.
-        readable_query = self._query.replace('%20', '_')
+        readable_query = self.query.replace('%20', '_')
         self._nil_image = download_image_url(
             image_directory=self.image_directory,
             api_type="NIL",
