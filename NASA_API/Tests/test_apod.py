@@ -77,19 +77,19 @@ def test_validate_date(input_date, result):
 #  astronomy_picture_of_the_day() unit tests                    #
 # ──────────────────────────────────────────────────────────── #
 
-def test_apod_no_date_set():
+def test_apod_invalid_date():
     """
-    Test purpose - Correct error handling when no date is configured.
-    Criteria: False is returned when astronomy_picture_of_the_day() is called without setting a date.
+    Test purpose - Correct error handling when an invalid date is provided at construction.
+    Criteria: False is returned when astronomy_picture_of_the_day() is called with an invalid date.
 
     Test steps:
-    1) Create an APOD instance without setting a date.
+    1) Create an APOD instance with an invalid date string.
     2) Call astronomy_picture_of_the_day().
     3) Assert False is returned.
     """
 
     # Steps (1)+(2)+(3) - Create, call, assert.
-    apod = APOD()
+    apod = APOD(date="INVALID_DATE")
     assert apod.astronomy_picture_of_the_day() is False
 
 
@@ -105,8 +105,7 @@ def test_apod_api_request_failure():
     4) Assert False is returned.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"  # Bypass setter to inject date directly.
+    apod = APOD(date="2025-01-01")
 
     with patch("NASA_API.Source.apod.get_request", return_value=None):
         # Steps (3)+(4) - Call and assert.
@@ -125,8 +124,7 @@ def test_apod_video_response():
     4) Assert False is returned and no download was attempted.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"
+    apod = APOD(date="2025-01-01")
 
     with patch("NASA_API.Source.apod.get_request", return_value=MOCK_VIDEO_RESPONSE), \
          patch("NASA_API.Source.apod.download_image_url") as mock_download:
@@ -150,9 +148,7 @@ def test_apod_success_standard_resolution():
     5) Assert True is returned and the standard URL was used for the download.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"
-    apod.hd = False
+    apod = APOD(date="2025-01-01", hd=False)
 
     with patch("NASA_API.Source.apod.get_request", return_value=MOCK_APOD_RESPONSE), \
          patch("NASA_API.Source.apod.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -178,9 +174,7 @@ def test_apod_success_hd():
     5) Assert True is returned and the HD URL was used for the download.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"
-    apod.hd = True
+    apod = APOD(date="2025-01-01", hd=True)
 
     with patch("NASA_API.Source.apod.get_request", return_value=MOCK_APOD_RESPONSE), \
          patch("NASA_API.Source.apod.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -205,9 +199,7 @@ def test_apod_hd_fallback_to_standard():
     5) Assert True is returned and the standard URL was used as the fallback.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"
-    apod.hd = True
+    apod = APOD(date="2025-01-01", hd=True)
 
     with patch("NASA_API.Source.apod.get_request", return_value=MOCK_APOD_NO_HDURL), \
          patch("NASA_API.Source.apod.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -232,8 +224,7 @@ def test_apod_download_failure():
     5) Assert False is returned.
     """
 
-    apod = APOD()
-    apod._date = "2025-01-01"
+    apod = APOD(date="2025-01-01")
 
     with patch("NASA_API.Source.apod.get_request", return_value=MOCK_APOD_RESPONSE), \
          patch("NASA_API.Source.apod.download_image_url", return_value=None):
@@ -290,9 +281,7 @@ def test_apod_reference():
                     f.write(chunk)
 
     # Step (3) - Download the same date's image using the APOD API class.
-    apod = APOD(image_directory=str(save_dir))
-    apod.date = today
-    apod.hd = True
+    apod = APOD(image_directory=str(save_dir), date=today, hd=True)
     assert apod.astronomy_picture_of_the_day() is True
 
     time.sleep(5)

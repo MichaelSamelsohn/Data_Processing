@@ -9,8 +9,7 @@ from NASA_API.Source.nil import NIL
 
 def main():
     log.info("APOD - Astronomy Picture Of the Day")
-    apod = APOD()
-    apod.date = "1999-04-27"
+    apod = APOD(date="1999-04-27", hd=False)
     apod.astronomy_picture_of_the_day()
     display_image(image_path=apod.apod_image)
 

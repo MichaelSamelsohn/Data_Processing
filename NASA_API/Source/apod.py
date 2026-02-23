@@ -18,12 +18,12 @@ from NASA_API.Source.api_utilities import get_request, download_image_url
 
 
 class APOD:
-    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
+    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY, date: str = None, hd: bool = False) -> None:
         log.apod("Initializing the APOD class")
 
         self.image_directory = image_directory
-        self.hd = False
-        self._date = None
+        self.date = date
+        self.hd = hd
         self._apod_image = None
 
     @staticmethod
@@ -66,26 +66,6 @@ class APOD:
         return True
 
     @property
-    def date(self):
-        """Get the configured APOD date."""
-        return self._date
-
-    @date.setter
-    def date(self, new_date: str):
-        """
-        Set the APOD date after validation.
-
-        :param new_date: Date string in 'YYYY-MM-DD' format.
-        """
-
-        log.apod(f"Validating date - {new_date}")
-        if self.validate_date(date=new_date):
-            log.success("Date validated successfully")
-            self._date = new_date
-        else:
-            log.error("Date validation failed - date was not set")
-
-    @property
     def apod_image(self):
         """Get the path of the most recently downloaded APOD image."""
         return self._apod_image
@@ -105,13 +85,13 @@ class APOD:
         log.apod("Retrieving APOD (Astronomy Picture Of the Day) image")
 
         # Step (1) - Verify a date has been configured.
-        log.apod("Checking if a date is set")
-        if self._date is None:
+        log.apod("Checking if a date is set and valid")
+        if not self.validate_date(date=self.date):
             log.error("No date set - use the 'date' property before calling this method")
             return False
 
         # Step (2) - Perform the API request.
-        json_object = get_request(url=f"{APOD_URL_PREFIX}date={self._date}&{API_KEY}")
+        json_object = get_request(url=f"{APOD_URL_PREFIX}date={self.date}&{API_KEY}")
         if json_object is None:
             log.error("API request failed - check logs for details")
             return False
@@ -123,7 +103,7 @@ class APOD:
         # Step (4) - Skip download if the APOD entry for this date is a video.
         media_type = json_object.get("media_type", "image")
         if media_type != "image":
-            log.warning(f"APOD for {self._date} is a '{media_type}', not an image - download skipped")
+            log.warning(f"APOD for {self.date} is a '{media_type}', not an image - download skipped")
             return False
 
         # Step (5) - Resolve the image URL (HD with automatic fallback to standard resolution).
@@ -143,7 +123,7 @@ class APOD:
             image_directory=self.image_directory,
             api_type="APOD",
             image_url_list=[image_url],
-            image_suffix=f"_{self._date}"
+            image_suffix=f"_{self.date}"
         )
 
         return self._apod_image is not None
