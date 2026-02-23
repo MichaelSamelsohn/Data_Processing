@@ -1,0 +1,9 @@
+# ── Runtime dependencies ──────────────────────────────────────────────────── #
+
+# Numerical arrays used by the PHY layer (modulation, encoding, OFDM framing).
+numpy==1.26.4
+
+# ── Test dependencies ─────────────────────────────────────────────────────── #
+
+# Unit and system test runner.
+pytest==8.2.1

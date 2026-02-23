@@ -1,0 +1,5 @@
+# ── Runtime dependencies ──────────────────────────────────────────────────── #
+
+# No external packages required.
+# All modules (logger.py, decorators.py, email.py) rely exclusively on the
+# Python standard library: logging, os, sys, re, datetime, time, smtplib, email.

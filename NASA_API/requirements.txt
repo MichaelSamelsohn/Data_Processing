@@ -1,0 +1,15 @@
+# ── Runtime dependencies ──────────────────────────────────────────────────── #
+
+# HTTP requests to the NASA APIs.
+requests==2.32.2
+
+# Image decoding for downloaded APOD / EPIC / MARS / NIL images.
+Pillow==10.3.0
+
+# ── Test dependencies ─────────────────────────────────────────────────────── #
+
+# Unit and integration test runner.
+pytest==8.2.1
+
+# Browser automation used by the APOD integration test.
+selenium==4.41.0

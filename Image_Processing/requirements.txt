@@ -1,0 +1,19 @@
+# ── Runtime dependencies ──────────────────────────────────────────────────── #
+
+# Core numerical arrays and linear algebra (used throughout Basic and Advanced layers).
+numpy==1.26.4
+
+# Image I/O, histogram display and plot rendering (image.py, spatial_comparison.py).
+matplotlib==3.9.0
+
+# Scientific algorithms: .mat file loading, Hausdorff distance, cKDTree (image.py,
+# spatial_comparison.py).
+scipy==1.14.1
+
+# Formatted table output in the MetaShell layer.
+tabulate==0.9.0
+
+# ── Test dependencies ─────────────────────────────────────────────────────── #
+
+# Test runner for all Image Processing test suites.
+pytest==8.2.1
