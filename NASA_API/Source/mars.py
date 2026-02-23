@@ -18,33 +18,13 @@ from NASA_API.Source.api_utilities import get_request, download_image_url
 
 
 class MARS:
-    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY):
+    def __init__(self, image_directory=DEFAULT_IMAGE_DIRECTORY, rover: str = None, date: str = None) -> None:
         log.mars("Initializing the MARS class")
 
         self.image_directory = image_directory
-        self._rover = None
-        self._date = None
+        self.rover = rover
+        self.date = date
         self._mars_image = None
-
-    @property
-    def rover(self):
-        """Get the selected Mars rover name."""
-        return self._rover
-
-    @rover.setter
-    def rover(self, new_rover: str):
-        """
-        Set the rover name. Must be one of the supported rover names.
-
-        :param new_rover: Rover name (e.g., 'Curiosity', 'Opportunity', 'Spirit').
-        """
-
-        log.mars(f"Setting rover - {new_rover}")
-        if new_rover not in MARS_ROVERS:
-            log.error(f"Unknown rover '{new_rover}' - available options: {MARS_ROVERS}")
-        else:
-            log.success(f"Rover set to '{new_rover}'")
-            self._rover = new_rover
 
     @staticmethod
     def validate_date(date: str, rover: str) -> bool:
@@ -99,33 +79,6 @@ class MARS:
         return True
 
     @property
-    def date(self):
-        """Get the configured query Earth date."""
-        return self._date
-
-    @date.setter
-    def date(self, new_date: str):
-        """
-        Set the query Earth date after validation against the selected rover's mission range.
-        A rover must be set before a date can be set.
-
-        :param new_date: Date string in 'YYYY-MM-DD' format.
-        """
-
-        # A rover must be set before a date can be validated against its mission range.
-        if self._rover is None:
-            log.error(f"No rover set - select a rover before setting a date (options: {MARS_ROVERS})")
-            return
-
-        log.mars(f"Validating date - {new_date}")
-        if self.validate_date(date=new_date, rover=self._rover):
-            log.success("Date validated successfully")
-            self._date = new_date
-        else:
-            log.error("Date validation failed - retrieving rover manifest for reference")
-            self.mars_rover_manifest()
-
-    @property
     def mars_image(self):
         """Get the path of the most recently downloaded Mars rover image."""
         return self._mars_image
@@ -146,20 +99,21 @@ class MARS:
 
         log.mars("Retrieving Mars rover image(s)")
 
-        # Step (1) - Verify a rover and a date have been configured.
-        log.mars("Checking if a rover is set")
-        if self._rover is None:
-            log.error("No rover set - use the 'rover' property before calling this method")
+        # Step (1) - Verify a rover has been configured.
+        log.mars("Checking if a rover is set and valid")
+        if self.rover not in MARS_ROVERS:
+            log.error(f"Unknown rover '{self.rover}' - available options are: {MARS_ROVERS}")
             return False
 
-        log.mars("Checking if a date is set")
-        if self._date is None:
+        # Step (1) - Verify a date has been configured.
+        log.mars("Checking if a date is set and valid")
+        if not self.validate_date(date=self.date, rover=self.rover):
             log.error("No date set - use the 'date' property before calling this method")
             return False
 
         # Step (2) - Perform the API request.
         json_object = get_request(
-            url=f"{MARS_URL_PREFIX}rovers/{self._rover}/photos?earth_date={self._date}&{API_KEY}"
+            url=f"{MARS_URL_PREFIX}rovers/{self.rover}/photos?earth_date={self.date}&{API_KEY}"
         )
         if json_object is None:
             log.error("API request failed - check logs for details")
@@ -168,10 +122,10 @@ class MARS:
         # Step (3) - Verify photos are available for the requested date.
         photos = json_object.get("photos", [])
         if not photos:
-            log.warning(f"No photos available for rover '{self._rover}' on {self._date}")
+            log.warning(f"No photos available for rover '{self.rover}' on {self.date}")
             return False
 
-        log.mars(f"Found {len(photos)} photo(s) for rover '{self._rover}' on {self._date}")
+        log.mars(f"Found {len(photos)} photo(s) for rover '{self.rover}' on {self.date}")
 
         # Step (4) - Select the subset of photos to download.
         if max_photos != -1:
@@ -185,7 +139,7 @@ class MARS:
             image_directory=self.image_directory,
             api_type="MARS",
             image_url_list=image_urls,
-            image_suffix=f"_{self._rover}_{self._date}"
+            image_suffix=f"_{self.rover}_{self.date}"
         )
 
         return self._mars_image is not None
@@ -200,14 +154,14 @@ class MARS:
         :return: Dictionary with key rover manifest fields, or None if no rover is set or the request fails.
         """
 
-        if self._rover is None:
+        if self.rover is None:
             log.error("No rover set - cannot retrieve manifest")
             return None
 
-        log.mars(f"Retrieving mission manifest for rover '{self._rover}'")
+        log.mars(f"Retrieving mission manifest for rover '{self.rover}'")
 
         # Perform the API request to retrieve the manifest.
-        response = get_request(url=f"{MARS_URL_PREFIX}manifests/{self._rover}?{API_KEY}")
+        response = get_request(url=f"{MARS_URL_PREFIX}manifests/{self.rover}?{API_KEY}")
         if response is None:
             log.error("API request failed - check logs for details")
             return None
@@ -222,7 +176,7 @@ class MARS:
         }
 
         log.mars("ROVER MANIFEST:")
-        log.mars(f"Rover - {self._rover}")
+        log.mars(f"Rover - {self.rover}")
         log.print_data(data=rover_information, log_level="mars")
 
         return rover_information

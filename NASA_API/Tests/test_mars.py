@@ -85,62 +85,24 @@ def test_validate_date(rover, input_date, result):
 
 
 # ──────────────────────────────────────────────────────────── #
-#  Rover property tests                                         #
+#  Rover attribute tests                                        #
 # ──────────────────────────────────────────────────────────── #
 
 @pytest.mark.parametrize("rover_name", ["Curiosity", "Opportunity", "Spirit"])
-def test_rover_setter_valid(rover_name):
+def test_rover_attribute_valid(rover_name):
     """
-    Test purpose - Successful rover assignment with a valid name.
-    Criteria: The rover property is set to the provided name.
+    Test purpose - Successful rover assignment via the constructor.
+    Criteria: The rover attribute holds the value provided at construction.
 
     Test steps:
-    1) Create a MARS instance.
-    2) Set the rover to a valid name.
-    3) Assert the rover property equals the provided name.
+    1) Create a MARS instance with a valid rover name.
+    2) Assert the rover attribute equals the provided name.
     """
 
-    mars = MARS()
-    mars.rover = rover_name
+    mars = MARS(rover=rover_name)
 
-    # Step (3) - Assert rover was set.
+    # Step (2) - Assert rover was stored.
     assert mars.rover == rover_name
-
-
-def test_rover_setter_invalid():
-    """
-    Test purpose - Rejection of an invalid rover name.
-    Criteria: The rover property remains None when an unsupported name is provided.
-
-    Test steps:
-    1) Create a MARS instance.
-    2) Set the rover to an invalid name.
-    3) Assert the rover property remains None.
-    """
-
-    mars = MARS()
-    mars.rover = "Perseverance"  # Valid rover, but not supported by this API wrapper.
-
-    # Step (3) - Assert rover was not set.
-    assert mars.rover is None
-
-
-def test_date_setter_without_rover():
-    """
-    Test purpose - Correct error handling when setting a date before a rover is selected.
-    Criteria: The date property remains None when set before a rover is configured.
-
-    Test steps:
-    1) Create a MARS instance (no rover set).
-    2) Attempt to set a date.
-    3) Assert the date property remains None.
-    """
-
-    mars = MARS()
-    mars.date = "2015-04-27"
-
-    # Step (3) - Assert date was not set due to missing rover.
-    assert mars.date is None
 
 
 # ──────────────────────────────────────────────────────────── #
@@ -150,10 +112,10 @@ def test_date_setter_without_rover():
 def test_mars_no_rover_set():
     """
     Test purpose - Correct error handling when mars() is called without a rover.
-    Criteria: False is returned when no rover has been configured.
+    Criteria: False is returned when rover is None (not in the supported rover list).
 
     Test steps:
-    1) Create a MARS instance without setting a rover.
+    1) Create a MARS instance without a rover.
     2) Call mars().
     3) Assert False is returned.
     """
@@ -162,19 +124,33 @@ def test_mars_no_rover_set():
     assert mars.mars() is False
 
 
-def test_mars_no_date_set():
+def test_mars_invalid_rover():
     """
-    Test purpose - Correct error handling when mars() is called without a date.
-    Criteria: False is returned when no date has been configured.
+    Test purpose - Correct error handling when mars() is called with an unsupported rover name.
+    Criteria: False is returned when the rover is not in the supported rover list.
 
     Test steps:
-    1) Create a MARS instance with a rover but no date.
+    1) Create a MARS instance with an unsupported rover name and a valid date.
     2) Call mars().
     3) Assert False is returned.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"  # Bypass setter to inject rover without triggering date validation.
+    mars = MARS(rover="Perseverance", date="2021-02-18")
+    assert mars.mars() is False
+
+
+def test_mars_invalid_date():
+    """
+    Test purpose - Correct error handling when mars() is called with an invalid date.
+    Criteria: False is returned when the date string fails validation.
+
+    Test steps:
+    1) Create a MARS instance with a valid rover and an invalid date string.
+    2) Call mars().
+    3) Assert False is returned.
+    """
+
+    mars = MARS(rover="Curiosity", date="INVALID_DATE")
     assert mars.mars() is False
 
 
@@ -184,15 +160,13 @@ def test_mars_api_request_failure():
     Criteria: False is returned when get_request() returns None.
 
     Test steps:
-    1) Create a MARS instance with rover and date set.
+    1) Create a MARS instance with a valid rover and date.
     2) Mock get_request to return None.
     3) Call mars().
     4) Assert False is returned.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
-    mars._date = "2015-04-27"
+    mars = MARS(rover="Curiosity", date="2015-04-27")
 
     with patch("NASA_API.Source.mars.get_request", return_value=None):
         # Steps (3)+(4) - Call and assert.
@@ -205,15 +179,13 @@ def test_mars_no_photos_available():
     Criteria: False is returned when the photos list is empty.
 
     Test steps:
-    1) Create a MARS instance with rover and date set.
+    1) Create a MARS instance with a valid rover and date.
     2) Mock get_request to return a response with an empty photos list.
     3) Call mars().
     4) Assert False is returned.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
-    mars._date = "2015-04-27"
+    mars = MARS(rover="Curiosity", date="2015-04-27")
 
     with patch("NASA_API.Source.mars.get_request", return_value={"photos": []}):
         # Steps (3)+(4) - Call and assert.
@@ -223,19 +195,17 @@ def test_mars_no_photos_available():
 def test_mars_success_single_photo():
     """
     Test purpose - Successful download of a single Mars rover photo (default behaviour).
-    Criteria: True is returned and download_image_url is called with one URL.
+    Criteria: True is returned and download_image_url is called with exactly one URL.
 
     Test steps:
-    1) Create a MARS instance with rover and date set.
+    1) Create a MARS instance with a valid rover and date.
     2) Mock get_request and download_image_url.
     3) Call mars() with the default max_photos=1.
     4) Assert True is returned.
     5) Assert download_image_url was called with exactly one URL.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
-    mars._date = "2015-04-27"
+    mars = MARS(rover="Curiosity", date="2015-04-27")
 
     with patch("NASA_API.Source.mars.get_request", return_value=MOCK_MARS_RESPONSE), \
          patch("NASA_API.Source.mars.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -254,7 +224,7 @@ def test_mars_success_multiple_photos():
     Criteria: True is returned and download_image_url is called with all available URLs.
 
     Test steps:
-    1) Create a MARS instance with rover and date set.
+    1) Create a MARS instance with a valid rover and date.
     2) Mock get_request to return a response with two photos.
     3) Mock download_image_url.
     4) Call mars(max_photos=-1) to download all available photos.
@@ -262,9 +232,7 @@ def test_mars_success_multiple_photos():
     6) Assert download_image_url was called with both URLs.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
-    mars._date = "2015-04-27"
+    mars = MARS(rover="Curiosity", date="2015-04-27")
 
     with patch("NASA_API.Source.mars.get_request", return_value=MOCK_MARS_RESPONSE), \
          patch("NASA_API.Source.mars.download_image_url", return_value=MOCK_IMAGE_PATH) as mock_download:
@@ -282,16 +250,14 @@ def test_mars_download_failure():
     Criteria: False is returned when download_image_url returns None.
 
     Test steps:
-    1) Create a MARS instance with rover and date set.
+    1) Create a MARS instance with a valid rover and date.
     2) Mock get_request to return a valid response.
     3) Mock download_image_url to return None.
     4) Call mars().
     5) Assert False is returned.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
-    mars._date = "2015-04-27"
+    mars = MARS(rover="Curiosity", date="2015-04-27")
 
     with patch("NASA_API.Source.mars.get_request", return_value=MOCK_MARS_RESPONSE), \
          patch("NASA_API.Source.mars.download_image_url", return_value=None):
@@ -306,10 +272,10 @@ def test_mars_download_failure():
 def test_mars_rover_manifest_no_rover():
     """
     Test purpose - Correct error handling when manifest is requested without a rover.
-    Criteria: None is returned when no rover is configured.
+    Criteria: None is returned when rover is not configured.
 
     Test steps:
-    1) Create a MARS instance without setting a rover.
+    1) Create a MARS instance without a rover.
     2) Call mars_rover_manifest().
     3) Assert None is returned.
     """
@@ -324,14 +290,13 @@ def test_mars_rover_manifest_success():
     Criteria: A dictionary with the correct manifest fields is returned.
 
     Test steps:
-    1) Create a MARS instance with a rover set.
+    1) Create a MARS instance with a valid rover.
     2) Mock get_request to return a valid manifest response.
     3) Call mars_rover_manifest().
     4) Assert the returned dictionary contains the expected keys and values.
     """
 
-    mars = MARS()
-    mars._rover = "Curiosity"
+    mars = MARS(rover="Curiosity")
 
     with patch("NASA_API.Source.mars.get_request", return_value=MOCK_MANIFEST_RESPONSE):
         manifest = mars.mars_rover_manifest()
