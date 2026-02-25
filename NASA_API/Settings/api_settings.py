@@ -37,13 +37,16 @@ match verbosity_level:
 MAX_RETRIES = 3
 RETRY_DELAY = 5      # Delay in seconds before retrying a failed download.
 REQUEST_TIMEOUT = 30  # Timeout in seconds for all HTTP requests.
+# Read the API key from the environment; fall back to a hard-coded demo key if the variable is absent.
 API_KEY = f"api_key={os.environ.get('NASA_API_KEY', 'fymalkzvEUpMBhhBIpi39IQu0zqsjMy7K2AYhiwJ')}"
+# Resolve the Images/ sibling directory relative to this settings file regardless of the working directory.
 DEFAULT_IMAGE_DIRECTORY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Images")
 API_IMAGE_DOWNLOAD_FORMATS = {
-    "APOD": "JPG",
-    "EPIC": "png",
-    "MARS": "JPG",
-    "NIL":  "JPG",
+    "APOD":  "JPG",
+    "EPIC":  "png",
+    "MARS":  "JPG",
+    "NIL":   "JPG",
+    "EARTH": "PNG",
 }
 
 # APOD (Astronomy Picture Of the Day) #
