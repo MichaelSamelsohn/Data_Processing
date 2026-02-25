@@ -5,7 +5,7 @@ from NASA_API.Source.apod import APOD
 from NASA_API.Source.epic import EPIC
 from NASA_API.Source.mars import MARS
 from NASA_API.Source.nil import NIL
-
+from NASA_API.Source.neo import NEO
 
 def main():
     log.info("APOD - Astronomy Picture Of the Day")
@@ -26,6 +26,11 @@ def main():
     nil = NIL(query="Crab nebula", search_years=[2000, 2020], media_type="image")
     nil.nasa_image_library_query()
     display_image(image_path=nil.nil_image)
+
+    log.info("NEO - Near Earth Objects")
+    neo = NEO(start_date="2024-01-01", end_date="2024-01-07")
+    neo.near_earth_objects()
+    neo.display_feed()
 
 
 if __name__ == "__main__":
