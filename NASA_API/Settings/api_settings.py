@@ -20,6 +20,7 @@ log.add_custom_log_level("apod", 11, "\x1b[38;5;208m")      # Orange.
 log.add_custom_log_level("epic", 12, "\x1b[38;5;5m")        # Magenta.
 log.add_custom_log_level("mars", 13, "\x1b[38;5;160m")      # Red (Mars is red).
 log.add_custom_log_level("nil", 14, "\x1b[38;5;33m")        # Blue.
+log.add_custom_log_level("neo", 15, "\x1b[38;5;51m")       # Cyan (near-Earth objects).
 
 # Handling verbosity levels.
 match verbosity_level:
@@ -71,3 +72,7 @@ MARS_ROVER_DATE_RANGES = {
 NIL_URL_PREFIX = "https://images-api.nasa.gov/search?"
 NIL_MEDIA_TYPES = ["image", "audio"]
 NIL_FIRST_YEAR = 1960  # Earliest valid year for NIL queries.
+
+# NEO (Near Earth Objects) #
+NEO_URL_PREFIX = "https://api.nasa.gov/neo/rest/v1/"
+NEO_MAX_DATE_RANGE = 7  # Maximum allowed date window in days per feed request.
