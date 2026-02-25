@@ -35,6 +35,7 @@ def convert_to_grayscale(image: ndarray) -> ndarray:
         log.debug("Extracting the red, green and blue images")
         red, green, blue = image[:, :, 0], image[:, :, 1], image[:, :, 2]
         log.debug("Performing the conversion")
+        # NTSC luminance weights: green contributes most because the human eye is most sensitive to it.
         grayscale_image = 0.2989 * red + 0.5870 * green + 0.1140 * blue
         return grayscale_image
     else:
@@ -59,11 +60,12 @@ def use_lookup_table(image, lookup_table: ndarray | list) -> ndarray:
     log.info("Applying lookup table to the image")
 
     new_image = copy.deepcopy(image)  # Deep copy, so the original is not altered.
-    new_image[:, :] = lookup_table[image[:, :]]
+    new_image[:, :] = lookup_table[image[:, :]]  # NumPy fancy indexing: use pixel values as indices into the LUT.
     return new_image
 
 
 def scale_pixel_values(scale_factor=DEFAULT_SCALING_FACTOR):
+    # Decorator factory: scales the image to [0, 255] before the wrapped function and back to [0, 1] after.
     def wrapper(func):
         def inner(*args, **kwargs):
             kwargs["image"] = scale_image(image=kwargs["image"], scale_factor=scale_factor)
@@ -195,8 +197,9 @@ def generate_filter(filter_type=DEFAULT_FILTER_TYPE, filter_size=DEFAULT_FILTER_
             for row in range(filter_size):
                 for col in range(filter_size):
                     r_squared = math.pow(row - center_position, 2) + math.pow(col - center_position, 2)
+                    # Unnormalised Gaussian G(x,y) = exp(-(x²+y²)/(2σ²)); normalisation below ensures the kernel sums 1.
                     kernel_matrix[row][col] = math.exp(-r_squared / (2 * math.pow(sigma, 2)))
-            kernel_matrix /= np.sum(kernel_matrix)  # Normalize.
+            kernel_matrix /= np.sum(kernel_matrix)  # Normalize so convolution preserves average brightness.
 
     return kernel_matrix
 
@@ -358,6 +361,7 @@ def contrast_stretching(image: ndarray) -> ndarray:
     log.debug(f"Minimum value is - {min_value}")
 
     log.debug("Calculating the slope")
+    # Slope m maps [min, max] → [0, 1] via the linear transform: out = m * (pixel - min).
     m = 1 / (max_value - min_value)
     log.debug(f"Slope is - {m}")
 
@@ -419,7 +423,7 @@ def connected_component_4(image: ndarray, row, col) -> ndarray:
     if not image[row][col-1] and not image[row][col+1] and not image[row-1][col] and not image[row+1][col]:
         return connected_image
 
-    # Remove the current pixel from the recursion, to avoid an infinite loop.
+    # Zeroing the visited pixel prevents revisiting it via a different path (avoids infinite recursion).
     copy_image = copy.deepcopy(image)
     copy_image[row][col] = 0
 
@@ -477,7 +481,7 @@ def connected_component_8(image: ndarray, row, col) -> ndarray:
        and not image[row-1][col-1] and not image[row+1][col-1] and not image[row-1][col+1] and not image[row+1][col+1]:
         return connected_image
 
-    # Remove the current pixel from the recursion, to avoid an infinite loop.
+    # Zeroing the visited pixel prevents revisiting it via a different diagonal or cardinal path.
     copy_image = copy.deepcopy(image)
     copy_image[row][col] = 0
 

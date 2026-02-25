@@ -15,6 +15,7 @@ def measure_runtime(func):
 
 
 def log_suppression(level):
+    # Temporarily raise the logger's minimum level to `level` so the decorated function's internal logs are hidden.
     def wrapper(func):
         def inner(*args, **kwargs):
             # Remembering the current log level.

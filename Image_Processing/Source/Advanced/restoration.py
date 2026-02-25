@@ -74,6 +74,8 @@ def mean_filter(image: ndarray, filter_type: str, padding_type: str, filter_size
                     A geometric mean filter achieves smoothing comparable to an arithmetic mean (box kernel) filter, but 
                     it tends to lose less image detail in the process.
                     """
+                    # Geometric mean = (product of all n values)^(1/n); equivalent to the exponential of the arithmetic
+                    # mean of logs.
                     power = 1 / np.power(filter_size, 2)
                     mean_filter_image[row - filter_size // 2][col - filter_size // 2] = \
                         np.power(np.prod(sub_image), power)
@@ -107,6 +109,8 @@ def mean_filter(image: ndarray, filter_type: str, padding_type: str, filter_size
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
                         # Same explanation as in the harmonic mean filter.
+                        # Contra-harmonic formula: sum(z^(Q+1)) / sum(z^Q); positive Q boosts bright values (removes
+                        # pepper).
                         nominator = np.sum(np.power(sub_image, kwargs["q"]+1))
                         denominator = np.sum(np.power(sub_image, kwargs["q"]))
                         mean_filter_image[row - filter_size // 2][col - filter_size // 2] = nominator / denominator
@@ -161,6 +165,7 @@ def order_statistic_filter(image: ndarray, filter_type: str, padding_type: str, 
             # Extract the sub-image.
             sub_image = extract_sub_image(image=padded_image, position=(row, col), sub_image_size=filter_size)
             # Flattening and sorting the sub-image.
+            # Flatten to 1D and sort ascending so rank-based selections (median, max, min) are simple index lookups.
             sorted_flat_sub_image = np.sort(np.ndarray.flatten(sub_image))
 
             # Finding the order statistic value of the sub-image and assigning it.
@@ -175,6 +180,7 @@ def order_statistic_filter(image: ndarray, filter_type: str, padding_type: str, 
                     similar size. Median filters are particularly effective in the presence of both bipolar and unipolar 
                     impulse noise.
                     """
+                    # Integer floor division gives the center index of the sorted neighborhood.
                     median_image[row - filter_size // 2][col - filter_size // 2] = \
                         sorted_flat_sub_image[filter_size**2 // 2]
                 case "max":

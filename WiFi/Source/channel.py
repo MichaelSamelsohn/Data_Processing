@@ -121,7 +121,7 @@ class Channel:
                 primitive = message['PRIMITIVE']
 
                 data = [complex(r, i) for r, i in message['DATA']]
-                time.sleep(1)
+                time.sleep(1)  # Simulated propagation delay so the receiver is ready before the signal arrives.
                 log.channel(f"Received from {addr}: {primitive} "
                             f"({'no data' if not data else f'data length {len(data)}'})")
 
@@ -189,12 +189,14 @@ class Channel:
 
         log.channel("Calculating noise power based on signal power and SNR")
         convolved_signal_power = np.mean(abs(convolved_signal ** 2))
+        # Convert SNR from dB: noise power = signal power / 10^(SNR_dB/10).
         sigma2 = convolved_signal_power * 10 ** (-self._snr_db / 10)
 
         log.channel(f"RF signal power - {convolved_signal_power} ")
         log.channel(f"Noise power: {sigma2}")
 
         log.channel("Generating complex noise with given variance")
+        # Split sigma2 equally between I and Q noise components (factor of 1/2 per dimension) for complex AWGN.
         noise = (np.sqrt(sigma2 / 2) *
                  (np.random.randn(*convolved_signal.shape) +
                   1j * np.random.randn(*convolved_signal.shape)))

@@ -88,7 +88,8 @@ def add_rayleigh_noise(image: ndarray, a: float, b: float) -> ndarray:
     probability_distribution < 0.  
     """
     probability_distribution[probability_distribution < 0] = 0
-    probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
+    # Normalize so the discrete probabilities sum to 1 (required by np.random.choice).
+    probability_distribution /= probability_distribution.sum()
 
     # Generating noisy image.
     return generate_noise(image=image, pixel_intensity_values=pixel_intensity_values,
@@ -125,7 +126,7 @@ def add_erlang_noise(image: ndarray, a: int, b: int) -> ndarray:
     log.debug("Calculating the probability distribution")
     exponent_factor = -a * pixel_intensity_values
     nominator_factor = np.power(a, b) * np.power(pixel_intensity_values, b - 1)
-    denominator_factor = math.factorial(b - 1)
+    denominator_factor = math.factorial(b - 1)  # (b-1)! normalizes the Gamma PDF so it integrates to 1.
     probability_distribution = (nominator_factor * np.exp(exponent_factor)) / denominator_factor
     probability_distribution /= probability_distribution.sum()  # Normalizing the distribution vector.
 
@@ -197,6 +198,7 @@ def add_uniform_noise(image: ndarray, a: float, b: float) -> ndarray:
     pixel_intensity_values = np.linspace(-1, 1, 513)
 
     log.debug("Calculating the probability distribution")
+    # Start with a flat distribution, then zero out values outside [a, b] to enforce the uniform bounds.
     probability_distribution = np.ones(513)
     probability_distribution[pixel_intensity_values < a] = 0  # Nullifying left out-of-range values.
     probability_distribution[pixel_intensity_values > b] = 0  # Nullifying right out-of-range values.

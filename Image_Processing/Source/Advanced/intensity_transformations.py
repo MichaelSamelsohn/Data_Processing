@@ -91,6 +91,7 @@ def bit_plane_reconstruction(image: ndarray, degree_of_reduction: int) -> ndarra
     log.debug("Preparing the lookup table for the transformation")
     lookup_table = np.zeros(256)  # Initializing zeros array.
     for value in range(256):
+        # Integer division by the reduction factor then multiply back clears the lowest `degree_of_reduction` bits.
         lookup_table.put(value, value // reduction_factor * reduction_factor)
 
     # Applying the lookup table.
@@ -123,12 +124,13 @@ def bit_plane_slicing(image: ndarray, bit_plane: int) -> ndarray:
 
     # If provided bit-plane is not in acceptable range, [0, 7], it will be assigned to the closest acceptable value.
     bit_plane = 0 if bit_plane < 0 else 7 if bit_plane > 7 else bit_plane
-    mask = 1 << bit_plane  # Mask to filter the bits not belonging to selected bit plane.
+    mask = 1 << bit_plane  # Shift 1 to the selected bit position to isolate exactly that bit plane.
     log.debug(f"Using the following mask - {mask}")
 
     log.debug("Preparing the lookup table for the transformation")
     lookup_table = np.zeros(256)  # Initializing zeros array.
     for value in range(256):
+        # AND isolates the bit, right-shift normalises it to 0/1, then scale to full white (255) or black (0).
         lookup_table.put(value, ((value & mask) >> bit_plane) * 255)
 
     # Applying the lookup table.

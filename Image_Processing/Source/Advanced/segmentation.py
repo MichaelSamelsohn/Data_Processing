@@ -147,7 +147,7 @@ def harris_corner_detector(image: ndarray, padding_type: str, sigma: float, k: f
 
     log.debug("Calculating Harris response")
     r = np.zeros((image.shape[0], image.shape[1]))
-    corner_image = copy.deepcopy(image)
+    corner_image = copy.deepcopy(image)  # Start with the original image so corner marks overlay on it.
     for row in range(1, image.shape[0] - 1):
         for col in range(1, image.shape[1] - 1):
             # Building the structuring tensor.
@@ -155,10 +155,11 @@ def harris_corner_detector(image: ndarray, padding_type: str, sigma: float, k: f
                           [sxy[row][col], syy[row][col]]])
 
             # Calculating the Harris response.
+            # Harris response R = det(M) - k*tr(M)^2; positive R → corner, negative → edge, near-zero → flat.
             r[row][col] = np.linalg.det(m) - k * np.power(np.trace(m), 2)
 
     log.debug("Performing non-maximum suppression")
-    # Preparing a filter image for quick identification of non corners or suspected corners below the threshold.
+    # 1% of the global max is a common empirical floor that removes weak spurious responses before local-max search.
     threshold_image = r > 0.01 * r.max()
     offset = radius // 2
     # Padding the R matrix to account for the selected radius.
@@ -298,6 +299,7 @@ def kirsch_edge_detection(image: ndarray, padding_type: str, normalization_metho
     log.debug("Amassing a maximum values image (for later comparison with every direction)")
     max_value_image = np.zeros(shape=image.shape)
     for post_convolution_image in post_convolution_images:
+        # Multiply by the boolean mask to keep only values that beat the current maximum; then element-wise max update.
         boolean_image = (post_convolution_images[post_convolution_image] > max_value_image) \
                         * post_convolution_images[post_convolution_image]
         max_value_image = np.maximum(boolean_image, max_value_image)
@@ -306,6 +308,7 @@ def kirsch_edge_detection(image: ndarray, padding_type: str, normalization_metho
     filtered_images_dictionary = {}
     for direction in kirsch_edge_detection_kernels:
         log.debug(f"Current direction is - {direction}")
+        # Retain a pixel's value only if this direction produced the strongest response; zeros elsewhere.
         filtered_images_dictionary[direction] = ((post_convolution_images[direction] == max_value_image) *
                                                  post_convolution_images[direction])
 
@@ -522,6 +525,7 @@ def non_maxima_suppression(magnitude_image: ndarray, direction_image: ndarray):
     """
 
     log.debug("Converting the direction image to angles (for simplicity)")
+    # Convert radians to degrees so the angle ranges are human-readable sector boundaries.
     angle_image = direction_image * 180.0 / np.pi  # max -> 180°, min -> -180°.
     """
     Since the directions have opposite symmetry, it is easier to normalize the angle values to fit in the interval of 
@@ -588,7 +592,7 @@ def hysteresis_thresholding(suppression_image: ndarray, high_threshold: float, l
     high_suppression_image = thresholding(image=suppression_image, threshold_value=high_threshold)
     log.debug("High threshold - \"Weak\" edge pixels")
     low_suppression_image = thresholding(image=suppression_image, threshold_value=low_threshold)
-    low_suppression_image -= high_suppression_image
+    low_suppression_image -= high_suppression_image  # Remove "strong" pixels so the two sets are disjoint.
 
     log.debug("Connectivity analysis (to detect and link edges)")
     hysteresis_image = copy.deepcopy(high_suppression_image)
@@ -736,11 +740,13 @@ def otsu_global_thresholding(image: ndarray) -> ndarray:
     log.debug(f"Intensity levels in the provided image (deducted from the histogram) - {intensity_levels}")
 
     log.debug("Computing the cumulative sums")
+    # P1(k): cumulative probability that a pixel belongs to class C1 (background), for each candidate threshold k.
     cumulative_sum = np.zeros(intensity_levels)
     for k in range(intensity_levels):
         cumulative_sum[k] = np.sum([histogram[i] for i in range(k)])
 
     log.debug("Computing the cumulative means (average intensity)")
+    # m(k): cumulative mean intensity of class C1 up to level k; used to compute between-class variance.
     cumulative_mean = np.zeros(intensity_levels)
     for k in range(intensity_levels):
         cumulative_mean[k] = np.sum([histogram[i] * i for i in range(k)])
@@ -751,6 +757,8 @@ def otsu_global_thresholding(image: ndarray) -> ndarray:
     log.debug("Computing the between-class variance term")
     between_class_variance = np.zeros(intensity_levels)
     for k in range(intensity_levels):
+        # Otsu's between-class variance: σ²_B(k) = (μ_G·P1 − m)² / (P1·(1−P1)); maximizing this maximizes class
+        # separation.
         between_class_variance[k] = ((np.power(global_mean * cumulative_sum[k] - cumulative_mean[k], 2))
                                      / (cumulative_sum[k] * (1 - cumulative_sum[k])))
     """
@@ -778,5 +786,6 @@ def otsu_global_thresholding(image: ndarray) -> ndarray:
     easier to continue working that way. However, since the image pixel values are in range of [0, 1], we need to 
     normalize the threshold we got.
     """
+    # Convert the integer histogram index to the [0, 1] pixel value range used by the image.
     otsu_threshold /= intensity_levels
     return thresholding(image=image, threshold_value=otsu_threshold)

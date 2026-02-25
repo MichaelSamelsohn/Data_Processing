@@ -69,6 +69,7 @@ class MaskedFilter(logging.Filter):
 
         for pattern, mask in self.masked_patterns:
             if re.search(pattern, record.getMessage()):
+                # Mutate record.msg directly (not record.getMessage()) so the substitution persists in the log output.
                 record.msg = re.sub(pattern, mask, record.msg)
         return True
 
@@ -316,7 +317,7 @@ class Logger(logging.Logger):
                 level_name_only=self._level_name_only
             )
 
-            # Reapply custom log level colors
+            # Handler resets clear the formatter; reapply any custom level colors that were registered after __init__.
             if hasattr(self, "_custom_colors"):
                 for level_num, color in self._custom_colors.items():
                     color_formatter._COLORS[level_num] = color
@@ -356,6 +357,7 @@ class Logger(logging.Logger):
 
         # Define log method with correct stacklevel
         def log_for_level(self, message, *args, **kwargs):
+            # stacklevel=2 ensures the caller's file/line appear in the log record, not this wrapper's line.
             self._log(level_num, message, args, stacklevel=2, **kwargs)
 
         setattr(self.__class__, level_name.lower(), log_for_level)
@@ -433,10 +435,12 @@ class ColorFormatter(logging.Formatter):
         """
 
         if self._level_name_only:
+            # Wrap only the level-name token with ANSI codes; the rest of the line stays unstyled.
             log_color = self._COLORS.get(record.levelno)
             record.levelname = f"{log_color}{record.levelname}{self._RESET_COLOR}"
             return super().format(record)
         else:
+            # Prepend the color to the entire format string so every character in the line gets the color.
             log_color = self._COLORS.get(record.levelno)
             log_fmt = log_color + self._format_string + self._RESET_COLOR
             formatter = logging.Formatter(log_fmt, self._format_time)

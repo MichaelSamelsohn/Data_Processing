@@ -143,6 +143,7 @@ def morphological_convolution(image: ndarray, structuring_element: ndarray, oper
     """
 
     log.debug("Processing the structuring element")
+    # Dilation is defined via a reflected SE; erosion uses the SE as-is (per set-theoretic morphology).
     processed_structuring_element = reflect_structuring_element(structuring_element=structuring_element) \
         if operation_type == "dilation" else structuring_element
     structuring_element_size = processed_structuring_element.shape[0]
@@ -159,6 +160,7 @@ def morphological_convolution(image: ndarray, structuring_element: ndarray, oper
                                           sub_image_size=structuring_element_size)
 
             # Perform the morphological operation.
+            # Dispatch to local_erosion or local_dilation dynamically using the operation name string.
             post_morphology_image[row - structuring_element_size // 2, col - structuring_element_size // 2] = (
                 globals()[f"local_{operation_type}"](sub_image=sub_image,
                                                      structuring_element=processed_structuring_element))
@@ -186,6 +188,7 @@ def reflect_structuring_element(structuring_element: ndarray) -> ndarray:
     reflected_structuring_element = np.zeros(shape=structuring_element.shape)
     for row in range(se_size):
         for col in range(se_size):
+            # 180° rotation: map (r, c) → (max_r - r, max_c - c) to reflect about the SE origin.
             reflected_structuring_element[row][col] = structuring_element[(se_size - 1) - row][(se_size - 1) - col]
 
     return reflected_structuring_element

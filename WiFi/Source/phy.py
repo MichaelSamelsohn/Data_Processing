@@ -228,7 +228,8 @@ class PHY:
                 self._preamble = self.generate_preamble()
                 log.phy(f"({self._identifier}) Generating SIGNAL symbol")
                 self._signal = self.generate_signal_symbol()
-                self._bcc_shift_register = 7 * [0]  # Resetting the shift register for the DATA bits.
+                # Resetting the shift register for the DATA bits (6 generator taps + input).
+                self._bcc_shift_register = 7 * [0]
 
                 # Confirm TXSTART.
                 self.send(socket_connection=self._mpif_socket, primitive="PHY-TXSTART.confirm", data=[])
@@ -250,6 +251,7 @@ class PHY:
                                                                         is_last_symbol=True))  # Last DATA symbol.
 
                     # Overlapping adjacent DATA symbols.
+                    # Each OFDM symbol's windowed first sample overlaps with the last sample of the previous symbol.
                     ofdm_data = [0]
                     for i in range(self._n_symbols):
                         ofdm_data[-1] += self._data_symbols[i][0]  # Overlap.
@@ -267,13 +269,14 @@ class PHY:
                 self.send(socket_connection=self._mpif_socket, primitive="PHY-TXEND.confirm", data=[])
 
                 # Send PPDU to channel.
+                # Complex values are not JSON-serializable; split into [real, imag] pairs for transport.
                 self.send(socket_connection=self._channel_socket, primitive="RF-SIGNAL",
                           data=[[c.real, c.imag] for c in self._ppdu])
 
             # Receiver.
             case "RF-SIGNAL":
                 if self._ppdu:
-                    # This is the message we just sent.
+                    # The channel broadcasts to all clients including the sender; discard our own echo.
                     self._ppdu = []  # Clearing the PPDU.
                 else:  # New message.
                     log.phy(f"({self._identifier}) Starting reception chain")
@@ -288,10 +291,13 @@ class PHY:
                         self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(BUSY)", data=[])
 
                         log.phy(f"({self._identifier}) Performing channel estimation using LTF")
+                        # Bytes 160-320 relative to the STF start are the two 64-sample LTF symbols plus the 32-sample
+                        # GI2.
                         self._channel_estimate = self.channel_estimation(
                             time_domain_ltf=self._rf_frame_rx[index + 160: index + 320])
 
                         log.phy(f"({self._identifier}) Extracting RATE and LENGTH from SIGNAL")
+                        # Bytes 320-400 are the single 80-sample SIGNAL OFDM symbol (16 GI + 64 data).
                         phy_rate, length = self.decode_signal(self._rf_frame_rx[index + 320: index + 400])
                         if phy_rate is None and length is None:
                             # Either invalid rate or parity check failed.
@@ -312,7 +318,9 @@ class PHY:
                                 for _ in range(self._length):
                                     self.send(socket_connection=self._mpif_socket, primitive="PHY-DATA.indication",
                                               data=self._psdu[:8])
-                                    time.sleep(0.01)  # Buffer time to allow the MAC to append the sent data octet.
+                                    # Small delay so the MAC listener thread can process each octet before the next
+                                    # arrives.
+                                    time.sleep(0.01)
                                     self._psdu = self._psdu[8:]  # Remove sent octet.
 
                                 # Ending the reception.
@@ -333,7 +341,7 @@ class PHY:
         self._n_cbps = mcs_parameters["N_CBPS"]
         self._n_dbps = mcs_parameters["N_DBPS"]
         self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
-        # Number of full symbols (that can hold the SERVICE, data and TAIL).
+        # 16 = SERVICE bits, 8*length = PSDU bits, 6 = TAIL bits; ceiling ensures all bits fit in whole symbols.
         self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
         self._n_data = self._n_symbols * self._n_dbps
         self._pad_bits = self._n_data - (16 + 8 * self._length + 6)
@@ -350,7 +358,7 @@ class PHY:
 
         self._set_general_parameters(vector='TX')
 
-        self._data_buffer = 16 * [0]  # Initialized with SERVICE field only.
+        self._data_buffer = 16 * [0]  # SERVICE field is 16 zero bits prepended before PSDU bits arrive.
         self._data_symbols = []
         # TODO: Add if clause that checks the TX vector for the value of the scrambling seed.
         self._lfsr_sequence = self.generate_lfsr_sequence(sequence_length=self._n_data,
@@ -358,7 +366,7 @@ class PHY:
         self._bcc_shift_register = 7 * [0]  # Initializing the shift register.
         self._length_counter = self._tx_vector[1]
         self._pilot_polarity_sequence = self.generate_lfsr_sequence(sequence_length=127, seed=127)
-        self._pilot_polarity_index = 1  # >=1 is For DATA only (index zero is for the SIGNAL field).
+        self._pilot_polarity_index = 1  # Index 0 was consumed by the SIGNAL symbol; DATA symbols start at index 1.
 
     def generate_ppdu(self) -> list[complex]:
         """
@@ -504,10 +512,12 @@ class PHY:
         log.debug(f"({self._identifier}) Rate bits 0-3, {signal_field[:4]}")
 
         # Setting the length bits, 5-16.
+        # LENGTH is transmitted LSB-first, so the 12-bit binary string is reversed before storing.
         signal_field[5:17] = [int(bit) for bit in format(self._length, '012b')][::-1]
         log.debug(f"({self._identifier}) Length bits 5-16, {signal_field[5:17]}")
 
         # Setting the parity bit 17.
+        # Even parity: set bit 17 to 1 only if the sum of bits 0-16 is odd, to make the total even.
         signal_field[17] = 0 if np.sum(signal_field[:17]) % 2 == 0 else 1
         log.debug(f"({self._identifier}) Parity bit 17, [{signal_field[17]}]")
 
@@ -534,6 +544,7 @@ class PHY:
         self._lfsr_sequence = self._lfsr_sequence[len(symbol_data):]  # Remove used LFSR bits.
         if is_last_symbol:
             # Nullifying the TAIL bits.
+            # TAIL bits must be zero after scrambling so the convolutional encoder can flush to the all-zero state.
             scrambled_data[-self._pad_bits - 6: -self._pad_bits] = 6 * [0]
 
         # Encoding.
@@ -602,11 +613,12 @@ class PHY:
         :return: LFSR sequence.
         """
 
+        # Unpack the 7-bit integer seed into individual register bits (bit 0 first).
         lfsr_state = [(seed >> i) & 1 for i in range(7)]  # 7-bit initial state.
         lfsr_sequence = []
 
         for _ in range(sequence_length):
-            # Calculate the feedback bit.
+            # Tap positions x^7 and x^4 per IEEE 802.11-2020 Table 17-7 scrambler polynomial.
             feedback = lfsr_state[6] ^ lfsr_state[3]  # x^7 XOR x^4.
             # append feedback bit.
             lfsr_sequence.append(feedback)
@@ -640,6 +652,7 @@ class PHY:
             self._bcc_shift_register[0] = bit
 
             # Extracting the outputs of the encoder using the standard generator polynomials.
+            # Each generator polynomial selects which register taps to XOR; mod 2 gives the parity bit.
             for g in [G1, G2]:
                 encoded_bit = np.sum(self._bcc_shift_register * g) % 2  # Calculating the XOR outcome.
                 encoded.append(encoded_bit)
@@ -662,7 +675,8 @@ class PHY:
             # Calculating the number of repeats based on the rate between the puncturing array size and number of
             # encoded bits.
             repeat = int(np.ceil(len(encoded) / len(puncturing_pattern)))
-            # Generating the puncturing mask.
+            # Generating the puncturing mask - Tile the short pattern to cover all encoded bits, then trim to exact
+            # length.
             mask = np.tile(puncturing_pattern, repeat)[:len(encoded)]
             # Puncturing the encoded bits.
             return encoded[mask == 1].tolist()
@@ -696,6 +710,7 @@ class PHY:
         n_cbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_CBPS"]
 
         # Calculate s and prepare the pre-interleave index list, k.
+        # s ensures adjacent coded bits are spread across different constellation bit positions.
         s = max(n_bpsc // 2, 1)
         k = np.arange(n_cbps)
 
@@ -709,6 +724,7 @@ class PHY:
 
         log.debug(f"({self._identifier}) Interleaving the data bits according to the indexes of second permutation "
                   f"result")
+        # For each output position k, find which interleaved index j maps to it and fetch the corresponding input bit.
         return [bits[np.where(j == index)[0][0]] for index in k]
 
     def subcarrier_modulation(self, bits: list[int], phy_rate: int) -> list[complex]:
@@ -750,6 +766,7 @@ class PHY:
         match modulation:
             case 'BPSK':
                 log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {1}")
+                # Maps {0→-1, 1→+1} with a trivial imaginary part to produce complex BPSK symbols.
                 symbols = [2 * bit - 1 + 0j for bit in bits]
 
             case 'QPSK':
@@ -763,6 +780,7 @@ class PHY:
                                        / np.sqrt(2))
 
             case '16-QAM':
+                # Gray-coded mapping: 2-bit index (MSB,LSB) → amplitude level, per IEEE 802.11 Table 17-9.
                 qam16_modulation_mapping = {0: -3, 1: -1, 2: 3, 3: 1}
 
                 log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {round(np.sqrt(10), 3)}")
@@ -773,6 +791,7 @@ class PHY:
                                        / np.sqrt(10))
 
             case '64-QAM':
+                # Gray-coded mapping: 3-bit index (MSB..LSB) → amplitude level, per IEEE 802.11 Table 17-10.
                 qam64_modulation_mapping = {0: -7, 1: -5, 2: -1, 3: -3, 4: 7, 5: 5, 6: 1, 7: 3}
 
                 log.debug(f"({self._identifier}) Modulating the bits, normalization factor - {round(np.sqrt(42), 3)}")
@@ -810,6 +829,7 @@ class PHY:
         # Generate the pilot sub-carriers (depending on polarity).
         pilot_subcarriers = (np.array([1, 1, 1, -1]) * pilot_polarity).tolist()
 
+        # Indices 5, 19, 32, 46 correspond to subcarriers -21, -7, +7, +21 in the reordered 52-subcarrier layout.
         for i in range(52):
             if i in [5, 19, 32, 46]:
                 # Pilot sub-carrier.
@@ -886,6 +906,8 @@ class PHY:
         """
 
         log.debug(f"({self._identifier}) Re-ordering the symbol")
+        # Map positive subcarriers (+1..+26) to IFFT bins 1-26 and negative (-26..-1) to bins 38-63; DC and guard bins
+        # stay zero.
         reordered_ofdm_symbol = 64 * [0]
         reordered_ofdm_symbol[1:27] = ofdm_symbol[26:]
         reordered_ofdm_symbol[38:] = ofdm_symbol[:26]
@@ -898,15 +920,21 @@ class PHY:
         match field_type:
             case 'STF':
                 log.debug(f"({self._identifier}) STF symbols - Cyclic extension")
+                # Three repetitions of 64 samples minus guard = 161 samples for 10 short symbols (~8 µs at 20 MHz).
                 time_signal = time_signal + time_signal + time_signal[:33]
             case 'LTF':
                 log.debug(f"({self._identifier}) LTF symbols - Adding double guard interval")
+                # GI2 (32) + T1 (64) + T2 (64) + overlap sample (1) = 161 samples; double-length GI improves timing
+                # sync.
                 time_signal = time_signal[-32:] + time_signal + time_signal + [time_signal[0]]
             case 'SIGNAL' | 'DATA':
                 log.debug(f"({self._identifier}) {field_type} symbol - Adding guard interval")
+                # GI (16) + symbol (64) + overlap sample (1) = 81 samples per 4 µs OFDM symbol.
                 time_signal = time_signal[-16:] + time_signal + [time_signal[0]]
 
         log.debug(f"({self._identifier}) Applying window function")
+        # The Hanning-like window tapers the first and last (overlap) samples to 0.5 to reduce spectral leakage at
+        # symbol boundaries.
         time_signal[0] *= 0.5
         time_signal[-1] *= 0.5
 
@@ -952,6 +980,7 @@ class PHY:
         log.debug(f"({self._identifier}) Highest correlation value - "
                   f"{correlation_magnitude[highest_correlation_index]:.3f} (at index {highest_correlation_index})")
 
+        # Threshold of 1.5 is empirical; tuned for noise-free simulation — must be adjusted for real channels.
         if correlation_magnitude[highest_correlation_index] >= 1.5:
             log.debug(f"({self._identifier}) Identified STF")
             return highest_correlation_index
@@ -976,6 +1005,7 @@ class PHY:
 
         log.debug(f"({self._identifier}) Using second LTF for FFT (to convert to frequency domain)")
         pilots = self.convert_to_frequency_domain(time_domain_symbol=time_domain_ltf)
+        # Divide received LTF by the known ideal LTF to isolate the channel's effect per subcarrier.
         normalized_pilots = [a / b for a, b in zip(pilots, FREQUENCY_DOMAIN_LTF)]
 
         log.debug(f"({self._identifier}) Separating magnitude and phase")
@@ -986,7 +1016,7 @@ class PHY:
         channel_estimate = pilot_magnitudes * np.exp(1j * pilot_phases)
 
         log.debug(f"({self._identifier}) 'Smoothing' the channel estimate to avoid division by zero (or near-zero)")
-        epsilon = 1e-10
+        epsilon = 1e-10  # Floor replaces near-zero estimates to prevent division-by-zero during equalization.
         safe_channel_estimate = np.where(np.abs(channel_estimate) < epsilon, epsilon, channel_estimate)
 
         return safe_channel_estimate
@@ -1035,6 +1065,7 @@ class PHY:
         signal_data = self.convolutional_decode_viterbi(received_bits=encoded_signal_symbol, coding_rate='1/2')
 
         log.debug(f"({self._identifier}) Checking parity bit correctness")
+        # IEEE 802.11 mandates even parity over bits 0-17; an odd sum means a bit error was detected.
         if not np.sum(signal_data[:18]) % 2 == 0:
             log.error("Parity bit check failed, unable to decode SIGNAL properly")
             return None, None  # No point to continue - Parity check failed.
@@ -1052,7 +1083,7 @@ class PHY:
 
         log.debug(f"({self._identifier}) Extracting LENGTH")
         length = signal_data[5:17]
-        length = length[::-1]  # MSB is the last bit.
+        length = length[::-1]  # LENGTH was transmitted LSB-first; reverse to restore natural binary order before parsing.
         length = int("".join(map(str, length)), 2)  # Conversion to a decimal (number of DATA octets).
         log.debug(f"({self._identifier}) Found LENGTH is - {length}")
 
@@ -1083,6 +1114,7 @@ class PHY:
             log.debug(f"({self._identifier}) DATA symbol #{i+1}")
 
             log.debug(f"({self._identifier}) Computing the FFT (with removed GI)")
+            # Each DATA OFDM symbol occupies exactly 80 samples (16 GI + 64 payload).
             frequency_domain_data_symbol = self.convert_to_frequency_domain(data[80 * i: 80 * (i + 1)])
 
             log.debug(f"({self._identifier}) Equalizing and removing pilot sub-carriers")
@@ -1104,6 +1136,7 @@ class PHY:
 
         log.debug(f"({self._identifier}) Descrambling all DATA bits")
         service_field = decoded_data[:16]
+        # Brute-force all 127 non-zero seeds: the correct seed XORs with the SERVICE field to yield all zeros.
         for seed in range(1, 128):
             if ([a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=16, seed=seed), service_field)]
                     == 16 * [0]):
@@ -1111,6 +1144,7 @@ class PHY:
                 descrambled_data = [a ^ b for a, b in zip(self.generate_lfsr_sequence(sequence_length=len(decoded_data),
                                                                                       seed=seed), decoded_data)]
                 log.debug(f"({self._identifier}) Removing SERVICE, TAIL and padding bits")
+                # Strip the 16 SERVICE bits at the front and 6 TAIL + pad_bits at the end to recover raw PSDU bits.
                 return descrambled_data[16:-6 - self._pad_bits]
 
         # If we got to this point, no seed was found for the scrambler, unable to descramble.
@@ -1258,7 +1292,7 @@ class PHY:
 
         pattern = puncturing_patterns[coding_rate]
         pattern_len = len(pattern)
-        k = 7  # Constraint length
+        k = 7  # Constraint length; trellis has 2^(k-1) = 64 states representing the 6-bit shift register.
         n_states = 2 ** (k - 1)
 
         # Initialize trellis
@@ -1270,8 +1304,7 @@ class PHY:
         received_idx = 0
         puncture_idx = 0  # Index in the puncturing pattern
 
-        # Total number of input bits (1 input bit → 2 output bits before puncturing)
-        # We estimate number of input bits by working backward from received bits and pattern
+        # Reverse the puncturing ratio to estimate how many encoder input bits produced the received bit count.
         estimated_input_bits = len(received_bits) * pattern_len // pattern.count(1) // 2
 
         for _ in range(estimated_input_bits):
@@ -1305,6 +1338,7 @@ class PHY:
                             local_puncture_idx = (local_puncture_idx + 1) % pattern_len
                         else:
                             # Only update trellis if we didn’t break early
+                            # Shift the state register right by 1 and insert the new input bit at the MSB position.
                             next_state = ((state >> 1) | (input_bit << (k - 2))) & (n_states - 1)
                             total_metric = path_metrics[state] + metric
 
@@ -1344,6 +1378,7 @@ class PHY:
         equalized_symbol = equalized_symbol.tolist()
 
         # Remove pilot sub-carriers.
+        # Skip indices 5, 19, 32, 46 (the four pilot subcarrier positions) to retain only the 48 data subcarriers.
         equalized_symbol_no_pilots = (equalized_symbol[:5] + equalized_symbol[6:19] +
                                       equalized_symbol[20:32] + equalized_symbol[33:46] +
                                       equalized_symbol[47:])
@@ -1367,6 +1402,7 @@ class PHY:
         """
 
         log.debug(f"({self._identifier}) Using only last 64 samples for FFT")
+        # The cyclic prefix occupies the first 16 samples; the last 64 contain the pure OFDM symbol.
         frequency_symbol = list(np.fft.fft(time_domain_symbol[-64:]))
 
         log.debug(f"({self._identifier}) Reordering subcarriers")
