@@ -198,13 +198,8 @@ class MAC:
                     # Pop first item to acquire queued frame.
                     transmission_details = self._tx_queue.pop(0)
 
-                    # Timing delay to avoid collisions. TODO: Should be enhanced.
-                    if transmission_details[0]["TYPE"] not in ("ACK", "CTS"):
-                        # Allow the transmission to end before initiating another one.
-                        waited = 0
-                        while waited < (CONFIRMATION_WAIT_TIME + 0.5) and not self.stop_event.is_set():
-                            time.sleep(0.1)
-                            waited += 0.1
+                    # Buffer time to slow the simulation down to allow RX/TX switches and orderly logging.
+                    time.sleep(2)
 
                     # Rate selection.
                     if self.is_fixed_rate:
@@ -1173,26 +1168,25 @@ class MAC:
                 time.sleep(0.1)
                 waited += 0.1
 
+                if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
+                    log.success(f"({self._identifier}) Frame confirmed, "
+                                f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
+                    frame["CONFIRMED"] = True
+                    self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
+                    return  # No need to continue as the frame was confirmed.
+
             if self.stop_event.is_set():
                 return
 
-            # TODO: Insert this check to the CONFIRMATION_WAIT_TIME to shorten the time in case of a good scenario!!
-            if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
-                log.success(f"({self._identifier}) Frame confirmed, "
-                            f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
-                frame["CONFIRMED"] = True
-                self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
-                return  # No need to continue as the frame was confirmed.
-            else:
-                # TODO: This time is dynamic (Contention Window).
-                log.warning(f"({self._identifier}) No confirmation, retransmitting")
+            # Got to this point, the frame is not confirmed.
+            log.warning(f"({self._identifier}) No confirmation, retransmitting")
 
-                # Adjust the frame parameters for a retransmission.
-                frame_parameters["RETRY"] = 1  # Turn on the retry bit.
-                frame["RETRY_ATTEMPTS"] += 1   # Update the retry counter.
+            # Adjust the frame parameters for a retransmission.
+            frame_parameters["RETRY"] = 1  # Turn on the retry bit.
+            frame["RETRY_ATTEMPTS"] += 1   # Update the retry counter.
 
-                # Retransmit.
-                self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
+            # Retransmit.
+            self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
 
         # If we got to this point, the frame is dropped.
         log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")

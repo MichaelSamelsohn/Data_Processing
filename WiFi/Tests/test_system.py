@@ -37,7 +37,7 @@ def test_basic_association(authentication_algorithm):
     sta.activation()
 
     # Step (2) - Buffer time to allow for the association to happen.
-    time.sleep(60)
+    time.sleep(30 if authentication_algorithm == "open-system" else 45)
 
     try:
         # Step (3) - Check that AP and STA are authenticated and associated (both sides).
@@ -78,7 +78,7 @@ def test_failed_authentication_incorrect_wep_keys():
     sta.activation()
 
     # Step (2) - Buffer time to allow for several authentication failures to happen.
-    time.sleep(120)
+    time.sleep(80)
 
     try:
         # Step (3) - Check that AP and STA are not authenticated (both sides) and AP is blacklisted for STA.
@@ -174,7 +174,7 @@ def test_send_data_without_association():
         ap.mac.send_data_frame(data=MESSAGE, destination_address=sta.mac._mac_address)
 
         # Step (3) - Buffer time to allow for the data to be sent and received.
-        time.sleep(60)
+        time.sleep(75)
 
         try:
             # Step (4) - Asserting that the message was discarded at all times.
