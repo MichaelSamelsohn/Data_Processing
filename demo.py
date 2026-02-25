@@ -104,7 +104,7 @@ sta.activation()
 # Allow time for the full AP-STA association handshake to complete
 # (passive scan → probe → authentication → association).
 print("[WiFi] Waiting for AP-STA association (60 seconds)...")
-time.sleep(70)
+time.sleep(45)
 
 # AP transmits the encoded image thumbnail to the STA.
 # The MAC layer automatically splits the payload into 256-byte chunks, each sent and ACK'ed individually.
@@ -115,7 +115,7 @@ ap.mac.send_data_frame(data=encoded_payload, destination_address=sta.mac._mac_ad
 
 # Allow time for all chunks and their ACKs to complete.
 print(f"[WiFi] Waiting for transfer to complete ({transfer_wait} seconds)...")
-time.sleep(4*transfer_wait)
+time.sleep(transfer_wait)
 
 ap.print_statistics()
 sta.print_statistics()

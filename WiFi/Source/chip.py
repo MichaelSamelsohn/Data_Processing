@@ -166,13 +166,14 @@ class CHIP:
         """
         Print a formatted table of MAC-layer frame statistics for this chip.
 
-        Iterates over all frames recorded in the MAC statistics buffer and displays a bordered table with one row per 
+        Iterates over all frames recorded in the MAC statistics buffer and displays a bordered table with one row per
         frame, containing the following columns:
             * Direction         - TX --> (transmitted) or RX <-- (received).
             * Frame Description - The frame type (e.g., DATA, ACK, RTS, CTS).
-            * Retries           - Number of retransmission attempts for TX frames; "N/A" for RX frames or frames with no 
+            * Frame Size (B)    - PSDU size in bytes for the frame; "N/A" if not recorded.
+            * Retries           - Number of retransmission attempts for TX frames; "N/A" for RX frames or frames with no
                                   retry tracking. Appends "(frame dropped)" if retries were exhausted.
-            * MAC Address (HEX) - Source address for RX frames, destination address for TX frames, formatted as a 
+            * MAC Address (HEX) - Source address for RX frames, destination address for TX frames, formatted as a
                                   colon-separated hex string.
         """
 
@@ -181,6 +182,7 @@ class CHIP:
         for frame in self.mac._statistics:
             direction = frame.get("DIRECTION", "UNKNOWN")
             frame_type = frame.get("TYPE", "UNKNOWN")
+            frame_size = f"{frame['FRAME_SIZE']} B" if "FRAME_SIZE" in frame else "N/A"
 
             # Base description and retries.
             if direction == "RX":
@@ -206,42 +208,45 @@ class CHIP:
                 mac = []
 
             mac_hex = ":".join(f"{b:02X}" for b in mac)
-            rows.append((direction, description, retries, mac_hex))
+            rows.append((direction, description, frame_size, retries, mac_hex))
 
         # Column widths, ensure headers fit.
-        dir_col_width = max(max(len(dir_) for dir_, _, _, _ in rows), len("Direction")) + 2
-        desc_col_width = max(max(len(desc) for _, desc, _, _ in rows), len("Frame Description")) + 2
-        retries_col_width = max(max(len(retries) for _, _, retries, _ in rows), len("Retries")) + 2
-        mac_col_width = max(max(len(mac) for _, _, _, mac in rows), len("MAC Address (HEX)")) + 2
+        dir_col_width     = max(max(len(r[0]) for r in rows), len("Direction"))          + 2
+        desc_col_width    = max(max(len(r[1]) for r in rows), len("Frame Description"))  + 2
+        size_col_width    = max(max(len(r[2]) for r in rows), len("Frame Size (B)"))     + 2
+        retries_col_width = max(max(len(r[3]) for r in rows), len("Retries"))            + 2
+        mac_col_width     = max(max(len(r[4]) for r in rows), len("MAC Address (HEX)")) + 2
 
         # Headers.
-        header_dir = "Direction".center(dir_col_width)
-        header_desc = "Frame Description".center(desc_col_width)
+        header_dir     = "Direction".center(dir_col_width)
+        header_desc    = "Frame Description".center(desc_col_width)
+        header_size    = "Frame Size (B)".center(size_col_width)
         header_retries = "Retries".center(retries_col_width)
-        header_mac = "MAC Address (HEX)".center(mac_col_width)
+        header_mac     = "MAC Address (HEX)".center(mac_col_width)
 
         # Borders.
-        top_border = ("+" + "-" * dir_col_width + "+" + "-" * desc_col_width + "+" + "-" * retries_col_width + "+" +
-                      "-" * mac_col_width + "+")
+        top_border = ("+" + "-" * dir_col_width + "+" + "-" * desc_col_width + "+" + "-" * size_col_width +
+                      "+" + "-" * retries_col_width + "+" + "-" * mac_col_width + "+")
         mid_border = top_border
         bottom_border = top_border
 
         # Print table.
         log.info(f"({self._identifier}) Statistics:")
         log.info(f"({self._identifier}) {top_border}")
-        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_retries}|{header_mac}|")
+        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_size}|{header_retries}|{header_mac}|")
         log.info(f"({self._identifier}) {mid_border}")
 
-        for direction, description, retries, mac_hex in rows:
+        for direction, description, frame_size, retries, mac_hex in rows:
             # Wrap description if needed.
             wrapped_desc = textwrap.wrap(description, width=desc_col_width - 2) or [""]
 
             for i, line in enumerate(wrapped_desc):
-                dir_col = direction.center(dir_col_width) if i == 0 else " " * dir_col_width
-                desc_col = line.center(desc_col_width)
-                retries_col = retries.center(retries_col_width) if i == 0 else " " * retries_col_width
-                mac_col = mac_hex.center(mac_col_width) if i == 0 else " " * mac_col_width
-                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{retries_col}|{mac_col}|")
+                dir_col     = direction.center(dir_col_width)     if i == 0 else " " * dir_col_width
+                desc_col    = line.center(desc_col_width)
+                size_col    = frame_size.center(size_col_width)   if i == 0 else " " * size_col_width
+                retries_col = retries.center(retries_col_width)   if i == 0 else " " * retries_col_width
+                mac_col     = mac_hex.center(mac_col_width)       if i == 0 else " " * mac_col_width
+                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{size_col}|{retries_col}|{mac_col}|")
 
         log.info(f"({self._identifier}) {bottom_border}")
 

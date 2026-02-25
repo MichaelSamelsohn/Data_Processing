@@ -411,6 +411,7 @@ class MAC:
                     log.debug(f"({self._identifier}) Is retransmission - {self._is_retry}")
 
                     # Delegate frame handling to relevant controller based on the frame type.
+                    stats_before = len(self._statistics)
                     match self._rx_psdu_buffer[2:4][::-1]:
                         case [0, 0]:  # Management.
                             log.debug(f"({self._identifier}) Management frame type")
@@ -424,6 +425,10 @@ class MAC:
                         case [1, 1]:  # Extension.
                             log.debug(f"({self._identifier}) Extension frame type")
                             pass  # TODO: To be implemented.
+
+                    # Annotate any newly added RX statistics entry with the PSDU frame size.
+                    if len(self._statistics) > stats_before:
+                        self._statistics[-1]["FRAME_SIZE"] = len(byte_list)
 
                     if self._is_retry:
                         log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
@@ -1031,7 +1036,8 @@ class MAC:
         if "RETRY" not in frame_parameters:
             # Original frame. Add to statistics.
             self._statistics.append({"DIRECTION": "TX", "TYPE": frame_parameters["TYPE"],
-                                     "DESTINATION_ADDRESS": frame_parameters["DESTINATION_ADDRESS"]})
+                                     "DESTINATION_ADDRESS": frame_parameters["DESTINATION_ADDRESS"],
+                                     "FRAME_SIZE": int(len(self._tx_psdu_buffer) / 8)})
 
             # Check if confirmation (ACK/CTS) is needed for frame.
             if frame_parameters['WAIT_FOR_CONFIRMATION']:
