@@ -182,7 +182,7 @@ class CHIP:
         for frame in self.mac._statistics:
             direction = frame.get("DIRECTION", "UNKNOWN")
             frame_type = frame.get("TYPE", "UNKNOWN")
-            frame_size = f"{frame['FRAME_SIZE']} B" if "FRAME_SIZE" in frame else "N/A"
+            frame_size = str(frame["FRAME_SIZE"]) if "FRAME_SIZE" in frame else "N/A"
 
             # Base description and retries.
             if direction == "RX":
