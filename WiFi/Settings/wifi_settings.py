@@ -105,6 +105,7 @@ PASSIVE_SCANNING_TIME = 20
 CONFIRMATION_WAIT_TIME = 5.5
 
 RTS_CTS_THRESHOLD = 100
+MAX_DATA_FRAME_SIZE = 256  # Maximum MSDU payload size in bytes per DATA chunk.
 
 SECURITY_ALGORITHMS = {
     "open-system": [0x00, 0x00],

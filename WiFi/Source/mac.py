@@ -69,6 +69,7 @@ class MAC:
 
         # Debug.
         self._last_data = None
+        self._rx_buffer = b''  # Accumulated payload of all DATA frames received in sequence.
         self._is_rts_cts = False
 
     @staticmethod
@@ -921,12 +922,14 @@ class MAC:
 
         This method performs the following steps:
         1. Extracts and parses the MAC header from the received PSDU buffer.
-        2. Verifies whether the received frame is from the associated Access Point.
+        2. Verifies whether the received frame is from the associated peer.
         3. If the frame subtype indicates a data frame (subtype [0, 0, 0, 0]):
            - Removes the MAC header and CRC from the PSDU.
-           - Extracts and decodes the application payload.
+           - Decrypts and stores the payload in _last_data (last frame only).
+           - Appends the payload to _rx_buffer (cumulative receive buffer), allowing the application layer to reassemble
+             multi-chunk transfers sent via send_data_frame.
 
-        Only frames from the associated AP are processed. All others are ignored.
+        Only frames from the associated peer are processed. All others are ignored.
 
         :param mac_header: The MAC header extracted from the received frame.
         """
@@ -956,7 +959,9 @@ class MAC:
                             self.send_acknowledgement_frame(source_address=source_address)
 
                             self._last_data = bytes(self._last_data)
-                            log.info(f"({self._identifier}) Received message:")
+                            self._rx_buffer += self._last_data  # Accumulate in receive buffer.
+                            log.info(f"({self._identifier}) Received data frame "
+                                     f"({len(self._last_data)} bytes, buffer total: {len(self._rx_buffer)} bytes):")
                             log.info("------------------")
                             log.print_data(self._last_data.decode('utf-8'), log_level="info")
                             log.info("------------------")
@@ -1046,13 +1051,14 @@ class MAC:
 
     def send_data_frame(self, data: str, destination_address: list[int]):
         """
-        Sends a text message as a data frame through the MAC layer.
+        Sends a text message as one or more DATA frames through the MAC layer.
 
-        This method converts the given text into a byte array representation, prepares frame parameters including the
-        destination address and frame type, and enqueues the frame for transmission via the MAC layer.
+        The payload is UTF-8 encoded and split into chunks of at most MAX_DATA_FRAME_SIZE bytes. Each chunk is queued as
+        an independent DATA frame and acknowledged separately by the receiver. The receiver accumulates all arriving
+        DATA payloads in _rx_buffer to reconstruct the original message.
 
         :param data: The textual message to be sent.
-        :param destination_address: TODO: Complete.
+        :param destination_address: MAC address of the destination node.
         """
 
         # TODO: Add a check that destination address is legal (for UL/DL).
@@ -1061,30 +1067,30 @@ class MAC:
         log.info("------------------")
         log.print_data(data=data, log_level='info')
         log.info("------------------")
+
         log.debug(f"({self._identifier}) Converting data to bytes")
-        encrypted_data = self.encrypt_data(encryption_method=self._encryption_type[str(destination_address)],
-                                           data=list(data.encode('utf-8')))
+        raw_bytes = list(data.encode('utf-8'))
 
-        log.debug(f"({self._identifier}) Checking if RTS-CTS mechanism is required for current data packet")
-        if self._role == "STA":
-            if self.is_always_rts_cts:
-                log.warning(f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
-                self._is_rts_cts = True  # Used for debug purposes.
+        # Split the payload into chunks of at most MAX_DATA_FRAME_SIZE bytes.
+        chunks = [raw_bytes[i:i + MAX_DATA_FRAME_SIZE] for i in range(0, len(raw_bytes), MAX_DATA_FRAME_SIZE)]
+        total_chunks = len(chunks)
+        log.debug(f"({self._identifier}) Data size: {len(raw_bytes)} bytes → {total_chunks} chunk(s) of up to "
+                  f"{MAX_DATA_FRAME_SIZE} bytes each")
 
-                # Send RTS frame.
-                frame_parameters = {
-                    "TYPE": "RTS",
-                    "DIRECTION": "Uplink",
-                    "DESTINATION_ADDRESS": destination_address,
-                    "WAIT_FOR_CONFIRMATION": "CTS"
-                }
-                self._tx_queue.append((frame_parameters, []))
+        for chunk_index, chunk in enumerate(chunks):
+            log.debug(f"({self._identifier}) Queueing chunk {chunk_index + 1}/{total_chunks}")
 
-            else:
-                # Check frame size of the data.
-                if len(encrypted_data) > RTS_CTS_THRESHOLD:
-                    log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
-                            f"{len(encrypted_data)}")
+            encrypted_chunk = self.encrypt_data(
+                encryption_method=self._encryption_type[str(destination_address)],
+                data=chunk
+            )
+
+            log.debug(f"({self._identifier}) Checking if RTS-CTS mechanism is required for chunk "
+                      f"{chunk_index + 1}/{total_chunks}")
+            if self._role == "STA":
+                if self.is_always_rts_cts:
+                    log.warning(
+                        f"({self._identifier}) Using RTS-CTS mechanism regardless of frame size or circumstances")
                     self._is_rts_cts = True  # Used for debug purposes.
 
                     # Send RTS frame.
@@ -1096,16 +1102,32 @@ class MAC:
                     }
                     self._tx_queue.append((frame_parameters, []))
 
-                # TODO: Add another check for RTS-CTS if channel conditions are bad.
+                else:
+                    # Check frame size of the chunk.
+                    if len(encrypted_chunk) > RTS_CTS_THRESHOLD:
+                        log.mac(f"({self._identifier}) Using RTS-CTS mechanism due to large data frame size, "
+                                f"{len(encrypted_chunk)}")
+                        self._is_rts_cts = True  # Used for debug purposes.
 
-        # Send data frame.
-        frame_parameters = {
-            "TYPE": "Data",
-            "DIRECTION": "Uplink" if self._role == "STA" else "Downlink",
-            "DESTINATION_ADDRESS": destination_address,
-            "WAIT_FOR_CONFIRMATION": "ACK"
-        }
-        self._tx_queue.append((frame_parameters, encrypted_data))
+                        # Send RTS frame.
+                        frame_parameters = {
+                            "TYPE": "RTS",
+                            "DIRECTION": "Uplink",
+                            "DESTINATION_ADDRESS": destination_address,
+                            "WAIT_FOR_CONFIRMATION": "CTS"
+                        }
+                        self._tx_queue.append((frame_parameters, []))
+
+                    # TODO: Add another check for RTS-CTS if channel conditions are bad.
+
+            # Queue the data chunk as an independent DATA frame.
+            frame_parameters = {
+                "TYPE": "Data",
+                "DIRECTION": "Uplink" if self._role == "STA" else "Downlink",
+                "DESTINATION_ADDRESS": destination_address,
+                "WAIT_FOR_CONFIRMATION": "ACK"
+            }
+            self._tx_queue.append((frame_parameters, encrypted_chunk))
 
     def send_acknowledgement_frame(self, source_address: list[int]):
         """
@@ -1154,6 +1176,7 @@ class MAC:
             if self.stop_event.is_set():
                 return
 
+            # TODO: Insert this check to the CONFIRMATION_WAIT_TIME to shorten the time in case of a good scenario!!
             if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
                 log.success(f"({self._identifier}) Frame confirmed, "
                             f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
