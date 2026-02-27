@@ -1,13 +1,11 @@
 # Imports #
-from Utilities.logger import Logger
+from settings import log
 
 # Logger settings #
 
 verbosity_level = 2  # Setting the verbosity level.
-log = Logger()       # Initiating the logger.
 
 # Adding custom levels.
-log.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
 log.add_custom_log_level("traffic", 11, "\x1b[38;5;208m")   # Orange.
 log.add_custom_log_level("phy", 12, "\x1b[38;5;39m")        # Blue.
 log.add_custom_log_level("mac", 13, "\x1b[38;5;39m")        # Blue.

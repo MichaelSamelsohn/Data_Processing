@@ -8,19 +8,17 @@ Created by Michael Samelsohn, 05/05/22
 
 # Imports #
 import os
-from Utilities.logger import Logger
+from settings import log
 
 # Logger settings #
 verbosity_level = 3  # Setting the verbosity level.
-log = Logger()       # Initiating the logger.
 
 # Adding custom log levels.
-log.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
-log.add_custom_log_level("apod", 11, "\x1b[38;5;208m")      # Orange.
-log.add_custom_log_level("epic", 12, "\x1b[38;5;5m")        # Magenta.
-log.add_custom_log_level("mars", 13, "\x1b[38;5;160m")      # Red (Mars is red).
-log.add_custom_log_level("nil", 14, "\x1b[38;5;33m")        # Blue.
-log.add_custom_log_level("neo", 15, "\x1b[38;5;51m")       # Cyan (near-Earth objects).
+log.add_custom_log_level("apod", 15, "\x1b[38;5;208m")      # Orange.
+log.add_custom_log_level("epic", 16, "\x1b[38;5;5m")        # Magenta.
+log.add_custom_log_level("mars", 17, "\x1b[38;5;160m")      # Red (Mars is red).
+log.add_custom_log_level("nil", 18, "\x1b[38;5;33m")        # Blue.
+log.add_custom_log_level("neo", 19, "\x1b[38;5;51m")       # Cyan (near-Earth objects).
 
 # Handling verbosity levels.
 match verbosity_level:
@@ -29,7 +27,7 @@ match verbosity_level:
         log.log_level = 20
     case 2:
         log.format_string = "%(asctime)s - %(levelname)s - %(message)s"
-        log.log_level = 11
+        log.log_level = 15
     case 3:
         log.format_string = "%(asctime)s - %(levelname)s (%(module)s:%(funcName)s:%(lineno)d) - %(message)s"
         log.log_level = 10

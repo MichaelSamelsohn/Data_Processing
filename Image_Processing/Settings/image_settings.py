@@ -10,14 +10,10 @@ Created by Michael Samelsohn, 05/05/22.
 import os
 
 import numpy as np
-from Utilities.logger import Logger
+from settings import log
 
 # Logger settings #
 verbosity_level = 3  # Setting the verbosity level.
-log = Logger()       # Initiating the logger.
-
-# Adding custom levels.
-log.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
 
 # Handling verbosity levels.
 match verbosity_level:

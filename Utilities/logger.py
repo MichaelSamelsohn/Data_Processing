@@ -166,6 +166,9 @@ class Logger(logging.Logger):
         self._masked_patterns = masked_patterns
         self.addFilter(MaskedFilter(self._masked_patterns))
 
+        # Adding custom level for success (common).
+        self.add_custom_log_level("success", 25, "\x1b[32;1m")       # Bright Green.
+
     @property
     def log_level(self): return self._log_level
 
