@@ -109,6 +109,11 @@ SECURITY_ALGORITHMS = {
     "open-system": [0x00, 0x00],
     "shared-key":  [0x00, 0x01]
 }
+REASON_CODES = {
+    "unspecified":     [0x00, 0x01],
+    "leaving_network": [0x00, 0x03],  # Deauthenticated/Disassociated – sending STA is leaving the ESS.
+    "inactivity":      [0x00, 0x04],
+}
 AUTHENTICATION_ATTEMPTS = 3
 
 # PHY settings #

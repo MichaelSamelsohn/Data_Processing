@@ -835,6 +835,92 @@ class MAC:
                                         self._authentication_attempts += 1
                                         self.authentication_fail_handler()
 
+            case [1, 0, 1, 0]:  # Disassociation.
+                """
+                Terminates the association only; authentication remains intact.
+                AP removes the STA from its association list.
+                STA clears its associated AP but keeps the authenticated AP.
+                """
+
+                if self._role == "AP" and cast == "Unicast" and source_address in self._associated_sta:
+                    log.mac(f"({self._identifier}) Disassociation frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Disassociation",
+                                             "SOURCE_ADDRESS": source_address})
+
+                    # Extract and log reason code.
+                    reason_code = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
+                    log.mac(f"({self._identifier}) Reason code - {reason_code}")
+
+                    # Send ACK response.
+                    self.send_acknowledgement_frame(source_address=source_address)
+
+                    # Remove association; authentication stays.
+                    self._associated_sta.remove(source_address)
+
+                elif self._role == "STA" and cast == "Unicast" and source_address == self._associated_ap:
+                    log.mac(f"({self._identifier}) Disassociation frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Disassociation",
+                                             "SOURCE_ADDRESS": source_address})
+
+                    # Extract and log reason code.
+                    reason_code = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
+                    log.mac(f"({self._identifier}) Reason code - {reason_code}")
+
+                    # Send ACK response.
+                    self.send_acknowledgement_frame(source_address=source_address)
+
+                    # Clear association; authentication stays intact.
+                    self._associated_ap = None
+
+            case [1, 1, 0, 0]:  # Deauthentication.
+                """
+                Terminates both association and authentication; full state reset required.
+                AP removes all state for the STA.
+                STA clears all connection state and triggers re-scanning.
+                """
+
+                if self._role == "AP" and cast == "Unicast" and source_address in self._authenticated_sta:
+                    log.mac(f"({self._identifier}) Deauthentication frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Deauthentication",
+                                             "SOURCE_ADDRESS": source_address})
+
+                    # Extract and log reason code.
+                    reason_code = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
+                    log.mac(f"({self._identifier}) Reason code - {reason_code}")
+
+                    # Send ACK response.
+                    self.send_acknowledgement_frame(source_address=source_address)
+
+                    # Full AP-side cleanup for this STA.
+                    if source_address in self._associated_sta:
+                        self._associated_sta.remove(source_address)
+                    self._authenticated_sta.remove(source_address)
+                    self._encryption_type.pop(str(source_address), None)
+                    self._challenge_text.pop(str(source_address), None)
+
+                elif self._role == "STA" and cast == "Unicast" and source_address == self._authenticated_ap:
+                    log.mac(f"({self._identifier}) Deauthentication frame subtype")
+                    # Add to statistics.
+                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Deauthentication",
+                                             "SOURCE_ADDRESS": source_address})
+
+                    # Extract and log reason code.
+                    reason_code = self.convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
+                    log.mac(f"({self._identifier}) Reason code - {reason_code}")
+
+                    # Send ACK response.
+                    self.send_acknowledgement_frame(source_address=source_address)
+
+                    # Full STA-side reset.
+                    self._associated_ap = None
+                    self._authenticated_ap = None
+                    self._probed_ap = None  # Triggers re-scanning.
+                    self._authentication_attempts = 0
+                    self._encryption_type.pop(str(source_address), None)
+
     def authentication_fail_handler(self):
         """
         Authentication fail handler. Retries authentication if number of attempts is below number of allowed attempts,
@@ -1129,6 +1215,61 @@ class MAC:
                 "WAIT_FOR_CONFIRMATION": "ACK"
             }
             self._tx_queue.append((frame_parameters, encrypted_chunk))
+
+    def send_disassociation_frame(self, destination_address: list[int]):
+        """
+        Sends a Disassociation frame to the specified destination, terminating the association while leaving
+        authentication intact.
+
+        Local state is cleaned up immediately before queuing the frame.
+
+        :param destination_address: MAC address of the destination node.
+        """
+
+        # Clean up local association state immediately.
+        if self._role == "AP":
+            if destination_address in self._associated_sta:
+                self._associated_sta.remove(destination_address)
+        elif self._role == "STA":
+            self._associated_ap = None
+
+        frame_parameters = {
+            "TYPE": "Disassociation",
+            "DESTINATION_ADDRESS": destination_address,
+            "WAIT_FOR_CONFIRMATION": "ACK"
+        }
+        self._tx_queue.append((frame_parameters, REASON_CODES["leaving_network"]))
+
+    def send_deauthentication_frame(self, destination_address: list[int]):
+        """
+        Sends a Deauthentication frame to the specified destination, terminating both association and authentication.
+
+        Local state is cleaned up immediately before queuing the frame.
+
+        :param destination_address: MAC address of the destination node.
+        """
+
+        # Clean up local state immediately.
+        if self._role == "AP":
+            if destination_address in self._authenticated_sta:
+                self._authenticated_sta.remove(destination_address)
+            if destination_address in self._associated_sta:
+                self._associated_sta.remove(destination_address)
+            self._encryption_type.pop(str(destination_address), None)
+            self._challenge_text.pop(str(destination_address), None)
+        elif self._role == "STA":
+            self._associated_ap = None
+            self._authenticated_ap = None
+            self._probed_ap = None
+            self._authentication_attempts = 0
+            self._encryption_type.pop(str(destination_address), None)
+
+        frame_parameters = {
+            "TYPE": "Deauthentication",
+            "DESTINATION_ADDRESS": destination_address,
+            "WAIT_FOR_CONFIRMATION": "ACK"
+        }
+        self._tx_queue.append((frame_parameters, REASON_CODES["leaving_network"]))
 
     def send_acknowledgement_frame(self, source_address: list[int]):
         """

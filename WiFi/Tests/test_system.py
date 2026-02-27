@@ -355,3 +355,214 @@ def test_rts_cts_configuration():
             ap.shutdown()
             sta.shutdown()
             channel.shutdown()
+
+
+def test_disassociation_by_sta():
+    """
+    Test purpose - STA-initiated disassociation terminates association while preserving authentication.
+    Criteria - After STA sends a Disassociation frame, both sides clear association state but retain authentication.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality.
+    2) Mock full association between AP and STA (open-system).
+    3) STA sends a Disassociation frame to the AP.
+    4) Set a timeframe for the frame exchange to complete.
+    5) Assert association is cleared on both sides; authentication is preserved.
+    6) Shutdown.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+
+        # Step (2) - Mocking full association between AP and STA.
+        ap.mac._authenticated_sta = [sta.mac._mac_address]
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
+        sta.mac._probed_ap = ap.mac._mac_address
+        sta.mac._authenticated_ap = ap.mac._mac_address
+        sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
+
+        ap.activation()
+        sta.activation()
+
+        # Step (3) - STA sends Disassociation frame to the AP.
+        sta.mac.send_disassociation_frame(destination_address=ap.mac._mac_address)
+
+        # Step (4) - Buffer time for frame exchange.
+        time.sleep(15)
+
+        try:
+            # Step (5) - Assert association cleared, authentication preserved.
+            assert ap.mac._associated_sta == [],                               "AP still associated with STA"
+            assert ap.mac._authenticated_sta == [sta.mac._mac_address],        "AP authentication was cleared"
+            assert sta.mac._associated_ap is None,                             "STA still associated with AP"
+            assert sta.mac._authenticated_ap == ap.mac._mac_address,           "STA authentication was cleared"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
+
+
+def test_disassociation_by_ap():
+    """
+    Test purpose - AP-initiated disassociation terminates association while preserving authentication.
+    Criteria - After AP sends a Disassociation frame, both sides clear association state but retain authentication.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality.
+    2) Mock full association between AP and STA (open-system).
+    3) AP sends a Disassociation frame to the STA.
+    4) Set a timeframe for the frame exchange to complete.
+    5) Assert association is cleared on both sides; authentication is preserved.
+    6) Shutdown.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+
+        # Step (2) - Mocking full association between AP and STA.
+        ap.mac._authenticated_sta = [sta.mac._mac_address]
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
+        sta.mac._probed_ap = ap.mac._mac_address
+        sta.mac._authenticated_ap = ap.mac._mac_address
+        sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
+
+        ap.activation()
+        sta.activation()
+
+        # Step (3) - AP sends Disassociation frame to the STA.
+        ap.mac.send_disassociation_frame(destination_address=sta.mac._mac_address)
+
+        # Step (4) - Buffer time for frame exchange.
+        time.sleep(15)
+
+        try:
+            # Step (5) - Assert association cleared, authentication preserved.
+            assert ap.mac._associated_sta == [],                               "AP still associated with STA"
+            assert ap.mac._authenticated_sta == [sta.mac._mac_address],        "AP authentication was cleared"
+            assert sta.mac._associated_ap is None,                             "STA still associated with AP"
+            assert sta.mac._authenticated_ap == ap.mac._mac_address,           "STA authentication was cleared"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
+
+
+def test_deauthentication_by_sta():
+    """
+    Test purpose - STA-initiated deauthentication terminates both association and authentication.
+    Criteria - After STA sends a Deauthentication frame, all connection state is cleared on both sides.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality.
+    2) Mock full association between AP and STA (open-system).
+    3) STA sends a Deauthentication frame to the AP.
+    4) Set a timeframe for the frame exchange to complete.
+    5) Assert all connection state is cleared on both sides.
+    6) Shutdown.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+
+        # Step (2) - Mocking full association between AP and STA.
+        ap.mac._authenticated_sta = [sta.mac._mac_address]
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
+        sta.mac._probed_ap = ap.mac._mac_address
+        sta.mac._authenticated_ap = ap.mac._mac_address
+        sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
+
+        ap.activation()
+        sta.activation()
+
+        # Step (3) - STA sends Deauthentication frame to the AP.
+        sta.mac.send_deauthentication_frame(destination_address=ap.mac._mac_address)
+
+        # Step (4) - Buffer time for frame exchange.
+        time.sleep(15)
+
+        try:
+            # Step (5) - Assert all connection state is cleared on both sides.
+            assert ap.mac._authenticated_sta == [],   "AP still authenticated with STA"
+            assert ap.mac._associated_sta == [],      "AP still associated with STA"
+            assert ap.mac._encryption_type == {},     "AP encryption type not cleared"
+            assert sta.mac._authenticated_ap is None, "STA still authenticated with AP"
+            assert sta.mac._associated_ap is None,    "STA still associated with AP"
+            assert sta.mac._probed_ap is None,        "STA probed AP not cleared"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
+
+
+def test_deauthentication_by_ap():
+    """
+    Test purpose - AP-initiated deauthentication terminates both association and authentication.
+    Criteria - After AP sends a Deauthentication frame, all connection state is cleared on both sides.
+
+    Test steps:
+    1) Set the channel, AP and STA with patched advertisement functionality.
+    2) Mock full association between AP and STA (open-system).
+    3) AP sends a Deauthentication frame to the STA.
+    4) Set a timeframe for the frame exchange to complete.
+    5) Assert all connection state is cleared on both sides.
+    6) Shutdown.
+    """
+
+    # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
+    channel = Channel(channel_response=[1], snr_db=25)
+    with (patch('chip.MAC.beacon_broadcast', return_value=None),
+          patch('chip.MAC.scanning', return_value=None)):
+        ap = CHIP(role='AP', identifier="AP")
+        sta = CHIP(role='STA', identifier="STA 1")
+
+        # Step (2) - Mocking full association between AP and STA.
+        ap.mac._authenticated_sta = [sta.mac._mac_address]
+        ap.mac._associated_sta = [sta.mac._mac_address]
+        ap.mac._encryption_type[str(sta.mac._mac_address)] = "open-system"
+        sta.mac._probed_ap = ap.mac._mac_address
+        sta.mac._authenticated_ap = ap.mac._mac_address
+        sta.mac._associated_ap = ap.mac._mac_address
+        sta.mac._encryption_type[str(ap.mac._mac_address)] = "open-system"
+
+        ap.activation()
+        sta.activation()
+
+        # Step (3) - AP sends Deauthentication frame to the STA.
+        ap.mac.send_deauthentication_frame(destination_address=sta.mac._mac_address)
+
+        # Step (4) - Buffer time for frame exchange.
+        time.sleep(15)
+
+        try:
+            # Step (5) - Assert all connection state is cleared on both sides.
+            assert ap.mac._authenticated_sta == [],   "AP still authenticated with STA"
+            assert ap.mac._associated_sta == [],      "AP still associated with STA"
+            assert ap.mac._encryption_type == {},     "AP encryption type not cleared"
+            assert sta.mac._authenticated_ap is None, "STA still authenticated with AP"
+            assert sta.mac._associated_ap is None,    "STA still associated with AP"
+        finally:
+            # Step (6) - Shutdown.
+            ap.shutdown()
+            sta.shutdown()
+            channel.shutdown()
