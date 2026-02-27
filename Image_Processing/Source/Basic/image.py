@@ -20,6 +20,7 @@ from Image_Processing.Source.Advanced.restoration import *
 from Image_Processing.Source.Advanced.noise_models import *
 from Image_Processing.Source.Advanced.thinning import *
 from Image_Processing.Source.Advanced.morphology import *
+from Image_Processing.Source.Advanced.frequency_domain import *
 
 
 class Image:
@@ -54,6 +55,7 @@ class Image:
         log.debug("Deep copying original image")
         self._image_buffer = [{"Name": "Original", "Image": self._original_image}]
         self._last_image = copy.deepcopy(self._original_image)
+        self._last_dft = None  # Populated by dft_2d(); consumed by idft_2d().
 
     # Basic operations #
 
@@ -378,3 +380,100 @@ class Image:
         self._last_image = boundary_extraction(image=self._last_image, structuring_element=structuring_element,
                                                padding_type=padding_type)
         self._image_buffer.append({"Name": "Boundary extraction", "Image": self._last_image})
+
+    # Frequency domain #
+
+    def dft_2d(self):
+        """
+        Compute the 2-D DFT of the current image and store the log-magnitude spectrum for display.
+
+        The raw complex DFT is retained internally in self._last_dft so that idft_2d() can
+        reconstruct the spatial-domain image without loss.  The value written into the image
+        buffer is the centred log-magnitude spectrum — the standard visualisation for DFT analysis:
+
+                display = log(1 + |fftshift(F)|),  normalised to [0, 1]
+        """
+        self._last_dft = dft_2d(image=self._last_image)
+        magnitude_spectrum = np.log1p(np.abs(np.fft.fftshift(self._last_dft)))
+        self._last_image = image_normalization(image=magnitude_spectrum, normalization_method='stretch')
+        self._image_buffer.append({"Name": "DFT magnitude spectrum", "Image": self._last_image})
+
+    def idft_2d(self):
+        """
+        Reconstruct the spatial-domain image from the DFT stored by the last call to dft_2d().
+
+        Note - idft_2d() must be preceded by dft_2d(); calling it without a prior DFT is a no-op.
+        """
+        if self._last_dft is None:
+            log.error("No DFT stored — call dft_2d() before idft_2d()")
+            return
+        self._last_image = idft_2d(dft=self._last_dft)
+        self._image_buffer.append({"Name": "IDFT reconstruction", "Image": self._last_image})
+
+    def ideal_lowpass_filter(self, cutoff=DEFAULT_CUTOFF_FREQUENCY,
+                              normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = ideal_lowpass_filter(image=self._last_image, cutoff=cutoff,
+                                                normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Ideal low-pass filter (D₀={cutoff})",
+                                   "Image": self._last_image})
+
+    def ideal_highpass_filter(self, cutoff=DEFAULT_CUTOFF_FREQUENCY,
+                               normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = ideal_highpass_filter(image=self._last_image, cutoff=cutoff,
+                                                 normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Ideal high-pass filter (D₀={cutoff})",
+                                   "Image": self._last_image})
+
+    def butterworth_lowpass_filter(self, cutoff=DEFAULT_CUTOFF_FREQUENCY,
+                                    order=DEFAULT_BUTTERWORTH_ORDER,
+                                    normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = butterworth_lowpass_filter(image=self._last_image, cutoff=cutoff,
+                                                      order=order,
+                                                      normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Butterworth low-pass filter (D₀={cutoff}, n={order})",
+                                   "Image": self._last_image})
+
+    def butterworth_highpass_filter(self, cutoff=DEFAULT_CUTOFF_FREQUENCY,
+                                     order=DEFAULT_BUTTERWORTH_ORDER,
+                                     normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = butterworth_highpass_filter(image=self._last_image, cutoff=cutoff,
+                                                       order=order,
+                                                       normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Butterworth high-pass filter (D₀={cutoff}, n={order})",
+                                   "Image": self._last_image})
+
+    def gaussian_lowpass_filter(self, sigma=DEFAULT_HOMOMORPHIC_SIGMA,
+                                 normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = gaussian_lowpass_filter(image=self._last_image, sigma=sigma,
+                                                   normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Gaussian low-pass filter (σ={sigma})",
+                                   "Image": self._last_image})
+
+    def gaussian_highpass_filter(self, sigma=DEFAULT_HOMOMORPHIC_SIGMA,
+                                  normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = gaussian_highpass_filter(image=self._last_image, sigma=sigma,
+                                                    normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Gaussian high-pass filter (σ={sigma})",
+                                   "Image": self._last_image})
+
+    def notch_reject_filter(self, notch_centers: list[tuple[int, int]] = None,
+                             notch_radius=DEFAULT_NOTCH_RADIUS,
+                             normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        if notch_centers is None:
+            notch_centers = []
+        self._last_image = notch_reject_filter(image=self._last_image, notch_centers=notch_centers,
+                                               notch_radius=notch_radius,
+                                               normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Notch reject filter ({len(notch_centers)} pair(s))",
+                                   "Image": self._last_image})
+
+    def homomorphic_filter(self, gamma_l=DEFAULT_HOMOMORPHIC_GAMMA_L,
+                            gamma_h=DEFAULT_HOMOMORPHIC_GAMMA_H,
+                            c=DEFAULT_HOMOMORPHIC_C,
+                            sigma=DEFAULT_HOMOMORPHIC_SIGMA,
+                            normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        self._last_image = homomorphic_filter(image=self._last_image, gamma_l=gamma_l,
+                                              gamma_h=gamma_h, c=c, sigma=sigma,
+                                              normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Homomorphic filter (γ_L={gamma_l}, γ_H={gamma_h})",
+                                   "Image": self._last_image})

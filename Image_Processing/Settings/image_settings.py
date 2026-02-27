@@ -77,3 +77,12 @@ DEFAULT_PRE_THINNING = True
 
 # Morphology #
 DEFAULT_STRUCTURING_ELEMENT = np.ones((3, 3), dtype=int)
+
+# Frequency Domain #
+DEFAULT_CUTOFF_FREQUENCY = 30       # pixels from DC in the shifted spectrum
+DEFAULT_BUTTERWORTH_ORDER = 2       # filter order for Butterworth filters
+DEFAULT_NOTCH_RADIUS = 10.0         # notch rejection radius in pixels of the spectrum
+DEFAULT_HOMOMORPHIC_GAMMA_L = 0.25  # low-frequency gain  (illumination attenuation, < 1)
+DEFAULT_HOMOMORPHIC_GAMMA_H = 2.0   # high-frequency gain (reflectance boost, > 1)
+DEFAULT_HOMOMORPHIC_C = 1.0         # transition steepness constant
+DEFAULT_HOMOMORPHIC_SIGMA = 30.0    # Gaussian σ for homomorphic filter (pixels of spectrum)
