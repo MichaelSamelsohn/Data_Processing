@@ -211,27 +211,44 @@ def pad_image(image: ndarray, padding_type=DEFAULT_PADDING_TYPE, padding_size=DE
     :param image: The image for padding.
     :param padding_type: The padding type.
     Types of padding methods:
-        * Zero padding ("zero") - Add zeros to the boundaries.
-        TODO: Add more padding types (mirror, boundary extension).
-    :param padding_size: The padding size.
+        * Zero padding   ("zero")   - Fill the border with zeros. Simple and fast; can introduce artificial edges at
+                                      boundaries because the abrupt transition to zero may create a strong gradient
+                                      where there was none in the original signal.
+        * Mirror padding ("mirror") - Reflect pixel values around the image border without repeating the edge pixel.
+                                      For a 1D slice [a, b, c] with padding size 1, the result is [b, a, b, c, b].
+                                      Reduces boundary artifacts for spatial filtering because the padded values are
+                                      drawn from the real image content rather than an artificial constant.
+        * Wrap padding   ("wrap")   - Tile the image periodically so the right edge connects to the left and the bottom
+                                      connects to the top. For a 1D slice [a, b, c] with padding size 1, the result is
+                                      [c, a, b, c, a]. Appropriate when the signal is known to be periodic (e.g.,
+                                      textures or frequency-domain processing).
+    :param padding_size: The number of pixel rows/columns added to each side of the image.
 
-    :return: Padded image.
+    :return: Padded image with shape (H + 2*padding_size, W + 2*padding_size) for grayscale or
+    (H + 2*padding_size, W + 2*padding_size, C) for color.
     """
 
-    log.info(f"Padding image boundaries with {padding_type} (size={padding_size}) method")
+    log.info(f"Padding image boundaries with '{padding_type}' (size={padding_size})")
 
-    log.debug("Calculating the new row and col values")
-    rows = image.shape[0] + 2 * padding_size
-    cols = image.shape[1] + 2 * padding_size
+    # Build pad_width: apply padding_size on each spatial axis; leave the channel axis untouched for color images.
+    pad_width = ((padding_size, padding_size), (padding_size, padding_size))
+    if len(image.shape) == 3:
+        pad_width = pad_width + ((0, 0),)
 
     log.debug("Identifying the padding type and applying it")
-    padded_image = np.zeros(shape=(rows, cols, 3)) if len(image.shape) == 3 else np.zeros(shape=(rows, cols))
     match padding_type:
         case "zero":
             log.debug("Zero padding selected")
-            padded_image[padding_size:-padding_size, padding_size:-padding_size] = image[:, :]
-
-    return padded_image
+            return np.pad(image, pad_width, mode='constant', constant_values=0)
+        case "mirror":
+            log.debug("Mirror padding selected (reflection without edge repetition)")
+            return np.pad(image, pad_width, mode='reflect')
+        case "wrap":
+            log.debug("Wrap padding selected (periodic boundary)")
+            return np.pad(image, pad_width, mode='wrap')
+        case _:
+            log.warning(f"Unknown padding type '{padding_type}', falling back to zero padding")
+            return np.pad(image, pad_width, mode='constant', constant_values=0)
 
 
 @measure_runtime

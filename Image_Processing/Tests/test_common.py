@@ -239,41 +239,161 @@ def test_calculate_histogram_normalized_sums_to_one():
 #  pad_image tests                                              #
 # ──────────────────────────────────────────────────────────── #
 
-def test_pad_image_output_dimensions():
+@pytest.mark.parametrize("padding_type", ["zero", "mirror", "wrap"])
+def test_pad_image_output_dimensions(padding_type):
     """
-    Test purpose - Zero-padding increases image dimensions by 2 * padding_size on each axis.
-    Criteria - A 3×3 image padded with size 1 produces a 5×5 output.
+    Test purpose - Every padding type increases image dimensions by 2 * padding_size on each axis.
+    Criteria - A 3×3 image padded with size 1 produces a 5×5 output regardless of padding type.
 
     Test steps:
-    1) Pad KNOWN_3x3 with zero padding of size 1.
+    1) Pad KNOWN_3x3 with the given padding type and size 1.
     2) Assert that the padded image has shape (5, 5).
     """
 
     # Steps (1)+(2) - Pad and assert shape.
-    result = pad_image(image=KNOWN_3x3, padding_type='zero', padding_size=1)
+    result = pad_image(image=KNOWN_3x3, padding_type=padding_type, padding_size=1)
     assert result.shape == (5, 5)
 
 
-def test_pad_image_zero_border_and_preserved_interior():
+@pytest.mark.parametrize("padding_type", ["zero", "mirror", "wrap"])
+def test_pad_image_interior_preserved(padding_type):
     """
-    Test purpose - Zero-padding fills the border with zeros and preserves the interior.
-    Criteria - The top and bottom border rows are all zero, and the interior 3×3 block
-    matches the original image exactly.
+    Test purpose - Every padding type leaves the original image data in the interior of the result.
+    Criteria - The 3×3 interior block of a size-1 padded 5×5 result equals KNOWN_3x3.
+
+    Test steps:
+    1) Pad KNOWN_3x3 with the given padding type and size 1.
+    2) Assert that result[1:4, 1:4] matches KNOWN_3x3 exactly.
+    """
+
+    # Steps (1)+(2) - Pad and assert interior.
+    result = pad_image(image=KNOWN_3x3, padding_type=padding_type, padding_size=1)
+    np.testing.assert_array_equal(result[1:4, 1:4], KNOWN_3x3)
+
+
+def test_pad_image_zero_border_is_zeros():
+    """
+    Test purpose - Zero-padding fills the entire border with zeros.
+    Criteria - The top and bottom border rows of a size-1 padded image are all zero.
 
     Test steps:
     1) Pad KNOWN_3x3 with zero padding of size 1.
     2) Assert that the top row is all zeros.
     3) Assert that the bottom row is all zeros.
-    4) Assert that the interior 3×3 block matches KNOWN_3x3.
     """
 
     # Step (1) - Pad.
     result = pad_image(image=KNOWN_3x3, padding_type='zero', padding_size=1)
 
-    # Steps (2)+(3)+(4) - Assert border and interior.
+    # Steps (2)+(3) - Assert border zeros.
     np.testing.assert_array_equal(result[0, :], np.zeros(5))
     np.testing.assert_array_equal(result[-1, :], np.zeros(5))
-    np.testing.assert_array_equal(result[1:4, 1:4], KNOWN_3x3)
+
+
+def test_pad_image_mirror_top_row_reflects_second_row():
+    """
+    Test purpose - Mirror padding reflects pixel values without repeating the edge pixel.
+    Criteria - For a 3×3 image with size-1 mirror padding, the top border row's interior columns
+    equal the second row of the original image, because 'reflect' skips the edge pixel.
+
+    Reflection rule: for a 1D slice [a, b, c] the result is [b, a, b, c, b] (edge pixel 'a' is
+    the axis of reflection and is not duplicated into the border).
+
+    Test steps:
+    1) Pad KNOWN_3x3 with mirror padding of size 1.
+    2) Assert that result[0, 1:4] equals KNOWN_3x3[1, :] (top border interior = original row 1).
+    3) Assert that result[1:4, 0] equals KNOWN_3x3[:, 1] (left border interior = original col 1).
+    """
+
+    # Step (1) - Pad.
+    result = pad_image(image=KNOWN_3x3, padding_type='mirror', padding_size=1)
+
+    # Step (2) - Top border interior reflects row 1 of the original.
+    np.testing.assert_array_equal(result[0, 1:4], KNOWN_3x3[1, :])
+
+    # Step (3) - Left border interior reflects col 1 of the original.
+    np.testing.assert_array_equal(result[1:4, 0], KNOWN_3x3[:, 1])
+
+
+def test_pad_image_mirror_preserves_no_artificial_zeros():
+    """
+    Test purpose - Mirror padding never introduces zeros that are not present in the original image.
+    Criteria - For an image with no zero-valued pixels, a mirror-padded result also contains no zeros.
+
+    Test steps:
+    1) Create a 3×3 image with all positive values (min value > 0).
+    2) Pad with mirror padding of size 1.
+    3) Assert that the padded result contains no zeros.
+    """
+
+    # Step (1) - All-positive image.
+    positive_image = np.full((3, 3), 0.5)
+
+    # Step (2) - Pad.
+    result = pad_image(image=positive_image, padding_type='mirror', padding_size=1)
+
+    # Step (3) - No zeros in the result.
+    assert np.all(result > 0)
+
+
+def test_pad_image_wrap_top_row_equals_last_row():
+    """
+    Test purpose - Wrap padding tiles the image periodically so opposite edges connect.
+    Criteria - The top border row's interior columns equal the last row of the original image,
+    and the left border column's interior rows equal the last column.
+
+    Wrap rule: for a 1D slice [a, b, c] the result is [c, a, b, c, a] (right end wraps to left).
+
+    Test steps:
+    1) Pad KNOWN_3x3 with wrap padding of size 1.
+    2) Assert that result[0, 1:4] equals KNOWN_3x3[-1, :] (top border interior = original last row).
+    3) Assert that result[1:4, 0] equals KNOWN_3x3[:, -1] (left border interior = original last col).
+    """
+
+    # Step (1) - Pad.
+    result = pad_image(image=KNOWN_3x3, padding_type='wrap', padding_size=1)
+
+    # Step (2) - Top border interior = last row of original.
+    np.testing.assert_array_equal(result[0, 1:4], KNOWN_3x3[-1, :])
+
+    # Step (3) - Left border interior = last column of original.
+    np.testing.assert_array_equal(result[1:4, 0], KNOWN_3x3[:, -1])
+
+
+def test_pad_image_wrap_bottom_row_equals_first_row():
+    """
+    Test purpose - Wrap padding also connects the bottom edge back to the top of the image.
+    Criteria - The bottom border row's interior columns equal the first row of the original image.
+
+    Test steps:
+    1) Pad KNOWN_3x3 with wrap padding of size 1.
+    2) Assert that result[-1, 1:4] equals KNOWN_3x3[0, :] (bottom border interior = original first row).
+    """
+
+    # Steps (1)+(2) - Pad and assert.
+    result = pad_image(image=KNOWN_3x3, padding_type='wrap', padding_size=1)
+    np.testing.assert_array_equal(result[-1, 1:4], KNOWN_3x3[0, :])
+
+
+def test_pad_image_color_image_channel_axis_unchanged():
+    """
+    Test purpose - Padding does not alter the channel dimension of a color image.
+    Criteria - A (3, 3, 3) color image padded with size 1 produces a (5, 5, 3) result; the
+    channel count stays the same for zero, mirror, and wrap padding.
+
+    Test steps:
+    1) Create a 3×3 RGB image (shape 3×3×3).
+    2) Pad with each padding type and size 1.
+    3) Assert that the output shape is (5, 5, 3) in all three cases.
+    """
+
+    # Step (1) - 3×3 RGB image.
+    color_image = np.random.rand(3, 3, 3)
+
+    # Steps (2)+(3) - Pad and assert shape for each type.
+    for padding_type in ("zero", "mirror", "wrap"):
+        result = pad_image(image=color_image, padding_type=padding_type, padding_size=1)
+        assert result.shape == (5, 5, 3), f"Wrong shape for padding_type='{padding_type}'"
 
 
 # ──────────────────────────────────────────────────────────── #
