@@ -8,15 +8,11 @@ Created by Michael Samelsohn, 06/11/24
 
 # Imports #
 import copy
-import numpy as np
 from numpy import ndarray
 
 from Image_Processing.Settings.image_settings import *
-from Image_Processing.Source.Basic.common import extract_sub_image, contrast_stretching
+from Image_Processing.Source.Basic.common import extract_sub_image
 from Utilities.decorators import article_reference
-from intensity_transformations import negative
-from segmentation import thresholding, global_thresholding
-from spatial_filtering import blur_image
 
 
 @article_reference(article="J. Dong, W. Lin and C. Huang, “An improved parallel thinning algorithm,“ 2016 "
