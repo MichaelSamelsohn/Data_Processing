@@ -8,7 +8,7 @@ Created by Michael Samelsohn, 06/11/24
 import warnings
 import numpy as np
 from numpy import ndarray
-from Image_Processing.Source.Basic.common import pad_image, extract_sub_image
+from Image_Processing.Source.Basic.common import pad_image, extract_sub_image, image_normalization
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference
 
@@ -209,3 +209,75 @@ def order_statistic_filter(image: ndarray, filter_type: str, padding_type: str, 
                         sorted_flat_sub_image[kwargs["percentile"]]
 
     return median_image
+
+
+@book_reference(book=GONZALES_WOODS_BOOK,
+                reference="Chapter 5.8 - Minimum Mean Square Error (Wiener) Filtering, p.355-360")
+def wiener_filter(image: ndarray, psf: ndarray, k: float, normalization_method: str) -> ndarray:
+    """
+    Restore a blurred/noisy image using frequency-domain Wiener (minimum MSE) deconvolution.
+
+    Given the linear degradation model:
+
+                        G(u, v) = H(u, v) · F(u, v) + N(u, v)
+
+    the Wiener filter finds the estimate F̂ that minimises the mean square error
+    E{|F − F̂|²}.  With noise power spectrum S_η and signal power spectrum S_f, the
+    optimal frequency-domain filter is:
+
+                    Ĥ_w(u, v) = H*(u,v) / (|H(u,v)|² + S_η(u,v)/S_f(u,v))
+
+    Approximating the ratio S_η/S_f by a single constant K gives the tractable form used
+    here:
+
+                    Ĥ_w(u, v) = H*(u,v) / (|H(u,v)|² + K)
+
+    where K regularises the inversion and prevents amplification of noise at frequency
+    bins where |H(u,v)| is small.  K = 0 reduces to the (unstable) inverse filter;
+    increasing K adds more smoothing at the cost of residual blur.
+
+    PSF alignment:
+    The PSF is zero-padded to the image size and circularly shifted so that its centre
+    lands at the origin (index [0, 0]) before computing its FFT.  This ensures that the
+    phase of H(u, v) corresponds exactly to the phase of the convolution used to form the
+    blurred image.
+
+    :param image:                Degraded grayscale image, pixel values in [0, 1].
+    :param psf:                  Point spread function (blur kernel) used to degrade the image.
+                                 Must be smaller than or equal to the image in both dimensions.
+    :param k:                    Noise-to-signal power ratio constant (K > 0 for stability).
+    :param normalization_method: Normalization applied to the deconvolved output.
+    :return:                     Restored image of the same shape as the input.
+    """
+
+    log.info(f"Applying Wiener filter with K={k}")
+
+    M, N = image.shape
+    ph, pw = psf.shape
+
+    if ph > M or pw > N:
+        log.raise_exception(
+            message=f"PSF shape {psf.shape} exceeds image shape {image.shape}",
+            exception=ValueError)
+
+    if k <= 0:
+        log.warning("K=0 gives the inverse filter which may amplify noise; consider K > 0")
+
+    log.debug("Padding PSF to image size and centering it at the origin for FFT alignment")
+    psf_padded = np.zeros((M, N))
+    psf_padded[:ph, :pw] = psf
+    # Circular-shift so the PSF centre (ph//2, pw//2) moves to (0, 0).
+    psf_padded = np.roll(psf_padded, shift=(-(ph // 2), -(pw // 2)), axis=(0, 1))
+
+    log.debug("Computing FFTs of the degraded image and PSF")
+    H = np.fft.fft2(psf_padded)
+    G = np.fft.fft2(image)
+
+    log.debug("Computing the Wiener filter transfer function  Ĥ_w = H* / (|H|² + K)")
+    H_abs_sq = np.abs(H) ** 2
+    W = np.conj(H) / (H_abs_sq + k)
+
+    log.debug("Applying the filter and computing the inverse FFT")
+    result = np.real(np.fft.ifft2(W * G))
+
+    return image_normalization(image=result, normalization_method=normalization_method)

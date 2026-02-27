@@ -312,6 +312,21 @@ class Image:
                                                   padding_type=padding_type, filter_size=filter_size, **kwargs)
         self._image_buffer.append({"Name": f"Order statistic filter ({filter_type})", "Image": self._last_image})
 
+    def wiener_filter(self, psf=None, k=DEFAULT_WIENER_K,
+                      normalization_method=DEFAULT_NORMALIZATION_METHOD):
+        """
+        Restore the image using frequency-domain Wiener deconvolution.
+
+        If no PSF is provided a 5×5 Gaussian kernel (σ=1) is used as the assumed
+        point spread function — appropriate when the degradation source is unknown but
+        believed to be a mild Gaussian blur.
+        """
+        if psf is None:
+            psf = generate_filter(filter_type='gaussian', filter_size=5, sigma=DEFAULT_SIGMA_VALUE)
+        self._last_image = wiener_filter(image=self._last_image, psf=psf, k=k,
+                                         normalization_method=normalization_method)
+        self._image_buffer.append({"Name": f"Wiener filter (K={k})", "Image": self._last_image})
+
     # Noise models #
 
     def add_gaussian_noise(self, mean=DEFAULT_GAUSSIAN_MEAN, sigma=DEFAULT_GAUSSIAN_SIGMA):

@@ -2,7 +2,10 @@
 import numpy as np
 import pytest
 
-from Image_Processing.Source.Advanced.restoration import mean_filter, order_statistic_filter
+from Image_Processing.Source.Advanced.restoration import (
+    mean_filter, order_statistic_filter,
+    wiener_filter,
+)
 from constants import *
 
 
@@ -173,3 +176,70 @@ def test_order_statistic_filter_output_values_in_range(filter_type):
     # Steps (2)+(3) - Assert range.
     assert result.min() >= 0
     assert result.max() <= 1
+
+
+# ──────────────────────────────────────────────────────────── #
+#  wiener_filter tests                                          #
+# ──────────────────────────────────────────────────────────── #
+
+def test_wiener_filter_output_shape():
+    """
+    Test purpose - Wiener deconvolution preserves the spatial dimensions of the input.
+    Criteria - The output of wiener_filter has the same shape as the input image.
+
+    Test steps:
+    1) Apply wiener_filter to KNOWN_3x3 with a 1×1 delta PSF.
+    2) Assert that the output shape equals KNOWN_3x3.shape.
+    """
+
+    # Steps (1)+(2) - Filter and assert shape.
+    result = wiener_filter(image=KNOWN_3x3, psf=np.array([[1.0]]),
+                           k=0.01, normalization_method='unchanged')
+    assert result.shape == KNOWN_3x3.shape
+
+
+def test_wiener_filter_identity_psf():
+    """
+    Test purpose - A 1×1 delta PSF (identity convolution) reduces the Wiener filter to a
+                   scalar attenuation of 1/(1+K).
+    Criteria - For PSF = [[1]], H(u,v) = 1 everywhere, so:
+                   Ĥ_w = 1/(1+K)  →  result = image / (1 + K)
+
+    Test steps:
+    1) Apply wiener_filter to KNOWN_3x3 with PSF=[[1]], K=0.01.
+    2) Assert that the result ≈ KNOWN_3x3 / 1.01 element-wise.
+    """
+
+    # Steps (1)+(2) - Filter and compare to analytical expectation.
+    k = 0.01
+    result = wiener_filter(image=KNOWN_3x3, psf=np.array([[1.0]]),
+                           k=k, normalization_method='unchanged')
+    np.testing.assert_allclose(result, KNOWN_3x3 / (1.0 + k), atol=1e-10)
+
+
+def test_wiener_filter_reduces_blur():
+    """
+    Test purpose - Wiener deconvolution with the correct PSF reduces the MSE introduced
+                   by blurring.
+    Criteria - Given a blurred image g = mean_filter(f, arithmetic, 3×3), applying
+               wiener_filter(g, box_3x3, K) should yield MSE(result, f) < MSE(g, f).
+
+    Test steps:
+    1) Blur KNOWN_3x3 with an arithmetic mean filter (equivalent to 3×3 box convolution).
+    2) Apply wiener_filter with the matching normalised box PSF and K=0.001.
+    3) Assert that MSE(wiener_output, KNOWN_3x3) < MSE(blurred, KNOWN_3x3).
+    """
+
+    # Step (1) - Blur.
+    blurred = mean_filter(image=KNOWN_3x3, filter_type='arithmetic',
+                          padding_type='zero', filter_size=3)
+
+    # Step (2) - Deconvolve with matching PSF.
+    box_psf = np.ones((3, 3)) / 9.0
+    result = wiener_filter(image=blurred, psf=box_psf,
+                           k=0.001, normalization_method='unchanged')
+
+    # Step (3) - Compare MSE values.
+    mse_blurred = np.mean((blurred - KNOWN_3x3) ** 2)
+    mse_result  = np.mean((result  - KNOWN_3x3) ** 2)
+    assert mse_result < mse_blurred

@@ -86,3 +86,6 @@ DEFAULT_HOMOMORPHIC_GAMMA_L = 0.25  # low-frequency gain  (illumination attenuat
 DEFAULT_HOMOMORPHIC_GAMMA_H = 2.0   # high-frequency gain (reflectance boost, > 1)
 DEFAULT_HOMOMORPHIC_C = 1.0         # transition steepness constant
 DEFAULT_HOMOMORPHIC_SIGMA = 30.0    # Gaussian σ for homomorphic filter (pixels of spectrum)
+
+# Restoration - advanced filters #
+DEFAULT_WIENER_K = 0.01       # noise-to-signal power ratio for Wiener deconvolution
