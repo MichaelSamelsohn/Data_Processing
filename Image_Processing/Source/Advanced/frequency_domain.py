@@ -1,13 +1,11 @@
 """
 Script Name - frequency_domain.py
 
-Purpose - Perform frequency-domain filtering on an image. Frequency-domain processing
-transforms an image via the 2-D Discrete Fourier Transform (DFT/FFT), manipulates its
-spectrum H(u,v), and recovers the result with the inverse DFT. Compared with spatial
-convolution, frequency-domain filters give precise control over which frequency bands are
-passed or rejected, enable efficient large-kernel filtering via the convolution theorem, and
-allow operations (e.g. homomorphic and notch filtering) that are awkward to express as
-spatial kernels.
+Purpose - Perform frequency-domain filtering on an image. Frequency-domain processing transforms an image via the 2-D
+Discrete Fourier Transform (DFT/FFT), manipulates its spectrum H(u,v), and recovers the result with the inverse DFT.
+Compared with spatial convolution, frequency-domain filters give precise control over which frequency bands are passed
+or rejected, enable efficient large-kernel filtering via the convolution theorem, and allow operations (e.g. homomorphic
+and notch filtering) that are awkward to express as spatial kernels.
 
 Created by Michael Samelsohn, 27/02/26
 """
@@ -28,14 +26,14 @@ def _frequency_distance_map(shape: tuple[int, int]) -> ndarray:
     """
     Build the Euclidean-distance matrix D(u, v) used by all frequency-domain filter functions.
 
-    After an fftshift the DC component sits at (M//2, N//2).  D(u, v) is the Euclidean
-    distance of each spectral sample from that centre point:
-
+    After an fftshift the DC component sits at (M//2, N//2).  D(u, v) is the Euclidean distance of each spectral sample
+    from that centre point:
                         D(u, v) = sqrt((u − M/2)² + (v − N/2)²)
 
     :param shape: (M, N) spatial dimensions of the image.
-    :return:      Real-valued distance matrix of shape (M, N).
-                  D == 0 at the DC centre; increases monotonically towards the corners.
+
+    :return:      Real-valued distance matrix of shape (M, N). D == 0 at the DC centre; increases monotonically towards
+                  the corners.
     """
 
     M, N = shape
@@ -50,20 +48,18 @@ def _apply_frequency_filter(image: ndarray, filter_mask: ndarray,
     """
     Internal pipeline: FFT → centre-shift → multiply by filter → un-shift → IFFT → normalize.
 
-    The convolution theorem states that multiplication in the frequency domain is equivalent
-    to convolution in the spatial domain.  This helper implements the complete
-    frequency-domain filtering cycle:
+    The convolution theorem states that multiplication in the frequency domain is equivalent to convolution in the
+    spatial domain.  This helper implements the complete frequency-domain filtering cycle:
+                                    G(u, v) = H(u, v) · F(u, v)
+                                    g(x, y) = Re{ IFFT{ G(u, v) } }
+    where F = FFT{f} and H is the supplied filter mask.  The fftshift / ifftshift pair is applied so that the filter
+    mask H is defined relative to the centred DC component.
 
-        G(u, v) = H(u, v) · F(u, v)
-        g(x, y) = Re{ IFFT{ G(u, v) } }
-
-    where F = FFT{f} and H is the supplied filter mask.  The fftshift / ifftshift pair is
-    applied so that the filter mask H is defined relative to the centred DC component.
-
-    :param image:               Input grayscale image, pixel values in [0, 1].
-    :param filter_mask:         Real- or complex-valued filter H(u, v), same shape as image.
+    :param image:                Input grayscale image, pixel values in [0, 1].
+    :param filter_mask:          Real- or complex-valued filter H(u, v), same shape as image.
     :param normalization_method: Passed verbatim to image_normalization.
-    :return:                    Filtered image after IFFT, same shape as input.
+
+    :return:                     Filtered image after IFFT, same shape as input.
     """
 
     log.debug("Computing 2-D FFT of the image")
@@ -91,27 +87,23 @@ def dft_2d(image: ndarray) -> ndarray:
     Compute the 2-D Discrete Fourier Transform using separable 1-D DFT matrices.
 
     The 2-D DFT is defined as:
+                        F(u, v) = Σ_{x=0}^{M-1} Σ_{y=0}^{N-1} f(x,y) · e^{-j2π(ux/M + vy/N)}
 
-            F(u, v) = Σ_{x=0}^{M-1} Σ_{y=0}^{N-1} f(x,y) · e^{-j2π(ux/M + vy/N)}
-
-    Because the complex exponential factorises as e^{-j2πux/M} · e^{-j2πvy/N}, the
-    2-D transform is separable: it can be computed by successive 1-D transforms, first
-    along every row and then along every column.  In matrix form this reads:
-
-                                    F = W_M · f · W_N^T
-
+    Because the complex exponential factorises as e^{-j2πux/M} · e^{-j2πvy/N}, the 2-D transform is separable: it can be
+    computed by successive 1-D transforms, first along every row and then along every column.  In matrix form this
+    reads:
+                                              F = W_M · f · W_N^T
     where:
         W_M[u, x] = e^{-j2πux/M}   (M×M row-DFT matrix)
         W_N[v, y] = e^{-j2πvy/N}   (N×N column-DFT matrix)
 
-    Complexity: O(M²·N + M·N²) = O(N³) for square images, far better than the O(N^4)
-    naive double loop.  numpy.fft.fft2 uses the Cooley–Tukey FFT (O(N² log N)) and
-    should be preferred for production use; this function is provided as an educational
-    reference that exposes the separability property of the 2-D DFT.
+    Complexity: O(M²·N + M·N²) = O(N³) for square images, far better than the O(N^4) naive double loop. numpy.fft.fft2
+    uses the Cooley–Tukey FFT (O(N² log N)) and should be preferred for production use; this function is provided as an
+    educational reference that exposes the separability property of the 2-D DFT.
 
     :param image: 2-D grayscale image array of shape (M, N), dtype float.
-    :return:      Complex ndarray F(u, v) of shape (M, N).
-                  The DC component F(0, 0) equals the sum of all pixel values.
+
+    :return:      Complex ndarray F(u, v) of shape (M, N). The DC component F(0, 0) equals the sum of all pixel values.
                   No fftshift is applied; DC is at the top-left corner.
     """
 
@@ -147,22 +139,16 @@ def idft_2d(dft: ndarray) -> ndarray:
     """
     Compute the 2-D Inverse Discrete Fourier Transform using separable 1-D IDFT matrices.
 
-    The 2-D IDFT is defined as:
+    The 2-D IDFT is defined as: f(x, y) = (1/MN) · Σ_{u=0}^{M-1} Σ_{v=0}^{N-1} F(u,v) · e^{j2π(ux/M + vy/N)}
+    Analogously to dft_2d, the separability of the exponential factorisation gives a matrix form:
+                                    f = (1/MN) · W_M_inv · F · W_N_inv^T
+    where W_M_inv[x, u] = e^{j2πxu/M} is the element-wise complex conjugate of W_M (without the normalisation factor
+    1/M).
 
-            f(x, y) = (1/MN) · Σ_{u=0}^{M-1} Σ_{v=0}^{N-1} F(u,v) · e^{j2π(ux/M + vy/N)}
-
-    Analogously to dft_2d, the separability of the exponential factorisation gives a
-    matrix form:
-
-                                f = (1/MN) · W_M_inv · F · W_N_inv^T
-
-    where W_M_inv[x, u] = e^{j2πxu/M} is the element-wise complex conjugate of W_M
-    (without the normalisation factor 1/M).
-
-    Note - Floating-point arithmetic introduces negligible imaginary residuals; the
-    real part is taken before returning.
+    Note - Floating-point arithmetic introduces negligible imaginary residuals; the real part is taken before returning.
 
     :param dft: Complex ndarray F(u, v) as produced by dft_2d, shape (M, N).
+
     :return:    Reconstructed spatial-domain image f(x, y), real-valued, shape (M, N).
     """
 
@@ -197,21 +183,19 @@ def ideal_lowpass_filter(image: ndarray, cutoff: float, normalization_method: st
     Apply an ideal (binary) low-pass filter in the frequency domain.
 
     The ideal LPF transfer function is:
+                                        H(u, v) = 1   if D(u, v) ≤ D₀
+                                        H(u, v) = 0   otherwise
+    where D(u, v) is the Euclidean distance from the DC component (after fftshift) and D₀ is the cutoff radius in pixels
+    of the shifted spectrum.  All frequencies inside the disc of radius D₀ are passed without attenuation; all others
+    are completely blocked.
 
-                        H(u, v) = 1   if D(u, v) ≤ D₀
-                        H(u, v) = 0   otherwise
-
-    where D(u, v) is the Euclidean distance from the DC component (after fftshift) and
-    D₀ is the cutoff radius in pixels of the shifted spectrum.  All frequencies inside
-    the disc of radius D₀ are passed without attenuation; all others are completely
-    blocked.
-
-    Warning: the abrupt transition produces ringing artefacts (Gibbs phenomenon) in the
-    output image.  Use the Butterworth or Gaussian variants for artefact-free results.
+    Warning: the abrupt transition produces ringing artefacts (Gibbs phenomenon) in the output image. Use the
+    Butterworth or Gaussian variants for artefact-free results.
 
     :param image:                Grayscale image, pixel values in [0, 1].
     :param cutoff:               Cutoff frequency D₀ (pixels from DC in the shifted spectrum).
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     Low-pass filtered image, same shape as input.
     """
 
@@ -232,20 +216,18 @@ def ideal_highpass_filter(image: ndarray, cutoff: float, normalization_method: s
     Apply an ideal (binary) high-pass filter in the frequency domain.
 
     The ideal HPF transfer function is the complement of the ideal LPF:
+                                            H(u, v) = 0   if D(u, v) ≤ D₀
+                                            H(u, v) = 1   otherwise
+    Because H_HP(u,v) = 1 − H_LP(u,v), the ideal HPF and ideal LPF are strictly complementary:
+    IFFT{H_HP · F} + IFFT{H_LP · F} = f(x,y) for any image f.
 
-                        H(u, v) = 0   if D(u, v) ≤ D₀
-                        H(u, v) = 1   otherwise
-
-    Because H_HP(u,v) = 1 − H_LP(u,v), the ideal HPF and ideal LPF are strictly
-    complementary: IFFT{H_HP · F} + IFFT{H_LP · F} = f(x,y) for any image f.
-
-    High-pass filtering removes slowly varying (low-frequency) components, retaining
-    only sharp transitions such as edges and fine textures.  The abrupt cut causes
-    ringing in the output image.
+    High-pass filtering removes slowly varying (low-frequency) components, retaining only sharp transitions such as
+    edges and fine textures.  The abrupt cut causes ringing in the output image.
 
     :param image:                Grayscale image, pixel values in [0, 1].
     :param cutoff:               Cutoff frequency D₀ (pixels from DC in the shifted spectrum).
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     High-pass filtered image, same shape as input.
     """
 
@@ -270,10 +252,8 @@ def butterworth_lowpass_filter(image: ndarray, cutoff: float, order: int,
     """
     Apply a Butterworth low-pass filter in the frequency domain.
 
-    The Butterworth LPF has a smooth, monotonically decreasing transfer function that
-    eliminates the ringing artefacts caused by the abrupt cut-off of the ideal LPF:
-
-                        H(u, v) = 1 / (1 + (D(u,v) / D₀)^{2n})
+    The Butterworth LPF has a smooth, monotonically decreasing transfer function that eliminates the ringing artefacts
+    caused by the abrupt cut-off of the ideal LPF: H(u, v) = 1 / (1 + (D(u,v) / D₀)^{2n})
 
     Key properties:
         • At D = D₀:    H = 0.5  (3 dB point for all orders).
@@ -285,6 +265,7 @@ def butterworth_lowpass_filter(image: ndarray, cutoff: float, order: int,
     :param cutoff:               Cutoff frequency D₀ (pixels from DC in the shifted spectrum).
     :param order:                Filter order n (positive integer). n=1 gives the flattest response.
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     Low-pass filtered image, same shape as input.
     """
 
@@ -307,23 +288,19 @@ def butterworth_highpass_filter(image: ndarray, cutoff: float, order: int,
     Apply a Butterworth high-pass filter in the frequency domain.
 
     Derived from the complementary relationship H_HP = 1 − H_LP, the Butterworth HPF is:
-
-                        H(u, v) = 1 / (1 + (D₀ / D(u,v))^{2n})
-
-    This is algebraically equivalent to 1 − H_BW_LP(u,v):
-
-        1 − 1/(1 + x^2n)  =  x^2n / (1 + x^2n)  =  1 / (1 + x^{-2n})
-        where x = D/D₀
-
+                                    H(u, v) = 1 / (1 + (D₀ / D(u,v))^{2n})
+    This is algebraically equivalent to 1 − H_BW_LP(u,v): 1 − 1/(1 + x^2n)  =  x^2n / (1 + x^2n)  =  1 / (1 + x^{-2n})
+    where x = D/D₀
     Therefore IFFT{H_BW_LP · F} + IFFT{H_BW_HP · F} = f(x,y) for any image f.
 
-    The DC component (D=0) is completely blocked; frequencies far from DC are fully
-    passed.  This emphasises edges while smoothly suppressing flat regions.
+    The DC component (D=0) is completely blocked; frequencies far from DC are fully passed. This emphasises edges while
+    smoothly suppressing flat regions.
 
     :param image:                Grayscale image, pixel values in [0, 1].
     :param cutoff:               Cutoff frequency D₀ (pixels from DC in the shifted spectrum).
     :param order:                Filter order n (positive integer).
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     High-pass filtered image, same shape as input.
     """
 
@@ -349,14 +326,11 @@ def gaussian_lowpass_filter(image: ndarray, sigma: float, normalization_method: 
     """
     Apply a Gaussian low-pass filter in the frequency domain.
 
-    The Gaussian LPF transfer function is:
+    The Gaussian LPF transfer function is: H(u, v) = e^{-D²(u,v) / (2σ²)}
 
-                        H(u, v) = e^{-D²(u,v) / (2σ²)}
-
-    The Gaussian is the unique filter that is self-reciprocal under the Fourier transform:
-    a Gaussian spectrum corresponds to a Gaussian spatial kernel.  This guarantees that
-    no ringing occurs in the filtered output — the Gaussian LPF is the smoothest possible
-    low-pass filter.
+    The Gaussian is the unique filter that is self-reciprocal under the Fourier transform: a Gaussian spectrum
+    corresponds to a Gaussian spatial kernel.  This guarantees that no ringing occurs in the filtered output — the
+    Gaussian LPF is the smoothest possible low-pass filter.
 
     The parameter σ controls the width of the pass-band (in pixels of the shifted spectrum):
         • Small σ → narrow pass-band → heavy blurring (only very low frequencies pass).
@@ -365,6 +339,7 @@ def gaussian_lowpass_filter(image: ndarray, sigma: float, normalization_method: 
     :param image:                Grayscale image, pixel values in [0, 1].
     :param sigma:                Standard deviation σ of the Gaussian (pixels of the spectrum).
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     Low-pass filtered image, same shape as input.
     """
 
@@ -384,21 +359,19 @@ def gaussian_highpass_filter(image: ndarray, sigma: float, normalization_method:
     """
     Apply a Gaussian high-pass filter in the frequency domain.
 
-    The complementary relationship gives the Gaussian HPF transfer function:
-
-                        H(u, v) = 1 − e^{-D²(u,v) / (2σ²)}
+    The complementary relationship gives the Gaussian HPF transfer function: H(u, v) = 1 − e^{-D²(u,v) / (2σ²)}
 
     At D = 0 (DC): H = 0 — the mean brightness is completely removed.
     At D → ∞:      H → 1 — very high frequencies are passed without attenuation.
 
-    Like the Butterworth HPF, the Gaussian HPF sharpens the image by emphasising edges.
-    Because H_GHP(u,v) = 1 − H_GLP(u,v), the two are strictly complementary:
-    IFFT{H_GLP · F} + IFFT{H_GHP · F} = f(x,y).
+    Like the Butterworth HPF, the Gaussian HPF sharpens the image by emphasising edges. Because
+    H_GHP(u,v) = 1 − H_GLP(u,v), the two are strictly complementary: IFFT{H_GLP · F} + IFFT{H_GHP · F} = f(x,y).
 
     :param image:                Grayscale image, pixel values in [0, 1].
     :param sigma:                Standard deviation σ (pixels of the spectrum).
                                  Smaller σ → stronger high-pass effect.
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     High-pass filtered image, same shape as input.
     """
 
@@ -423,23 +396,20 @@ def notch_reject_filter(image: ndarray, notch_centers: list[tuple[int, int]],
     """
     Apply an ideal notch reject filter to remove periodic noise.
 
-    Periodic noise in an image manifests as bright impulse pairs (±u₀, ±v₀) in the
-    magnitude spectrum.  A notch reject filter selectively zeroes those pairs while
-    leaving the rest of the spectrum intact.
+    Periodic noise in an image manifests as bright impulse pairs (±u₀, ±v₀) in the magnitude spectrum. A notch reject
+    filter selectively zeroes those pairs while leaving the rest of the spectrum intact.
 
     Because the DFT of a real image is conjugate-symmetric, noise at (u₀, v₀) always
     has a conjugate partner at (−u₀, −v₀).  The filter must suppress both:
-
-            H(u, v) = 0   if D_k(u,v) ≤ R₀  or  D_{-k}(u,v) ≤ R₀,  for any pair k
-            H(u, v) = 1   otherwise
-
+                        H(u, v) = 0   if D_k(u,v) ≤ R₀  or  D_{-k}(u,v) ≤ R₀,  for any pair k
+                        H(u, v) = 1   otherwise
     where:
         D_k(u,v)   = sqrt((u − M/2 − u₀ₖ)² + (v − N/2 − v₀ₖ)²)
         D_{-k}(u,v) = sqrt((u − M/2 + u₀ₖ)² + (v − N/2 + v₀ₖ)²)
 
-    The notch centres (u₀, v₀) are expressed as pixel offsets from the DC component in
-    the centred (shifted) spectrum.  They can be read off the shifted magnitude spectrum
-    by identifying the bright impulse locations relative to the image centre.
+    The notch centres (u₀, v₀) are expressed as pixel offsets from the DC component in the centred (shifted) spectrum.
+    They can be read off the shifted magnitude spectrum by identifying the bright impulse locations relative to the
+    image centre.
 
     If notch_centers is empty, an all-pass filter H = 1 is applied (no-op).
 
@@ -449,6 +419,7 @@ def notch_reject_filter(image: ndarray, notch_centers: list[tuple[int, int]],
                                  conjugate symmetric counterpart).
     :param notch_radius:         Radius R₀ of each rejection disc (pixels of the spectrum).
     :param normalization_method: Normalization applied to the IFFT output.
+
     :return:                     Image with periodic noise attenuated, same shape as input.
     """
 
@@ -486,22 +457,14 @@ def homomorphic_filter(image: ndarray, gamma_l: float, gamma_h: float, c: float,
     """
     Apply a homomorphic filter to simultaneously compress illumination and expand reflectance.
 
-    The illumination-reflectance model decomposes image intensity as a product:
+    The illumination-reflectance model decomposes image intensity as a product: f(x, y) = i(x, y) · r(x, y)
+    where i(x, y) is the slowly varying illumination (captured by low-frequency components) and r(x, y) is the rapidly
+    varying reflectance detail (high-frequency components). Taking the natural logarithm converts the multiplicative
+    relationship to an additive one: z(x, y) = ln f(x, y) = ln i(x, y) + ln r(x, y)
 
-                            f(x, y) = i(x, y) · r(x, y)
-
-    where i(x, y) is the slowly varying illumination (captured by low-frequency components)
-    and r(x, y) is the rapidly varying reflectance detail (high-frequency components).
-    Taking the natural logarithm converts the multiplicative relationship to an additive one:
-
-                        z(x, y) = ln f(x, y) = ln i(x, y) + ln r(x, y)
-
-    The homomorphic filter H(u, v) is then designed to attenuate low-frequency illumination
-    (γ_L < 1) while boosting high-frequency reflectance (γ_H > 1).  A Gaussian
-    high-pass-based transfer function achieves this continuously:
-
-                H(u, v) = (γ_H − γ_L) · [1 − e^{−c · D²(u,v) / (2σ²)}] + γ_L
-
+    The homomorphic filter H(u, v) is then designed to attenuate low-frequency illumination (γ_L < 1) while boosting
+    high-frequency reflectance (γ_H > 1).  A Gaussian high-pass-based transfer function achieves this continuously:
+                            H(u, v) = (γ_H − γ_L) · [1 − e^{−c · D²(u,v) / (2σ²)}] + γ_L
         • At D = 0  (DC, low frequencies):  H = γ_L    → illumination is attenuated.
         • At D → ∞  (high frequencies):      H = γ_H    → reflectance is amplified.
         • c controls how steeply H transitions from γ_L to γ_H.
@@ -518,11 +481,11 @@ def homomorphic_filter(image: ndarray, gamma_l: float, gamma_h: float, c: float,
     :param gamma_l:              Low-frequency gain γ_L (< 1 suppresses illumination variation).
     :param gamma_h:              High-frequency gain γ_H (> 1 boosts reflectance detail).
     :param c:                    Steepness constant controlling the sharpness of the transition.
-    :param sigma:                Standard deviation σ of the embedded Gaussian HPF
-                                 (pixels of the shifted spectrum).
+    :param sigma:                Standard deviation σ of the embedded Gaussian HPF (pixels of the shifted spectrum).
     :param normalization_method: Normalization applied to the exponentiated output.
-    :return:                     Homomorphically filtered image with compressed dynamic range
-                                 and enhanced fine detail, same shape as input.
+
+    :return:                     Homomorphically filtered image with compressed dynamic range and enhanced fine detail,
+                                 same shape as input.
     """
 
     log.info(f"Applying homomorphic filter: γ_L={gamma_l}, γ_H={gamma_h}, c={c}, σ={sigma}")
