@@ -36,7 +36,7 @@ from Image_Processing.Source.Advanced.restoration import order_statistic_filter,
 from Image_Processing.Source.Advanced.frequency_domain import (
     ideal_lowpass_filter, butterworth_lowpass_filter, gaussian_lowpass_filter, homomorphic_filter,
 )
-
+from settings import log
 
 # ──────────────────────────────────────────────────────────── #
 # Internal helpers                                              #
@@ -74,7 +74,9 @@ def _show(figure_title: str) -> None:
 
 
 def _section(label: str) -> None:
-    print(f"\n{'─' * 60}\n  {label}\n{'─' * 60}")
+    log.info(f"{'─' * 60}")
+    log.info(f"{label}")
+    log.info(f"{'─' * 60}")
 
 
 # ──────────────────────────────────────────────────────────── #
@@ -345,8 +347,8 @@ def pipeline_homomorphic() -> None:
 # ──────────────────────────────────────────────────────────── #
 
 if __name__ == '__main__':
-    print("Image Processing Demo — Lena")
-    print("Each figure must be closed to advance to the next showcase.\n")
+    log.info("Image Processing Demo — Lena")
+    log.info("Each figure must be closed to advance to the next showcase.\n")
 
     # ── Standalone showcases ──────────────────────────────────────────────── #
     showcase_noise_zoo()
@@ -358,4 +360,4 @@ if __name__ == '__main__':
     pipeline_blur_and_wiener()
     pipeline_homomorphic()
 
-    print("\nDemo complete.")
+    log.info("\nDemo complete.")
