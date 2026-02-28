@@ -484,7 +484,7 @@ def canny_edge_detection(image: ndarray, filter_size: int, padding_type: str, si
 
     # Smoothing (blurring) the image with a Gaussian kernel.
     gaussian_image = blur_image(image=image, filter_type="gaussian", filter_size=filter_size,
-                                padding_type=padding_type, sigma=sigma)
+                                padding_type=padding_type, sigma=sigma, normalization_method='unchanged')
 
     # Computing the gradient magnitude and direction (using the Sobel filter).
     gradient_images = sobel_filter(image=gaussian_image, padding_type=padding_type, normalization_method='unchanged')
