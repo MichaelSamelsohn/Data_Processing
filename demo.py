@@ -115,7 +115,7 @@ ap.mac.send_data_frame(data=encoded_payload, destination_address=sta.mac._mac_ad
 
 # Allow time for all chunks and their ACKs to complete.
 print(f"[WiFi] Waiting for transfer to complete ({transfer_wait} seconds)...")
-time.sleep(transfer_wait)
+time.sleep(2*transfer_wait)
 
 ap.print_statistics()
 sta.print_statistics()
