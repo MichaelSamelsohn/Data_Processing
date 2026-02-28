@@ -21,6 +21,7 @@ from Image_Processing.Source.Advanced.noise_models import *
 from Image_Processing.Source.Advanced.thinning import *
 from Image_Processing.Source.Advanced.morphology import *
 from Image_Processing.Source.Advanced.frequency_domain import *
+from Image_Processing.Source.Advanced.metrics import *
 
 
 class Image:
@@ -492,3 +493,52 @@ class Image:
                                               normalization_method=normalization_method)
         self._image_buffer.append({"Name": f"Homomorphic filter (γ_L={gamma_l}, γ_H={gamma_h})",
                                    "Image": self._last_image})
+
+    # Metrics #
+
+    def mse(self, reference: ndarray) -> float:
+        """
+        Compute the Mean Square Error between the current image and a reference.
+
+        :param reference: Reference image (e.g. the clean original); must have the same shape
+                          as the current image.
+        :return:          Non-negative MSE scalar.
+        """
+        return mse(image_a=self._last_image, image_b=reference)
+
+    def psnr(self, reference: ndarray) -> float:
+        """
+        Compute the Peak Signal-to-Noise Ratio between the current image and a reference.
+
+        :param reference: Reference image; must have the same shape as the current image.
+        :return:          PSNR in decibels (np.inf for identical images).
+        """
+        return psnr(image_a=self._last_image, image_b=reference)
+
+    def ssim(self, reference: ndarray,
+             sigma: float = DEFAULT_SSIM_SIGMA,
+             k1: float = DEFAULT_SSIM_K1,
+             k2: float = DEFAULT_SSIM_K2) -> float:
+        """
+        Compute the mean Structural Similarity Index between the current image and a reference.
+
+        :param reference: Reference image; must have the same shape as the current image.
+        :param sigma:     Gaussian window standard deviation for local statistics.
+        :param k1:        Stability constant for the luminance term.
+        :param k2:        Stability constant for the contrast/structure term.
+        :return:          Mean SSIM scalar in [-1, 1]; 1.0 indicates perfect similarity.
+        """
+        return ssim(image_a=self._last_image, image_b=reference, sigma=sigma, k1=k1, k2=k2)
+
+    def compare(self, reference: ndarray) -> ImageComparator:
+        """
+        Return an ImageComparator for the current image against *reference*.
+
+        All three metrics (MSE, PSNR, SSIM) are computed immediately and cached inside
+        the comparator.  Call .print() to display the formatted report, or .as_dict()
+        to retrieve the raw values.
+
+        :param reference: Clean reference image; must match the current image shape.
+        :return:          Populated ImageComparator instance.
+        """
+        return ImageComparator(original=reference, distorted=self._last_image)

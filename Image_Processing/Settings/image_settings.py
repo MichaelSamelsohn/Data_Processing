@@ -89,3 +89,9 @@ DEFAULT_HOMOMORPHIC_SIGMA = 30.0    # Gaussian σ for homomorphic filter (pixels
 
 # Restoration - advanced filters #
 DEFAULT_WIENER_K = 0.01       # noise-to-signal power ratio for Wiener deconvolution
+
+# Metrics #
+DEFAULT_PSNR_MAX_VALUE = 1.0  # maximum pixel value for normalised [0, 1] images
+DEFAULT_SSIM_SIGMA = 1.5      # Gaussian window σ for local SSIM statistics (Wang et al. 2004)
+DEFAULT_SSIM_K1 = 0.01        # stability constant for the luminance term
+DEFAULT_SSIM_K2 = 0.03        # stability constant for the contrast/structure term
