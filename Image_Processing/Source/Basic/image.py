@@ -12,7 +12,6 @@ import matplotlib.image as im
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 
-from common import *
 from Image_Processing.Source.Advanced.intensity_transformations import *
 from Image_Processing.Source.Advanced.spatial_filtering import *
 from Image_Processing.Source.Advanced.segmentation import *
@@ -21,7 +20,7 @@ from Image_Processing.Source.Advanced.noise_models import *
 from Image_Processing.Source.Advanced.thinning import *
 from Image_Processing.Source.Advanced.morphology import *
 from Image_Processing.Source.Advanced.frequency_domain import *
-from Image_Processing.Source.Advanced.metrics import *
+from metrics import *
 
 
 class Image:

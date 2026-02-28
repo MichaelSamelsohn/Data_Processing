@@ -375,6 +375,11 @@ class Logger(logging.Logger):
             if isinstance(formatter, ColorFormatter) and color:
                 formatter._COLORS[level_num] = color
 
+    def raise_exception(self, message: str, exception: type = RuntimeError):
+        """Log an error message and raise the specified exception."""
+        self.error(message)
+        raise exception(message)
+
     def exit(self, message: str, exit_code=1):
         """Log critical level message and end program execution."""
         self.critical(message)

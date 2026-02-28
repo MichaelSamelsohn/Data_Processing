@@ -39,7 +39,7 @@ from Image_Processing.Source.Advanced.restoration import order_statistic_filter,
 from Image_Processing.Source.Advanced.frequency_domain import (
     ideal_lowpass_filter, butterworth_lowpass_filter, gaussian_lowpass_filter, homomorphic_filter,
 )
-from Image_Processing.Source.Advanced.metrics import ImageComparator, psnr, ssim
+from metrics import ImageComparator, psnr, ssim
 from settings import log
 
 
