@@ -8,16 +8,23 @@ Created by Michael Samelsohn, 07/05/22.
 
 # Imports #
 import os
-import time
 import requests
 
 from PIL import Image
 from NASA_API.Settings.api_settings import log, MAX_RETRIES, RETRY_DELAY, REQUEST_TIMEOUT, API_IMAGE_DOWNLOAD_FORMATS
+from Utilities.decorators import retry
 
 
+@retry(max_attempts=MAX_RETRIES, delay=RETRY_DELAY,
+       exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+       default=None)
 def get_request(url: str) -> dict | None:
     """
     Perform an HTTP GET request and return the parsed JSON response.
+
+    Transient network failures (timeouts, connection errors) are retried automatically
+    up to MAX_RETRIES times with a RETRY_DELAY second pause between attempts.
+    Any other request error or a non-200 status code returns None immediately.
 
     :param url: The full URL for the GET request.
 
@@ -28,12 +35,8 @@ def get_request(url: str) -> dict | None:
 
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.Timeout:
-        log.error(f"Request timed out after {REQUEST_TIMEOUT} seconds - {url}")
-        return None
-    except requests.exceptions.ConnectionError as e:
-        log.error(f"Connection error during GET request - {e}")
-        return None
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+        raise  # propagate to @retry
     except requests.exceptions.RequestException as e:
         log.error(f"Unexpected error during GET request - {e}")
         return None
@@ -46,12 +49,44 @@ def get_request(url: str) -> dict | None:
     return response.json()
 
 
+@retry(max_attempts=MAX_RETRIES, delay=RETRY_DELAY,
+       exceptions=(requests.exceptions.RequestException,),
+       default=None)
+def _download_single_image(url: str, image_path: str) -> str:
+    """
+    Download one image URL and write it to disk, raising on any failure.
+
+    Raises ``requests.exceptions.HTTPError`` for non-200 responses so that
+    @retry treats them the same as network errors and retries them.
+
+    :param url:        Source URL of the image.
+    :param image_path: Absolute path where the image file will be saved.
+    :return:           ``image_path`` on success.
+    """
+
+    response = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT)
+    if response.status_code != 200:
+        raise requests.exceptions.HTTPError(
+            f"Download failed with status code {response.status_code} - {url}")
+
+    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    with open(image_path, "wb") as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                file.write(chunk)
+
+    log.success(f"Image saved successfully - {image_path}")
+    return image_path
+
+
 def download_image_url(image_directory: str, api_type: str, image_url_list: list, image_suffix: str = "") -> str | None:
     """
     Download images from a list of URLs and save them to the specified directory.
 
-    When downloading a single image the filename is: {api_type}{image_suffix}.{format}.
-    When downloading multiple images each filename receives an additional numeric index:
+    Each URL is attempted up to MAX_RETRIES times (via @retry on the private
+    helper).  When downloading a single image the filename is:
+        {api_type}{image_suffix}.{format}
+    When downloading multiple images each filename receives an additional index:
         {api_type}{image_suffix}_{index}.{format}
 
     :param image_directory: Directory where downloaded images will be saved.
@@ -74,41 +109,11 @@ def download_image_url(image_directory: str, api_type: str, image_url_list: list
     for image_index, url in enumerate(image_url_list, start=1):
         log.debug(f"Processing image {image_index}/{len(image_url_list)} - {url}")
 
-        # Build the output filename (add index suffix when downloading multiple images).
         index_suffix = f"_{image_index}" if multiple else ""
         filename = f"{api_type}{image_suffix}{index_suffix}.{image_format}"
-        image_path = os.path.join(image_directory, filename)
-
-        # Attempt download with retries.
-        download_succeeded = False
-        for attempt in range(1, MAX_RETRIES + 1):
-            log.debug(f"Download attempt {attempt}/{MAX_RETRIES}")
-            try:
-                response = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT)
-                if response.status_code == 200:
-                    os.makedirs(image_directory, exist_ok=True)
-                    with open(image_path, "wb") as file:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                file.write(chunk)
-                    log.success(f"Image saved successfully - {image_path}")
-                    download_succeeded = True
-                    break
-                else:
-                    log.error(f"Download failed with status code - {response.status_code}")
-            except requests.exceptions.Timeout:
-                log.error(f"Download timed out (attempt {attempt}/{MAX_RETRIES})")
-            except requests.exceptions.RequestException as e:
-                log.error(f"Network error during download - {e}")
-
-            if attempt < MAX_RETRIES:
-                log.debug(f"Retrying in {RETRY_DELAY} seconds...")
-                time.sleep(RETRY_DELAY)
-            else:
-                log.error(f"Failed to download image after {MAX_RETRIES} attempts - {url}")
-
-        if not download_succeeded:
-            image_path = None
+        image_path = _download_single_image(
+            url=url,
+            image_path=os.path.join(image_directory, filename))
 
     return image_path
 
