@@ -377,7 +377,7 @@ def marr_hildreth_edge_detection(image: ndarray, filter_size: int, padding_type:
 
     # Blurring the image with a Gaussian kernel.
     gaussian_image = blur_image(image=image, filter_type="gaussian", filter_size=filter_size,
-                                padding_type=padding_type, sigma=sigma)
+                                padding_type=padding_type, sigma=sigma, normalization_method='unchanged')
 
     # Applying the Laplacian on the Gaussian image.
     log_image = laplacian_gradient(image=gaussian_image, padding_type=padding_type,
