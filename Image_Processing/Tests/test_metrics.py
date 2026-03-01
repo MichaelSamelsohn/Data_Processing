@@ -114,7 +114,7 @@ def test_psnr_identical_images_is_inf():
     """
 
     # Steps (1)+(2) - Compute and assert.
-    assert psnr(image_a=KNOWN_3x3, image_b=KNOWN_3x3) == np.inf
+    assert psnr(image_a=KNOWN_3x3, image_b=KNOWN_3x3)[1] == np.inf
 
 
 def test_psnr_known_value():
@@ -131,7 +131,7 @@ def test_psnr_known_value():
     expected = 10.0 * np.log10(4.0)  # ≈ 6.0206 dB
 
     # Steps (1)+(2) - Compute and assert.
-    result = psnr(image_a=BINARY_ZEROS_5x5, image_b=UNIFORM_5x5)
+    result = psnr(image_a=BINARY_ZEROS_5x5, image_b=UNIFORM_5x5)[1]
     assert result == pytest.approx(expected, rel=1e-5)
 
 
@@ -149,8 +149,8 @@ def test_psnr_is_symmetric():
     complement = 1.0 - KNOWN_3x3
 
     # Steps (1)+(2) - Compute both orderings.
-    result_ab = psnr(image_a=KNOWN_3x3,   image_b=complement)
-    result_ba = psnr(image_a=complement, image_b=KNOWN_3x3)
+    result_ab = psnr(image_a=KNOWN_3x3,   image_b=complement)[1]
+    result_ba = psnr(image_a=complement, image_b=KNOWN_3x3)[1]
 
     # Step (3) - Assert symmetry.
     assert result_ab == pytest.approx(result_ba)
@@ -172,7 +172,7 @@ def test_psnr_decreases_with_greater_distortion():
     strong = ref + 0.3   # all 0.8, MSE = 0.09  → PSNR ≈ 10.5 dB
 
     # Step (3) - Compare.
-    assert psnr(image_a=ref, image_b=mild) > psnr(image_a=ref, image_b=strong)
+    assert psnr(image_a=ref, image_b=mild)[1] > psnr(image_a=ref, image_b=strong)[1]
 
 
 def test_psnr_custom_max_value():
@@ -189,7 +189,7 @@ def test_psnr_custom_max_value():
     expected = 10.0 * np.log10(16.0)  # ≈ 12.041 dB
 
     # Steps (1)+(2) - Compute and assert.
-    result = psnr(image_a=BINARY_ZEROS_5x5, image_b=UNIFORM_5x5, max_value=2.0)
+    result = psnr(image_a=BINARY_ZEROS_5x5, image_b=UNIFORM_5x5, max_value=2.0)[1]
     assert result == pytest.approx(expected, rel=1e-5)
 
 
@@ -342,7 +342,7 @@ def test_comparator_metric_values_match_standalone_functions():
 
     # Steps (2)+(3)+(4) - Compare stored values against their standalone counterparts.
     assert comp.mse_value  == pytest.approx(mse( image_a=KNOWN_3x3, image_b=distorted))
-    assert comp.psnr_value == pytest.approx(psnr(image_a=KNOWN_3x3, image_b=distorted))
+    assert comp.psnr_value == pytest.approx(psnr(image_a=KNOWN_3x3, image_b=distorted)[1])
     assert comp.ssim_value == pytest.approx(ssim(image_a=KNOWN_3x3, image_b=distorted))
 
 
