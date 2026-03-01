@@ -1,27 +1,25 @@
 """
 Script Name - metrics.py
 
-Purpose - Standard full-reference image quality metrics for evaluating the fidelity of a
-processed or restored image relative to a clean reference.
+Purpose - Standard full-reference image quality metrics for evaluating the fidelity of a processed or restored image
+relative to a clean reference.
 
 Three complementary metrics are provided:
 
     MSE  (Mean Square Error)
-         Measures the average squared pixel-level difference. Simple and fast, but does not
-         correlate well with perceived image quality because it treats all errors equally
-         regardless of their spatial structure.
+         Measures the average squared pixel-level difference. Simple and fast, but does not correlate well with
+         perceived image quality because it treats all errors equally regardless of their spatial structure.
 
     PSNR (Peak Signal-to-Noise Ratio)
-         A logarithmic (dB) rescaling of MSE relative to the signal peak. Widely used as a
-         benchmark in image compression and restoration. Higher is better; values above ~30 dB
-         are generally considered acceptable. Returns np.inf for identical images.
+         A logarithmic (dB) rescaling of MSE relative to the signal peak. Widely used as a benchmark in image
+         compression and restoration. Higher is better; values above ~30 dB are generally considered acceptable. Returns
+         np.inf for identical images.
 
     SSIM (Structural Similarity Index Measure)
-         Decomposes the comparison into three perceptually meaningful components —
-         luminance, contrast, and structure — evaluated locally using a Gaussian sliding
-         window. Correlates significantly better with human visual quality judgements than
-         either MSE or PSNR. Returns 1.0 for identical images; values in (0, 1) for typical
-         distortions (theoretical range is [-1, 1]).
+         Decomposes the comparison into three perceptually meaningful components — luminance, contrast, and structure —
+         evaluated locally using a Gaussian sliding window. Correlates significantly better with human visual quality
+         judgements than either MSE or PSNR. Returns 1.0 for identical images; values in (0, 1) for typical distortions
+         (theoretical range is [-1, 1]).
 
 Created by Michael Samelsohn, 28/02/26.
 """
@@ -62,16 +60,15 @@ def mse(image_a: ndarray, image_b: ndarray) -> float:
     """
     Compute the Mean Square Error between two images.
 
-    MSE is defined as the average of the squared pixel-wise differences:
+    MSE is defined as the average of the squared pixel-wise differences: MSE = (1 / MN) · Σ Σ [f(x,y) − g(x,y)]²
 
-                        MSE = (1 / MN) · Σ Σ [f(x,y) − g(x,y)]²
-
-    MSE = 0 indicates identical images.  As a difference-based measure it is sensitive to
-    global intensity offsets and independent pixel errors but ignores spatial structure, so
-    a low MSE does not necessarily imply high perceptual quality.
+    MSE = 0 indicates identical images.  As a difference-based measure it is sensitive to global intensity offsets and
+    independent pixel errors but ignores spatial structure, so a low MSE does not necessarily imply high perceptual
+    quality.
 
     :param image_a: First image (reference), pixel values in [0, 1].
     :param image_b: Second image (distorted), same shape as image_a.
+
     :return:        Non-negative scalar MSE value.
     """
 
@@ -94,14 +91,10 @@ def psnr(image_a: ndarray, image_b: ndarray,
     """
     Compute the Peak Signal-to-Noise Ratio between two images.
 
-    PSNR expresses the ratio between the maximum possible power of the signal and the
-    power of the corrupting noise on a logarithmic decibel scale:
-
-                        PSNR = 10 · log₁₀(MAX² / MSE)
-
-    where MAX is the maximum representable pixel value (1.0 for images normalised to
-    [0, 1]).  Higher values indicate better fidelity:
-
+    PSNR expresses the ratio between the maximum possible power of the signal and the power of the corrupting noise on a
+    logarithmic decibel scale: PSNR = 10 · log₁₀(MAX² / MSE)
+    where MAX is the maximum representable pixel value (1.0 for images normalised to [0, 1]).  Higher values indicate
+    better fidelity:
         * ≥ 40 dB  — visually lossless or near-lossless.
         * 30–40 dB — acceptable; typical of moderate compression or mild noise.
         * < 30 dB  — noticeable degradation.
@@ -110,6 +103,7 @@ def psnr(image_a: ndarray, image_b: ndarray,
     :param image_a:   Reference image, pixel values in [0, 1].
     :param image_b:   Distorted image, same shape as image_a.
     :param max_value: Peak signal value (default 1.0 for normalised images).
+
     :return:          PSNR in decibels, or np.inf if the images are identical.
     """
 
@@ -139,18 +133,15 @@ def ssim(image_a: ndarray, image_b: ndarray,
     """
     Compute the mean Structural Similarity Index Measure (MSSIM) between two images.
 
-    SSIM decomposes image fidelity into three locally-evaluated components using a
-    Gaussian sliding window of standard deviation σ:
-
+    SSIM decomposes image fidelity into three locally-evaluated components using a Gaussian sliding window of standard
+    deviation σ:
         l(x, y)  — luminance:  (2·μ_x·μ_y + C₁) / (μ_x² + μ_y² + C₁)
         c(x, y)  — contrast:   (2·σ_x·σ_y + C₂) / (σ_x² + σ_y² + C₂)
-        s(x, y)  — structure:  (σ_xy + C₃)       / (σ_x·σ_y + C₃)
+        s(x, y)  — structure:  (σ_xy + C₃)       / (σ_x·σ_y + C₃
 
     With α = β = γ = 1 and C₃ = C₂/2, the combined formula simplifies to:
-
         SSIM(x, y) = [(2·μ_x·μ_y + C₁)(2·σ_xy + C₂)]
                    / [(μ_x² + μ_y² + C₁)(σ_x² + σ_y² + C₂)]
-
     where:
         μ_x, μ_y    — local Gaussian-weighted means.
         σ_x², σ_y²  — local Gaussian-weighted variances.
@@ -164,6 +155,7 @@ def ssim(image_a: ndarray, image_b: ndarray,
     :param sigma:   Standard deviation of the Gaussian window used for local statistics.
     :param k1:      Stability constant for the luminance term (default 0.01).
     :param k2:      Stability constant for the contrast/structure term (default 0.03).
+
     :return:        Mean SSIM scalar in [-1, 1]; 1.0 indicates perfect similarity.
     """
 
@@ -208,11 +200,8 @@ class ImageComparator:
     """
     Compute and display all three quality metrics for an original / distorted image pair.
 
-    All three metrics are evaluated on construction and cached so that repeated calls to
-    print() or as_dict() are free.
-
-    Usage::
-
+    All three metrics are evaluated on construction and cached so that repeated calls to print() or as_dict() are free.
+    Usage:
         comparator = ImageComparator(original=clean, distorted=restored)
         comparator.print()
 
