@@ -326,7 +326,7 @@ class PHY:
                                 # Ending the reception.
                                 self.send(socket_connection=self._mpif_socket,
                                           primitive="PHY-RXEND.indication(No_Error)",
-                                          data=[])
+                                          data=[phy_rate])
                                 self.send(socket_connection=self._mpif_socket, primitive="PHY-CCA.indication(IDLE)",
                                           data=[])
 

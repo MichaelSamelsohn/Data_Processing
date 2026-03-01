@@ -426,9 +426,11 @@ class MAC:
                             log.debug(f"({self._identifier}) Extension frame type")
                             pass  # TODO: To be implemented.
 
-                    # Annotate any newly added RX statistics entry with the PSDU frame size.
+                    # Annotate any newly added RX statistics entry with the PSDU frame size and PHY rate.
                     if len(self._statistics) > stats_before:
                         self._statistics[-1]["FRAME_SIZE"] = len(byte_list)
+                        if data:
+                            self._statistics[-1]["PHY_RATE"] = data[0]
 
                     if self._is_retry:
                         log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
@@ -1123,7 +1125,8 @@ class MAC:
             # Original frame. Add to statistics.
             self._statistics.append({"DIRECTION": "TX", "TYPE": frame_parameters["TYPE"],
                                      "DESTINATION_ADDRESS": frame_parameters["DESTINATION_ADDRESS"],
-                                     "FRAME_SIZE": int(len(self._tx_psdu_buffer) / 8)})
+                                     "FRAME_SIZE": int(len(self._tx_psdu_buffer) / 8),
+                                     "PHY_RATE": self.phy_rate})
 
             # Check if confirmation (ACK/CTS) is needed for frame.
             if frame_parameters['WAIT_FOR_CONFIRMATION']:

@@ -173,6 +173,7 @@ class CHIP:
             * Frame Size (B)    - PSDU size in bytes for the frame; "N/A" if not recorded.
             * Retries           - Number of retransmission attempts for TX frames; "N/A" for RX frames or frames with no
                                   retry tracking. Appends "(frame dropped)" if retries were exhausted.
+            * PHY Rate (Mbps)   - The PHY data rate used for the frame (e.g., 6, 9, 12, ... 54); "N/A" if not recorded.
             * MAC Address (HEX) - Source address for RX frames, destination address for TX frames, formatted as a
                                   colon-separated hex string.
         """
@@ -183,6 +184,7 @@ class CHIP:
             direction = frame.get("DIRECTION", "UNKNOWN")
             frame_type = frame.get("TYPE", "UNKNOWN")
             frame_size = str(frame["FRAME_SIZE"]) if "FRAME_SIZE" in frame else "N/A"
+            phy_rate = str(frame["PHY_RATE"]) if "PHY_RATE" in frame else "N/A"
 
             # Base description and retries.
             if direction == "RX":
@@ -208,35 +210,37 @@ class CHIP:
                 mac = []
 
             mac_hex = ":".join(f"{b:02X}" for b in mac)
-            rows.append((direction, description, frame_size, retries, mac_hex))
+            rows.append((direction, description, frame_size, phy_rate, retries, mac_hex))
 
         # Column widths, ensure headers fit.
         dir_col_width     = max(max(len(r[0]) for r in rows), len("Direction"))          + 2
         desc_col_width    = max(max(len(r[1]) for r in rows), len("Frame Description"))  + 2
         size_col_width    = max(max(len(r[2]) for r in rows), len("Frame Size (B)"))     + 2
-        retries_col_width = max(max(len(r[3]) for r in rows), len("Retries"))            + 2
-        mac_col_width     = max(max(len(r[4]) for r in rows), len("MAC Address (HEX)")) + 2
+        rate_col_width    = max(max(len(r[3]) for r in rows), len("PHY Rate (Mbps)"))   + 2
+        retries_col_width = max(max(len(r[4]) for r in rows), len("Retries"))            + 2
+        mac_col_width     = max(max(len(r[5]) for r in rows), len("MAC Address (HEX)")) + 2
 
         # Headers.
         header_dir     = "Direction".center(dir_col_width)
         header_desc    = "Frame Description".center(desc_col_width)
         header_size    = "Frame Size (B)".center(size_col_width)
+        header_rate    = "PHY Rate (Mbps)".center(rate_col_width)
         header_retries = "Retries".center(retries_col_width)
         header_mac     = "MAC Address (HEX)".center(mac_col_width)
 
         # Borders.
         top_border = ("+" + "-" * dir_col_width + "+" + "-" * desc_col_width + "+" + "-" * size_col_width +
-                      "+" + "-" * retries_col_width + "+" + "-" * mac_col_width + "+")
+                      "+" + "-" * rate_col_width + "+" + "-" * retries_col_width + "+" + "-" * mac_col_width + "+")
         mid_border = top_border
         bottom_border = top_border
 
         # Print table.
         log.info(f"({self._identifier}) Statistics:")
         log.info(f"({self._identifier}) {top_border}")
-        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_size}|{header_retries}|{header_mac}|")
+        log.info(f"({self._identifier}) |{header_dir}|{header_desc}|{header_size}|{header_rate}|{header_retries}|{header_mac}|")
         log.info(f"({self._identifier}) {mid_border}")
 
-        for direction, description, frame_size, retries, mac_hex in rows:
+        for direction, description, frame_size, phy_rate, retries, mac_hex in rows:
             # Wrap description if needed.
             wrapped_desc = textwrap.wrap(description, width=desc_col_width - 2) or [""]
 
@@ -244,9 +248,10 @@ class CHIP:
                 dir_col     = direction.center(dir_col_width)     if i == 0 else " " * dir_col_width
                 desc_col    = line.center(desc_col_width)
                 size_col    = frame_size.center(size_col_width)   if i == 0 else " " * size_col_width
+                rate_col    = phy_rate.center(rate_col_width)     if i == 0 else " " * rate_col_width
                 retries_col = retries.center(retries_col_width)   if i == 0 else " " * retries_col_width
                 mac_col     = mac_hex.center(mac_col_width)       if i == 0 else " " * mac_col_width
-                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{size_col}|{retries_col}|{mac_col}|")
+                log.info(f"({self._identifier}) |{dir_col}|{desc_col}|{size_col}|{rate_col}|{retries_col}|{mac_col}|")
 
         log.info(f"({self._identifier}) {bottom_border}")
 
