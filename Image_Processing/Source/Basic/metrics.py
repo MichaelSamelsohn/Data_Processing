@@ -4,23 +4,6 @@ Script Name - metrics.py
 Purpose - Standard full-reference image quality metrics for evaluating the fidelity of a processed or restored image
 relative to a clean reference.
 
-Three complementary metrics are provided:
-
-    MSE  (Mean Square Error)
-         Measures the average squared pixel-level difference. Simple and fast, but does not correlate well with
-         perceived image quality because it treats all errors equally regardless of their spatial structure.
-
-    PSNR (Peak Signal-to-Noise Ratio)
-         A logarithmic (dB) rescaling of MSE relative to the signal peak. Widely used as a benchmark in image
-         compression and restoration. Higher is better; values above ~30 dB are generally considered acceptable. Returns
-         np.inf for identical images.
-
-    SSIM (Structural Similarity Index Measure)
-         Decomposes the comparison into three perceptually meaningful components — luminance, contrast, and structure —
-         evaluated locally using a Gaussian sliding window. Correlates significantly better with human visual quality
-         judgements than either MSE or PSNR. Returns 1.0 for identical images; values in (0, 1) for typical distortions
-         (theoretical range is [-1, 1]).
-
 Created by Michael Samelsohn, 28/02/26.
 """
 
@@ -31,26 +14,8 @@ from scipy.ndimage import gaussian_filter
 from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference, article_reference
 
-# References #
-_WANG_2004 = ("Wang, Z., Bovik, A.C., Sheikh, H.R., Simoncelli, E.P. (2004). "
-              "Image Quality Assessment: From Error Visibility to Structural Similarity. "
-              "IEEE Transactions on Image Processing, 13(4), 600-612.")
-
-
 # ──────────────────────────────────────────────────────────── #
-# Internal helper                                               #
-# ──────────────────────────────────────────────────────────── #
-
-def _check_shapes(image_a: ndarray, image_b: ndarray) -> None:
-    """Raise ValueError if the two images do not share the same shape."""
-    if image_a.shape != image_b.shape:
-        log.raise_exception(
-            message=f"Images must have the same shape; got {image_a.shape} and {image_b.shape}.",
-            exception=ValueError)
-
-
-# ──────────────────────────────────────────────────────────── #
-# MSE                                                           #
+# MSE & PSNR                                                   #
 # ──────────────────────────────────────────────────────────── #
 
 def mse(image_a: ndarray, image_b: ndarray) -> float:
@@ -70,19 +35,13 @@ def mse(image_a: ndarray, image_b: ndarray) -> float:
     """
 
     log.info("Computing Mean Square Error (MSE)")
-    _check_shapes(image_a, image_b)
 
     result = float(np.mean((image_a.astype(float) - image_b.astype(float)) ** 2))
     log.info(f"MSE = {result:.6f}")
     return result
 
 
-# ──────────────────────────────────────────────────────────── #
-# PSNR                                                          #
-# ──────────────────────────────────────────────────────────── #
-
-@book_reference(book=GONZALES_WOODS_BOOK,
-                reference="Chapter 8.4 - Image Quality Assessment, p.567-568")
+@book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 8.4 - Image Quality Assessment, p.567-568")
 def psnr(image_a: ndarray, image_b: ndarray,
          max_value: float = DEFAULT_PSNR_MAX_VALUE) -> tuple[float, float]:
     """
@@ -105,7 +64,6 @@ def psnr(image_a: ndarray, image_b: ndarray,
     """
 
     log.info("Computing Peak Signal-to-Noise Ratio (PSNR)")
-    _check_shapes(image_a, image_b)
 
     error = mse(image_a, image_b)
 
@@ -122,7 +80,9 @@ def psnr(image_a: ndarray, image_b: ndarray,
 # SSIM                                                          #
 # ──────────────────────────────────────────────────────────── #
 
-@article_reference(article=_WANG_2004)
+@article_reference(article="Wang, Z., Bovik, A.C., Sheikh, H.R., Simoncelli, E.P. (2004). "
+                           "Image Quality Assessment: From Error Visibility to Structural Similarity. "
+                           "IEEE Transactions on Image Processing, 13(4), 600-612.")
 def ssim(image_a: ndarray, image_b: ndarray,
          sigma: float = DEFAULT_SSIM_SIGMA,
          k1: float = DEFAULT_SSIM_K1,
@@ -157,7 +117,6 @@ def ssim(image_a: ndarray, image_b: ndarray,
     """
 
     log.info(f"Computing Structural Similarity Index (SSIM) with σ={sigma}, K1={k1}, K2={k2}")
-    _check_shapes(image_a, image_b)
 
     a = image_a.astype(float)
     b = image_b.astype(float)
@@ -195,7 +154,21 @@ def ssim(image_a: ndarray, image_b: ndarray,
 
 class ImageComparator:
     """
-    Compute and display all three quality metrics for an original / distorted image pair.
+    Compute and display all three quality metrics for an original / distorted image pair:
+    MSE  (Mean Square Error)
+         Measures the average squared pixel-level difference. Simple and fast, but does not correlate well with
+         perceived image quality because it treats all errors equally regardless of their spatial structure.
+
+    PSNR (Peak Signal-to-Noise Ratio)
+         A logarithmic (dB) rescaling of MSE relative to the signal peak. Widely used as a benchmark in image
+         compression and restoration. Higher is better; values above ~30 dB are generally considered acceptable. Returns
+         np.inf for identical images.
+
+    SSIM (Structural Similarity Index Measure)
+         Decomposes the comparison into three perceptually meaningful components — luminance, contrast, and structure —
+         evaluated locally using a Gaussian sliding window. Correlates significantly better with human visual quality
+         judgements than either MSE or PSNR. Returns 1.0 for identical images; values in (0, 1) for typical distortions
+         (theoretical range is [-1, 1]).
 
     All three metrics are evaluated on construction and cached so that repeated calls to print() or as_dict() are free.
     Usage:
@@ -204,12 +177,11 @@ class ImageComparator:
 
         ┌──────────────────────────────────┐
         │  MSE   : 0.001420                │
-        │  PSNR  : 28.47 dB               │
+        │  PSNR  : 28.47 dB                │
         │  SSIM  : 0.8912                  │
         └──────────────────────────────────┘
 
     The individual values are also accessible as properties::
-
         comparator.mse_value    # float
         comparator.psnr_value   # float or np.inf
         comparator.ssim_value   # float in [-1, 1]
@@ -220,7 +192,15 @@ class ImageComparator:
         :param original:  Clean reference image, pixel values in [0, 1].
         :param distorted: Processed / degraded image; must be the same shape as original.
         """
+
         log.info("ImageComparator: computing MSE, PSNR, and SSIM")
+
+        # Common check - The two images share the same shape (Raise ValueError otherwise).
+        if original.shape != distorted.shape:
+            log.raise_exception(
+                message=f"Images must have the same shape; got {original.shape} and {distorted.shape}.",
+                exception=ValueError)
+
         self.mse_value, self.psnr_value = psnr(image_a=original, image_b=distorted)
         self.ssim_value = ssim(image_a=original, image_b=distorted)
 

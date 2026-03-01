@@ -495,7 +495,7 @@ class Image:
 
     # Metrics #
 
-    def compare(self, reference: ndarray) -> ImageComparator:
+    def compare(self, original: ndarray) -> ImageComparator:
         """
         Return an ImageComparator for the current image against *reference*.
 
@@ -503,8 +503,8 @@ class Image:
         the comparator.  Call .print() to display the formatted report, or .as_dict()
         to retrieve the raw values.
 
-        :param reference: Clean reference image; must match the current image shape.
+        :param original: Clean reference image; must match the current image shape.
 
         :return:          Populated ImageComparator instance.
         """
-        return ImageComparator(original=reference, distorted=self._last_image)
+        return ImageComparator(original=original, distorted=self._last_image)
