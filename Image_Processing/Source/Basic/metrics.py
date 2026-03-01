@@ -253,7 +253,7 @@ class ImageComparator:
 
     def print(self) -> None:
         """Print the formatted quality report to stdout."""
-        print(self.report())
+        log.print_data(data=self.report(), log_level="info")
 
     # ── Data access ──────────────────────────────────────────────────────── #
 
