@@ -25,7 +25,6 @@ Created by Michael Samelsohn, 28/02/26.
 """
 
 # Imports #
-import numpy as np
 from numpy import ndarray
 from scipy.ndimage import gaussian_filter
 
@@ -54,8 +53,6 @@ def _check_shapes(image_a: ndarray, image_b: ndarray) -> None:
 # MSE                                                           #
 # ──────────────────────────────────────────────────────────── #
 
-@book_reference(book=GONZALES_WOODS_BOOK,
-                reference="Chapter 8.4 - Image Quality Assessment, p.567")
 def mse(image_a: ndarray, image_b: ndarray) -> float:
     """
     Compute the Mean Square Error between two images.
@@ -85,9 +82,9 @@ def mse(image_a: ndarray, image_b: ndarray) -> float:
 # ──────────────────────────────────────────────────────────── #
 
 @book_reference(book=GONZALES_WOODS_BOOK,
-                reference="Chapter 8.4 - Image Quality Assessment, p.568")
+                reference="Chapter 8.4 - Image Quality Assessment, p.567-568")
 def psnr(image_a: ndarray, image_b: ndarray,
-         max_value: float = DEFAULT_PSNR_MAX_VALUE) -> float:
+         max_value: float = DEFAULT_PSNR_MAX_VALUE) -> tuple[float, float]:
     """
     Compute the Peak Signal-to-Noise Ratio between two images.
 
@@ -114,11 +111,11 @@ def psnr(image_a: ndarray, image_b: ndarray,
 
     if error == 0.0:
         log.info("PSNR = inf (images are identical)")
-        return np.inf
+        return 0, np.inf
 
     result = float(10.0 * np.log10(max_value ** 2 / error))
     log.info(f"PSNR = {result:.2f} dB")
-    return result
+    return error, result
 
 
 # ──────────────────────────────────────────────────────────── #
@@ -224,8 +221,7 @@ class ImageComparator:
         :param distorted: Processed / degraded image; must be the same shape as original.
         """
         log.info("ImageComparator: computing MSE, PSNR, and SSIM")
-        self.mse_value  = mse( image_a=original, image_b=distorted)
-        self.psnr_value = psnr(image_a=original, image_b=distorted)
+        self.mse_value, self.psnr_value = psnr(image_a=original, image_b=distorted)
         self.ssim_value = ssim(image_a=original, image_b=distorted)
 
     # ── Formatted output ─────────────────────────────────────────────────── #

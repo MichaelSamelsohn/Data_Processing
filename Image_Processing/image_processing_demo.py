@@ -86,7 +86,7 @@ def _section(label: str) -> None:
 
 def _metrics_str(reference: np.ndarray, image: np.ndarray) -> str:
     """Return a one-line 'PSNR X.X dB | SSIM X.XXX' annotation string."""
-    p = psnr(reference, image)
+    _, p = psnr(reference, image)
     s = ssim(reference, image)
     psnr_fmt = "∞" if p == np.inf else f"{p:.1f}"
     return f"PSNR {psnr_fmt} dB  |  SSIM {s:.3f}"
