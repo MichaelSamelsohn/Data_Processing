@@ -15,31 +15,8 @@ from Image_Processing.Settings.image_settings import *
 from Utilities.decorators import book_reference, article_reference
 
 # ──────────────────────────────────────────────────────────── #
-# MSE & PSNR                                                   #
+# PSNR                                                         #
 # ──────────────────────────────────────────────────────────── #
-
-def mse(image_a: ndarray, image_b: ndarray) -> float:
-    """
-    Compute the Mean Square Error between two images.
-
-    MSE is defined as the average of the squared pixel-wise differences: MSE = (1 / MN) · Σ Σ [f(x,y) − g(x,y)]²
-
-    MSE = 0 indicates identical images.  As a difference-based measure it is sensitive to global intensity offsets and
-    independent pixel errors but ignores spatial structure, so a low MSE does not necessarily imply high perceptual
-    quality.
-
-    :param image_a: First image (reference), pixel values in [0, 1].
-    :param image_b: Second image (distorted), same shape as image_a.
-
-    :return:        Non-negative scalar MSE value.
-    """
-
-    log.info("Computing Mean Square Error (MSE)")
-
-    result = float(np.mean((image_a.astype(float) - image_b.astype(float)) ** 2))
-    log.info(f"MSE = {result:.6f}")
-    return result
-
 
 @book_reference(book=GONZALES_WOODS_BOOK, reference="Chapter 8.4 - Image Quality Assessment, p.567-568")
 def psnr(image_a: ndarray, image_b: ndarray,
@@ -63,17 +40,18 @@ def psnr(image_a: ndarray, image_b: ndarray,
     :return:          PSNR in decibels, or np.inf if the images are identical.
     """
 
+    log.info("Computing Mean Square Error (MSE)")
+    mse = float(np.mean((image_a.astype(float) - image_b.astype(float)) ** 2))
+    log.info(f"MSE = {mse:.6f}")
+
     log.info("Computing Peak Signal-to-Noise Ratio (PSNR)")
-
-    error = mse(image_a, image_b)
-
-    if error == 0.0:
+    if mse == 0.0:
         log.info("PSNR = inf (images are identical)")
         return 0, np.inf
 
-    result = float(10.0 * np.log10(max_value ** 2 / error))
-    log.info(f"PSNR = {result:.2f} dB")
-    return error, result
+    psnr = float(10.0 * np.log10(max_value ** 2 / mse))
+    log.info(f"PSNR = {psnr:.2f} dB")
+    return mse, psnr
 
 
 # ──────────────────────────────────────────────────────────── #
