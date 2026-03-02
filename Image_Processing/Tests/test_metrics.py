@@ -2,7 +2,7 @@
 Script Name - test_metrics.py
 
 Purpose - Unit tests for Image_Processing/Source/Advanced/metrics.py.
-          Covers the three standalone metric functions (mse, psnr, ssim) and the
+          Covers the standalone metric functions (psnr, ssim) and the
           ImageComparator convenience class.
 
 Created by Michael Samelsohn, 28/02/26.
@@ -11,92 +11,8 @@ Created by Michael Samelsohn, 28/02/26.
 # Imports #
 import pytest
 
-from metrics import mse, psnr, ssim, ImageComparator
+from metrics import psnr, ssim, ImageComparator
 from constants import *
-
-
-# ──────────────────────────────────────────────────────────── #
-#  mse tests                                                    #
-# ──────────────────────────────────────────────────────────── #
-
-def test_mse_identical_images_is_zero():
-    """
-    Test purpose - MSE between a pair of identical images is exactly zero.
-    Criteria - mse(a, a) == 0.0 for any image a.
-
-    Test steps:
-    1) Call mse with KNOWN_3x3 as both arguments.
-    2) Assert the result is 0.0.
-    """
-
-    # Steps (1)+(2) - Compute and assert.
-    assert mse(image_a=KNOWN_3x3, image_b=KNOWN_3x3) == 0.0
-
-
-def test_mse_all_zeros_vs_all_ones_is_one():
-    """
-    Test purpose - MSE between a black and a white image equals the maximum value of 1.
-    Criteria - mse(zeros, ones) == 1.0.
-
-    Test steps:
-    1) Call mse with a 3×3 all-zeros image and a 3×3 all-ones image.
-    2) Assert the result equals 1.0.
-    """
-
-    # Steps (1)+(2) - Compute and assert.
-    result = mse(image_a=np.zeros((3, 3)), image_b=np.ones((3, 3)))
-    assert result == pytest.approx(1.0)
-
-
-def test_mse_known_value():
-    """
-    Test purpose - MSE matches a hand-calculated reference value.
-    Criteria - mse(zeros, 0.5·ones) == 0.25, since mean((0 − 0.5)²) = 0.25.
-
-    Test steps:
-    1) Call mse with BINARY_ZEROS_5x5 and UNIFORM_5x5.
-    2) Assert the result equals 0.25.
-    """
-
-    # Steps (1)+(2) - Compute and assert.
-    result = mse(image_a=BINARY_ZEROS_5x5, image_b=UNIFORM_5x5)
-    assert result == pytest.approx(0.25)
-
-
-def test_mse_is_symmetric():
-    """
-    Test purpose - MSE is symmetric: swapping the two arguments gives the same result.
-    Criteria - mse(a, b) == mse(b, a).
-
-    Test steps:
-    1) Compute mse(KNOWN_3x3, complement) where complement = 1 − KNOWN_3x3.
-    2) Compute mse(complement, KNOWN_3x3).
-    3) Assert both results are equal.
-    """
-
-    complement = 1.0 - KNOWN_3x3
-
-    # Steps (1)+(2) - Compute both orderings.
-    result_ab = mse(image_a=KNOWN_3x3,   image_b=complement)
-    result_ba = mse(image_a=complement, image_b=KNOWN_3x3)
-
-    # Step (3) - Assert symmetry.
-    assert result_ab == pytest.approx(result_ba)
-
-
-def test_mse_shape_mismatch_raises_value_error():
-    """
-    Test purpose - MSE raises ValueError when the two images differ in shape.
-    Criteria - Passing images of shape (3, 3) and (5, 5) must raise ValueError.
-
-    Test steps:
-    1) Call mse with KNOWN_3x3 (shape 3×3) and UNIFORM_5x5 (shape 5×5).
-    2) Assert that a ValueError is raised.
-    """
-
-    # Steps (1)+(2) - Assert the expected exception.
-    with pytest.raises(ValueError):
-        mse(image_a=KNOWN_3x3, image_b=UNIFORM_5x5)
 
 
 # ──────────────────────────────────────────────────────────── #
@@ -327,21 +243,18 @@ def test_ssim_shape_mismatch_raises_value_error():
 def test_comparator_metric_values_match_standalone_functions():
     """
     Test purpose - ImageComparator stores values that agree with the standalone metric functions.
-    Criteria - comp.mse_value == mse(a, b), comp.psnr_value == psnr(a, b),
-               comp.ssim_value == ssim(a, b).
+    Criteria - comp.psnr_value == psnr(a, b)[1], comp.ssim_value == ssim(a, b).
 
     Test steps:
     1) Construct an ImageComparator from KNOWN_3x3 (original) and its complement (distorted).
-    2) Assert mse_value matches the standalone mse() result.
-    3) Assert psnr_value matches the standalone psnr() result.
-    4) Assert ssim_value matches the standalone ssim() result.
+    2) Assert psnr_value matches the standalone psnr() result.
+    3) Assert ssim_value matches the standalone ssim() result.
     """
 
     distorted = 1.0 - KNOWN_3x3
     comp = ImageComparator(original=KNOWN_3x3, distorted=distorted)
 
-    # Steps (2)+(3)+(4) - Compare stored values against their standalone counterparts.
-    assert comp.mse_value  == pytest.approx(mse( image_a=KNOWN_3x3, image_b=distorted))
+    # Steps (2)+(3) - Compare stored values against their standalone counterparts.
     assert comp.psnr_value == pytest.approx(psnr(image_a=KNOWN_3x3, image_b=distorted)[1])
     assert comp.ssim_value == pytest.approx(ssim(image_a=KNOWN_3x3, image_b=distorted))
 
