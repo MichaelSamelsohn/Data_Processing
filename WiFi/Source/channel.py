@@ -112,7 +112,7 @@ class Channel:
 
         while not self.stop_event.is_set():
             try:
-                message = conn.recv(65536)
+                message = recv_framed(conn)
                 if not message:
                     break
 
@@ -155,10 +155,11 @@ class Channel:
         with self.clients_lock:
             for conn in list(self.clients):
                 try:
-                    conn.sendall(message)
+                    send_framed(conn, message)
                 except (OSError, ConnectionResetError, ConnectionAbortedError):
                     log.debug(f"Channel broadcast connection reset/aborted")
-                    return
+                    self.clients.discard(conn)
+                    continue
                 except Exception as e:
                     log.error(f"Failed to send to a client:")
                     log.print_data(data="".join(traceback.format_exception(type(e), e, e.__traceback__)),

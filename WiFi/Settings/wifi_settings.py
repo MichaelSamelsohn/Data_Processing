@@ -153,3 +153,37 @@ FREQUENCY_DOMAIN_LTF = [
     1,  1, -1, -1, 1,  1, -1,  1, -1,  1,  1,  1,  1,  1, 1, -1, -1,  1, 1, -1, 1, -1, 1, 1, 1, 1,
     1, -1, -1,  1, 1, -1,  1, -1,  1, -1, -1, -1, -1, -1, 1,  1, -1, -1, 1, -1, 1, -1, 1, 1, 1, 1
 ]
+
+# Socket framing utilities #
+
+def _recvall(sock, n: int) -> bytes:
+    """Read exactly n bytes from sock; returns fewer only if the connection closes."""
+    data = b''
+    while len(data) < n:
+        chunk = sock.recv(n - len(data))
+        if not chunk:
+            return data
+        data += chunk
+    return data
+
+
+def recv_framed(sock) -> bytes:
+    """
+    Receive one length-prefixed message from sock.
+    Returns b'' when the connection is closed or the message is incomplete.
+    """
+    header = _recvall(sock, 4)
+    if len(header) < 4:
+        return b''
+    msg_len = int.from_bytes(header, 'big')
+    if msg_len == 0:
+        return b''
+    payload = _recvall(sock, msg_len)
+    if len(payload) < msg_len:
+        return b''
+    return payload
+
+
+def send_framed(sock, payload: bytes) -> None:
+    """Send payload preceded by a 4-byte big-endian length header."""
+    sock.sendall(len(payload).to_bytes(4, 'big') + payload)

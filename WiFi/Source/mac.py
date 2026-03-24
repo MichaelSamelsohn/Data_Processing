@@ -142,8 +142,8 @@ class MAC:
         """
 
         try:
-            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-            self._mpif_socket.sendall(message.encode())
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data}).encode()
+            send_framed(self._mpif_socket, message)
         except (OSError, ConnectionResetError, ConnectionAbortedError):
             log.debug(f"({self._identifier}) MAC MPIF send connection reset/aborted")
             return
@@ -160,16 +160,17 @@ class MAC:
         while not self.stop_event.is_set():
             # Listen to incoming MPIF traffic.
             try:
-                message = self._mpif_socket.recv(65536)
-                if message:
-                    # Unpacking the message.
-                    message = json.loads(message.decode())
-                    primitive = message['PRIMITIVE']
-                    data = message['DATA']
+                message = recv_framed(self._mpif_socket)
+                if not message:
+                    break
+                # Unpacking the message.
+                message = json.loads(message.decode())
+                primitive = message['PRIMITIVE']
+                data = message['DATA']
 
-                    log.traffic(f"({self._identifier}) MAC received: {primitive} "
-                                f"({'no data' if not data else f'data length {len(data)}'})")
-                    self.controller(primitive=primitive, data=data)
+                log.traffic(f"({self._identifier}) MAC received: {primitive} "
+                            f"({'no data' if not data else f'data length {len(data)}'})")
+                self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
                 log.debug(f"({self._identifier}) MAC MPIF listen connection reset/aborted")
                 return
@@ -244,7 +245,7 @@ class MAC:
         """
         if (frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request" or
                 frame_parameters["TYPE"] == "ACK"):
-            log.debug(f"({self._identifier}) ACK frame, selecting lowest PHY rate")
+            log.debug(f"({self._identifier}) {frame_parameters['TYPE']} frame, selecting lowest PHY rate")
             self.phy_rate = 6
             return
 
@@ -438,7 +439,8 @@ class MAC:
                         seen = set()  # Collection of unique occurrences.
                         result = []   # Clean queue without duplicates.
                         for item in reversed(self._tx_queue):
-                            item_key = json.dumps(item, sort_keys=True)
+                            # Key on frame_parameters only; encrypted payloads differ per retry due to random IV.
+                            item_key = json.dumps(item[0], sort_keys=True)
                             if item_key not in seen:
                                 result.insert(0, item)  # Insert at the beginning to reverse the reversal.
                                 seen.add(item_key)
@@ -1051,7 +1053,7 @@ class MAC:
                             log.info(f"({self._identifier}) Received data frame "
                                      f"({len(self._last_data)} bytes, buffer total: {len(self._rx_buffer)} bytes):")
                             log.info("------------------")
-                            log.print_data(self._last_data.decode('utf-8'), log_level="info")
+                            log.print_data(self._last_data.decode('utf-8', errors='replace'), log_level="info")
                             log.info("------------------")
 
     def extract_address_information(self, mac_header):
@@ -1134,8 +1136,11 @@ class MAC:
                 log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
                 self._statistics[-1]["RETRY_ATTEMPTS"] = 0  # Set retry attempts counter.
                 self._is_confirmed = "Waiting for confirmation"
+                # Pass the frame dict directly so wait_for_confirmation always updates the right entry,
+                # even if further RX statistics are appended concurrently.
                 confirmation_thread = threading.Thread(target=self.wait_for_confirmation,
-                                                       args=(frame_parameters, data), daemon=True)
+                                                       args=(frame_parameters, data, self._statistics[-1]),
+                                                       daemon=True)
                 confirmation_thread.start()
                 self._threads.append(confirmation_thread)
 
@@ -1151,7 +1156,9 @@ class MAC:
         :param destination_address: MAC address of the destination node.
         """
 
-        # TODO: Add a check that destination address is legal (for UL/DL).
+        if str(destination_address) not in self._encryption_type:
+            log.error(f"({self._identifier}) Cannot send data: not associated with {destination_address}")
+            return
 
         log.info(f"({self._identifier}) Sending data frame with the following message:")
         log.info("------------------")
@@ -1291,7 +1298,7 @@ class MAC:
         }
         self._tx_queue.append((frame_parameters, []))
 
-    def wait_for_confirmation(self, frame_parameters: dict, data: list[int]):
+    def wait_for_confirmation(self, frame_parameters: dict, data: list[int], frame: dict):
         """
         Waits for an acknowledgment (ACK/CTS) after a frame transmission.
 
@@ -1305,10 +1312,6 @@ class MAC:
 
         Notes - This method should be called after initiating a transmission that requires an ACK/CTS (unicast).
         """
-
-        # Extract frame statistics.
-        # Note - Since this function is invoked from start_transmission_chain, it is definitely the last frame.
-        frame = self._statistics[-1]
 
         # Waiting for confirmation.
         for i in range(SHORT_RETRY_LIMIT):
@@ -1337,6 +1340,22 @@ class MAC:
 
             # Retransmit.
             self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
+
+        # Wait one final time for the last retransmission before declaring the frame dropped.
+        waited = 0
+        while waited < CONFIRMATION_WAIT_TIME and not self.stop_event.is_set():
+            time.sleep(0.1)
+            waited += 0.1
+
+            if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
+                log.success(f"({self._identifier}) Frame confirmed, "
+                            f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
+                frame["CONFIRMED"] = True
+                self._is_confirmed = "No confirmation required"
+                return
+
+        if self.stop_event.is_set():
+            return
 
         # If we got to this point, the frame is dropped.
         log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")

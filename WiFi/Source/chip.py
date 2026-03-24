@@ -107,8 +107,21 @@ class CHIP:
         clients = {}
         while not self.stop_event.is_set():
             if len(clients) < 2:
-                conn, addr = self._mpif_socket.accept()
-                id_msg = conn.recv(1024)
+                try:
+                    conn, addr = self._mpif_socket.accept()
+                except (OSError, ConnectionResetError, ConnectionAbortedError):
+                    log.debug(f"({self._identifier}) MPIF accept interrupted (shutdown)")
+                    return
+
+                try:
+                    id_msg = recv_framed(conn)
+                except Exception:
+                    conn.close()
+                    continue
+
+                if not id_msg:
+                    conn.close()
+                    continue
 
                 # Unpacking the message.
                 primitive = json.loads(id_msg.decode())['PRIMITIVE']
@@ -184,6 +197,10 @@ class CHIP:
             * Frame drop rate    - Percentage of TX frames (requiring confirmation) that were ultimately dropped.
             * PHY rate stats     - Min, average, and max PHY rate across all frames with a recorded rate.
         """
+
+        if not self.mac._statistics:
+            log.info(f"({self._identifier}) No frame statistics available")
+            return
 
         rows = []
 

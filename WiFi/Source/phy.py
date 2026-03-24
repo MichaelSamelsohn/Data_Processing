@@ -100,16 +100,17 @@ class PHY:
 
         while not self.stop_event.is_set():
             try:
-                message = self._mpif_socket.recv(16384)
-                if message:
-                    # Unpacking the message.
-                    message = json.loads(message.decode())
-                    primitive = message['PRIMITIVE']
-                    data = message['DATA']
+                message = recv_framed(self._mpif_socket)
+                if not message:
+                    break
+                # Unpacking the message.
+                message = json.loads(message.decode())
+                primitive = message['PRIMITIVE']
+                data = message['DATA']
 
-                    log.traffic(f"({self._identifier}) PHY received: {primitive} "
-                                f"({'no data' if not data else f'data length {len(data)}'})")
-                    self.controller(primitive=primitive, data=data)
+                log.traffic(f"({self._identifier}) PHY received: {primitive} "
+                            f"({'no data' if not data else f'data length {len(data)}'})")
+                self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
                 log.debug(f"({self._identifier}) PHY MPIF listen connection reset/aborted")
                 return
@@ -154,19 +155,18 @@ class PHY:
 
         while not self.stop_event.is_set():
             try:
-                message = self._channel_socket.recv(65536)
-                if message:
-                    # Unpacking the message.
-                    message = json.loads(message.decode())
-                    primitive = message['PRIMITIVE']
-                    # Message data is a list of complex values which require special handling.
-                    data = [complex(r, i) for r, i in message['DATA']]
-
-                    log.traffic(f"({self._identifier}) PHY received: {primitive} "
-                                f"({'no data' if not data else f'data length {len(data)}'})")
-                    self.controller(primitive=primitive, data=data)
-                else:
+                message = recv_framed(self._channel_socket)
+                if not message:
                     break
+                # Unpacking the message.
+                message = json.loads(message.decode())
+                primitive = message['PRIMITIVE']
+                # Message data is a list of complex values which require special handling.
+                data = [complex(r, i) for r, i in message['DATA']]
+
+                log.traffic(f"({self._identifier}) PHY received: {primitive} "
+                            f"({'no data' if not data else f'data length {len(data)}'})")
+                self.controller(primitive=primitive, data=data)
             except (OSError, ConnectionResetError, ConnectionAbortedError):
                 log.debug(f"({self._identifier}) PHY channel listen connection reset/aborted")
                 return
@@ -189,8 +189,8 @@ class PHY:
         """
 
         try:
-            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data})
-            socket_connection.sendall(message.encode())
+            message = json.dumps({'PRIMITIVE': primitive, 'DATA': data}).encode()
+            send_framed(socket_connection, message)
         except (OSError, ConnectionResetError, ConnectionAbortedError):
             return  # In case of shutdown.
 
@@ -203,7 +203,7 @@ class PHY:
             - On receiving "PHY-TXSTART.request": Stores TX vector configuration data, generates preamble and SIGNAL
               symbols, resets the BCC shift register for DATA bit encoding, sends a `PHY-TXSTART.confirm` to acknowledge
               the start of transmission.
-            - On receiving "PHY-TXSTART.request": Appends received DATA to an internal buffer. When enough bits are
+            - On receiving "PHY-DATA.request": Appends received DATA to an internal buffer. When enough bits are
               collected for a full OFDM symbol, it generates the symbol. After the last DATA octet is received, adds
               TAIL and PAD bits, and generates the final DATA symbol. Combines all DATA symbols into one continuous
               stream with overlapping between symbols and sends a `PHY-DATA.confirm` to acknowledge DATA receipt.
@@ -567,7 +567,7 @@ class PHY:
 
     @staticmethod
     def generate_lfsr_sequence(sequence_length: int, seed: int) -> list[int]:
-        """
+        r"""
         LFSR (Linear Feedback Shift Register) is a shift register whose input bit is a linear function of its previous
         state. The initial value of the LFSR is called the seed, and because the operation of the register is
         deterministic, the stream of values produced by the register is completely determined by its current (or
