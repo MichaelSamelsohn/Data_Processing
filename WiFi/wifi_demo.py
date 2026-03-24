@@ -2,6 +2,7 @@ import time
 
 from WiFi.Source.channel import Channel
 from WiFi.Source.chip import CHIP
+from WiFi.Source.visualizer import plot_wifi_summary
 
 # Channel.
 channel = Channel(channel_response=[1], snr_db=25)
@@ -23,6 +24,8 @@ ap.mac.send_data_frame(data=text, destination_address=sta.mac._mac_address)
 time.sleep(30)
 ap.print_statistics()
 sta.print_statistics()
+
+plot_wifi_summary(ap, sta)
 
 ap.shutdown()
 sta.shutdown()
