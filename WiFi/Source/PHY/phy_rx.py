@@ -128,7 +128,7 @@ class PHYRx:
         signal_field_coding = signal_data[:4]
         phy_rate = None
         for key, params in MODULATION_CODING_SCHEME_PARAMETERS.items():
-            if params["SIGNAL_FIELD_CODING"] == signal_field_coding:
+            if params.signal_field_coding == signal_field_coding:
                 phy_rate = key
                 log.debug(f"({self._identifier}) Found RATE is - {phy_rate}")
         if phy_rate is None:
@@ -287,8 +287,8 @@ class PHYRx:
         """
 
         mcs = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]
-        n_bpsc = mcs["N_BPSC"]  # Number of coded bits per subcarrier.
-        n_cbps = mcs["N_CBPS"]  # Number of coded bits per OFDM symbol.
+        n_bpsc = mcs.n_bpsc  # Number of coded bits per subcarrier.
+        n_cbps = mcs.n_cbps  # Number of coded bits per OFDM symbol.
 
         s = max(n_bpsc // 2, 1)
         deinterleaved = [0] * len(bits)  # Output array for the deinterleaved bitstream.

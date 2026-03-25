@@ -11,6 +11,7 @@ import random
 from WiFi.Settings.wifi_settings import *
 from WiFi.Source.PHY.phy_tx import PHYTx
 from WiFi.Source.PHY.phy_rx import PHYRx
+from WiFi.Source.PHY.phy_types import PhyVector
 from WiFi.Source.PHY.phy_utils import generate_lfsr_sequence
 
 
@@ -333,16 +334,17 @@ class PHY(PHYTx, PHYRx):
                                           data=[])
 
     def _set_general_parameters(self, vector: str):
-        self._phy_rate = self._tx_vector[0] if vector == 'TX' else self._rx_vector[0]
-        self._length = self._tx_vector[1] if vector == 'TX' else self._rx_vector[1]
+        vec = self._tx_vector if vector == 'TX' else self._rx_vector
+        self._phy_rate = vec.phy_rate
+        self._length = vec.length
 
-        mcs_parameters = MODULATION_CODING_SCHEME_PARAMETERS[self._phy_rate]
-        self._modulation = mcs_parameters["MODULATION"]
-        self._data_coding_rate = mcs_parameters["DATA_CODING_RATE"]
-        self._n_bpsc = mcs_parameters["N_BPSC"]
-        self._n_cbps = mcs_parameters["N_CBPS"]
-        self._n_dbps = mcs_parameters["N_DBPS"]
-        self._signal_field_coding = mcs_parameters["SIGNAL_FIELD_CODING"]
+        mcs = MODULATION_CODING_SCHEME_PARAMETERS[self._phy_rate]
+        self._modulation = mcs.modulation
+        self._data_coding_rate = mcs.data_coding_rate
+        self._n_bpsc = mcs.n_bpsc
+        self._n_cbps = mcs.n_cbps
+        self._n_dbps = mcs.n_dbps
+        self._signal_field_coding = mcs.signal_field_coding
         # 16 = SERVICE bits, 8*length = PSDU bits, 6 = TAIL bits; ceiling ensures all bits fit in whole symbols.
         self._n_symbols = int(np.ceil((16 + 8 * self._length + 6) / self._n_dbps))
         self._n_data = self._n_symbols * self._n_dbps
@@ -356,7 +358,7 @@ class PHY(PHYTx, PHYRx):
 
     @tx_vector.setter
     def tx_vector(self, tx_vector: list):
-        self._tx_vector = tx_vector
+        self._tx_vector = PhyVector(phy_rate=tx_vector[0], length=tx_vector[1])
 
         self._set_general_parameters(vector='TX')
 
@@ -365,7 +367,7 @@ class PHY(PHYTx, PHYRx):
         # TODO: Add if clause that checks the TX vector for the value of the scrambling seed.
         self._lfsr_sequence = generate_lfsr_sequence(sequence_length=self._n_data, seed=random.randint(1, 127))
         self._bcc_shift_register = 7 * [0]  # Initializing the shift register.
-        self._length_counter = self._tx_vector[1]
+        self._length_counter = self._tx_vector.length
         self._pilot_polarity_sequence = generate_lfsr_sequence(sequence_length=127, seed=127)
         self._pilot_polarity_index = 1  # Index 0 was consumed by the SIGNAL symbol; DATA symbols start at index 1.
 
@@ -377,6 +379,6 @@ class PHY(PHYTx, PHYRx):
 
     @rx_vector.setter
     def rx_vector(self, rx_vector: list):
-        self._rx_vector = rx_vector
+        self._rx_vector = PhyVector(phy_rate=rx_vector[0], length=rx_vector[1])
 
         self._set_general_parameters(vector='RX')

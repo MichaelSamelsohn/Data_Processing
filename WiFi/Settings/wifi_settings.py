@@ -1,5 +1,6 @@
 # Imports #
 from settings import log
+from WiFi.Source.PHY.phy_types import MCSParameters
 
 # Logger settings #
 
@@ -122,23 +123,15 @@ AUTHENTICATION_ATTEMPTS = 3
 G1 = [1, 0, 1, 1, 0, 1, 1]  # int('133', 8) = int('91', 2).
 G2 = [1, 1, 1, 1, 0, 0, 1]  # int('171', 8) = int('121', 2).
 # TODO: Add reference for MCS - Table 17-4—Modulation-dependent parameters.
-MODULATION_CODING_SCHEME_PARAMETERS = {
-    6:  {"MODULATION": 'BPSK',   "DATA_CODING_RATE": '1/2', "N_BPSC": 1,
-         "N_CBPS": 48,  "N_DBPS": 24,  "SIGNAL_FIELD_CODING": [1, 1, 0, 1]},
-    9:  {"MODULATION": 'BPSK',   "DATA_CODING_RATE": '3/4', "N_BPSC": 1,
-         "N_CBPS": 48,  "N_DBPS": 36,  "SIGNAL_FIELD_CODING": [1, 1, 1, 1]},
-    12: {"MODULATION": 'QPSK',   "DATA_CODING_RATE": '1/2', "N_BPSC": 2,
-         "N_CBPS": 96,  "N_DBPS": 48,  "SIGNAL_FIELD_CODING": [0, 1, 0, 1]},
-    18: {"MODULATION": 'QPSK',   "DATA_CODING_RATE": '3/4', "N_BPSC": 2,
-         "N_CBPS": 96,  "N_DBPS": 72,  "SIGNAL_FIELD_CODING": [0, 1, 1, 1]},
-    24: {"MODULATION": '16-QAM', "DATA_CODING_RATE": '1/2', "N_BPSC": 4,
-         "N_CBPS": 192, "N_DBPS": 96,  "SIGNAL_FIELD_CODING": [1, 0, 0, 1]},
-    36: {"MODULATION": '16-QAM', "DATA_CODING_RATE": '3/4', "N_BPSC": 4,
-         "N_CBPS": 192, "N_DBPS": 144, "SIGNAL_FIELD_CODING": [1, 0, 1, 1]},
-    48: {"MODULATION": '64-QAM', "DATA_CODING_RATE": '2/3', "N_BPSC": 6,
-         "N_CBPS": 288, "N_DBPS": 192, "SIGNAL_FIELD_CODING": [0, 0, 0, 1]},
-    54: {"MODULATION": '64-QAM', "DATA_CODING_RATE": '3/4', "N_BPSC": 6,
-         "N_CBPS": 288, "N_DBPS": 216, "SIGNAL_FIELD_CODING": [0, 0, 1, 1]}
+MODULATION_CODING_SCHEME_PARAMETERS: dict[int, MCSParameters] = {
+    6:  MCSParameters(modulation='BPSK',   data_coding_rate='1/2', n_bpsc=1, n_cbps=48,  n_dbps=24,  signal_field_coding=[1, 1, 0, 1]),
+    9:  MCSParameters(modulation='BPSK',   data_coding_rate='3/4', n_bpsc=1, n_cbps=48,  n_dbps=36,  signal_field_coding=[1, 1, 1, 1]),
+    12: MCSParameters(modulation='QPSK',   data_coding_rate='1/2', n_bpsc=2, n_cbps=96,  n_dbps=48,  signal_field_coding=[0, 1, 0, 1]),
+    18: MCSParameters(modulation='QPSK',   data_coding_rate='3/4', n_bpsc=2, n_cbps=96,  n_dbps=72,  signal_field_coding=[0, 1, 1, 1]),
+    24: MCSParameters(modulation='16-QAM', data_coding_rate='1/2', n_bpsc=4, n_cbps=192, n_dbps=96,  signal_field_coding=[1, 0, 0, 1]),
+    36: MCSParameters(modulation='16-QAM', data_coding_rate='3/4', n_bpsc=4, n_cbps=192, n_dbps=144, signal_field_coding=[1, 0, 1, 1]),
+    48: MCSParameters(modulation='64-QAM', data_coding_rate='2/3', n_bpsc=6, n_cbps=288, n_dbps=192, signal_field_coding=[0, 0, 0, 1]),
+    54: MCSParameters(modulation='64-QAM', data_coding_rate='3/4', n_bpsc=6, n_cbps=288, n_dbps=216, signal_field_coding=[0, 0, 1, 1]),
 }
 # IEEE Std 802.11-2020 OFDM PHY specification, I.1.3.1 Generation of the short sequences, p. 4151, Table I-2—Frequency
 # domain representation of the short sequences.

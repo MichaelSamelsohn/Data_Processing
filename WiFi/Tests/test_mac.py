@@ -5,6 +5,7 @@ import pytest
 
 from unittest.mock import patch
 from WiFi.Source.MAC import MAC
+from WiFi.Source.MAC.mac_types import FrameParameters
 from constants import *
 
 
@@ -187,9 +188,9 @@ def test_generate_mac_address_unicast_locally_administered():
 @pytest.mark.parametrize(
     "frame_parameters, expected_fcf",
     [
-        ({"TYPE": "ACK",    "DESTINATION_ADDRESS": []},                        [43, 0]),   # Control, no direction.
-        ({"TYPE": "Beacon", "DESTINATION_ADDRESS": []},                        [1, 0]),    # Management, no direction.
-        ({"TYPE": "Data",   "DIRECTION": "Uplink", "DESTINATION_ADDRESS": []}, [16, 128]), # Data, uplink.
+        (FrameParameters(type="ACK",    destination_address=[]),                      [43, 0]),   # Control, no direction.
+        (FrameParameters(type="Beacon", destination_address=[]),                      [1, 0]),    # Management, no direction.
+        (FrameParameters(type="Data",   destination_address=[], direction="Uplink"),  [16, 128]), # Data, uplink.
     ]
 )
 def test_generate_frame_control_field(frame_parameters, expected_fcf):

@@ -289,8 +289,8 @@ class PHYTx:
         """
 
         # Identify the base values of Nbpsc and Ncbps based on the rate (modulation + coding).
-        n_bpsc = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"]
-        n_cbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_CBPS"]
+        n_bpsc = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate].n_bpsc
+        n_cbps = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate].n_cbps
 
         # Calculate s and prepare the pre-interleave index list, k.
         # s ensures adjacent coded bits are spread across different constellation bit positions.
@@ -341,10 +341,10 @@ class PHYTx:
         symbols = []
 
         # Reshape the bits to groups of N_bpsc.
-        grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["N_BPSC"])
+        grouped_bits = np.array(bits).reshape(-1, MODULATION_CODING_SCHEME_PARAMETERS[phy_rate].n_bpsc)
 
         # Determining the modulation and mapping the bits.
-        modulation = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["MODULATION"]
+        modulation = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate].modulation
         log.debug(f"({self._identifier}) Modulation scheme - {modulation}")
         match modulation:
             case 'BPSK':

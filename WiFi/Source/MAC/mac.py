@@ -9,6 +9,8 @@ import traceback
 from WiFi.Settings.wifi_settings import *
 from WiFi.Source.MAC.mac_crypto import MACCrypto
 from WiFi.Source.MAC.mac_frame import MACFrame
+from WiFi.Source.MAC.mac_types import FrameParameters, FrameStatistic
+from WiFi.Source.MAC.mac_decorators import role_guard, record_rx_stat, send_ack
 
 
 class MAC(MACCrypto, MACFrame):
@@ -217,7 +219,7 @@ class MAC(MACCrypto, MACFrame):
             # Buffer time between consecutive checks.
             time.sleep(0.01)
 
-    def rate_selection(self, frame_parameters: dict):
+    def rate_selection(self, frame_parameters: FrameParameters):
         """
         Selects the appropriate PHY (physical layer) transmission rate based on the type of frame and transmission
         history.
@@ -226,16 +228,12 @@ class MAC(MACCrypto, MACFrame):
         - Advertisement frames (Beacons and Probe Requests) and ACK frames are sent
           at the lowest possible PHY rate (6 Mbps) to ensure broad compatibility and reliability.
         - For all other frame types:
-            - If the frame is being retried (i.e., frame_parameters["RETRY"] == 1), the PHY rate is decreased to improve
+            - If the frame is being retried (i.e., frame_parameters.retry == 1), the PHY rate is decreased to improve
               reliability, unless it is already at the minimum allowed rate.
             - If the frame is not a retry and was sent successfully last time, the PHY rate is increased to improve
               performance, unless it is already at the maximum allowed rate.
 
-        :param frame_parameters: A dictionary containing frame metadata.
-        Expected keys:
-        - "TYPE" (str): The type of the frame, such as "Beacon",
-          "Probe Request", "ACK", etc.
-        - "RETRY" (int, optional): 1 if the frame is a retransmission, otherwise absent or 0.
+        :param frame_parameters: FrameParameters containing at minimum the frame type and retry flag.
         """
 
         """
@@ -245,28 +243,24 @@ class MAC(MACCrypto, MACFrame):
         that it is received correctly, therefore, we maximize its chances by minimizing the PHY rate to the lowest value
         possible.
         """
-        if (frame_parameters["TYPE"] == "Beacon" or frame_parameters["TYPE"] == "Probe Request" or
-                frame_parameters["TYPE"] == "ACK"):
-            log.debug(f"({self._identifier}) {frame_parameters['TYPE']} frame, selecting lowest PHY rate")
+        if frame_parameters.type in ("Beacon", "Probe Request", "ACK"):
+            log.debug(f"({self._identifier}) {frame_parameters.type} frame, selecting lowest PHY rate")
             self.phy_rate = 6
             return
 
         # Increase/Decrease PHY rate based on last non-ACK, non-advertisement frame.
         legal_rates = list(MODULATION_CODING_SCHEME_PARAMETERS.keys())  # TODO: Relevant only for LEGACY format!
         index = legal_rates.index(self._last_phy_rate)
-        try:
-            if frame_parameters["RETRY"] == 1:
-                log.debug(f"({self._identifier}) Retry frame, decreasing PHY rate (if possible)")
-                if index > 0:
-                    self.phy_rate = legal_rates[index - 1]
-                    self._last_phy_rate = legal_rates[index - 1]
-                    return
-        except KeyError:
+        if frame_parameters.retry == 1:
+            log.debug(f"({self._identifier}) Retry frame, decreasing PHY rate (if possible)")
+            if index > 0:
+                self.phy_rate = legal_rates[index - 1]
+                self._last_phy_rate = legal_rates[index - 1]
+        else:
             log.debug(f"({self._identifier}) Original frame, increasing PHY rate (if possible)")
             if index < len(legal_rates) - 1:
                 self.phy_rate = legal_rates[index + 1]
                 self._last_phy_rate = legal_rates[index + 1]
-                return
 
     def network_discovery(self):
         """
@@ -304,12 +298,10 @@ class MAC(MACCrypto, MACFrame):
 
         while not self.stop_event.is_set():
             log.mac(f"({self._identifier}) Sending beacon")
-            frame_parameters = {
-                "TYPE": "Beacon",
-                "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                "WAIT_FOR_CONFIRMATION": False
-            }
-            self._tx_queue.append((frame_parameters, []))
+            self._tx_queue.append((
+                FrameParameters(type="Beacon", destination_address=BROADCAST_ADDRESS),
+                []
+            ))
 
             # Buffer time between consecutive beacon broadcasts.
             waited = 0
@@ -335,12 +327,10 @@ class MAC(MACCrypto, MACFrame):
             if not self._probed_ap:
                 # No AP probe responded yet, send probe request.
                 log.mac(f"({self._identifier}) Active scanning - Probing")
-                frame_parameters = {
-                    "TYPE": "Probe Request",
-                    "DESTINATION_ADDRESS": BROADCAST_ADDRESS,
-                    "WAIT_FOR_CONFIRMATION": False
-                }
-                self._tx_queue.append((frame_parameters, []))
+                self._tx_queue.append((
+                    FrameParameters(type="Probe Request", destination_address=BROADCAST_ADDRESS),
+                    []
+                ))
 
                 # Buffer time between consecutive probing requests.
                 waited = 0
@@ -436,9 +426,9 @@ class MAC(MACCrypto, MACFrame):
 
                     # Annotate any newly added RX statistics entry with the PSDU frame size and PHY rate.
                     if len(self._statistics) > stats_before:
-                        self._statistics[-1]["FRAME_SIZE"] = len(byte_list)
+                        self._statistics[-1].frame_size = len(byte_list)
                         if data:
-                            self._statistics[-1]["PHY_RATE"] = data[0]
+                            self._statistics[-1].phy_rate = data[0]
 
                     if self._is_retry:
                         log.debug(f"({self._identifier}) Removing all duplicates from TX queue to avoid "
@@ -447,7 +437,7 @@ class MAC(MACCrypto, MACFrame):
                         result = []   # Clean queue without duplicates.
                         for item in reversed(self._tx_queue):
                             # Key on frame_parameters only; encrypted payloads differ per retry due to random IV.
-                            item_key = json.dumps(item[0], sort_keys=True)
+                            item_key = f"{item[0].type}:{item[0].destination_address}"
                             if item_key not in seen:
                                 result.insert(0, item)  # Insert at the beginning to reverse the reversal.
                                 seen.add(item_key)
@@ -490,108 +480,86 @@ class MAC(MACCrypto, MACFrame):
             case [1, 1, 0, 0]:  # Deauthentication.
                 self._handle_deauthentication(source_address=source_address, cast=cast)
 
+    @role_guard(role="AP", cast="Unicast")
+    @record_rx_stat("Association request")
+    @send_ack
     def _handle_association_request(self, source_address, cast):
         """
         AP checks whether the STA is authenticated, and if so, associates it and sends an Association response.
         Relevant for APs.
         """
 
-        # Checking that we are AP (association requests are relevant for AP only) and this is a unicast.
-        if self._role == "AP" and cast == "Unicast":
-            log.mac(f"({self._identifier}) Association request frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Association request",
-                                     "SOURCE_ADDRESS": source_address})
+        log.mac(f"({self._identifier}) Association request frame subtype")
 
-            # Send ACK response.
-            self.send_acknowledgement_frame(source_address=source_address)
+        # Assert that STA is authenticated.
+        if source_address in self._authenticated_sta:
+            self._associated_sta.append(source_address)  # Updating the list.
 
-            # Assert that STA is authenticated.
-            if source_address in self._authenticated_sta:
-                self._associated_sta.append(source_address)  # Updating the list.
+            # Send association response.
+            self._tx_queue.append((
+                FrameParameters(type="Association Response", destination_address=source_address,
+                                wait_for_confirmation="ACK"),
+                [0x00, 0x00]
+            ))
 
-                # Send association response.
-                frame_parameters = {
-                    "TYPE": "Association Response",
-                    "DESTINATION_ADDRESS": source_address,
-                    "WAIT_FOR_CONFIRMATION": "ACK"
-                }
-                self._tx_queue.append((frame_parameters, [0x00, 0x00]))
-
+    @role_guard(role="STA", cast="Unicast")
+    @record_rx_stat("Association response")
+    @send_ack
     def _handle_association_response(self, source_address, cast):
         """
         If the response is from the authenticated AP and addressed to this STA, marks the STA as successfully
         associated. Relevant for STAs.
         """
 
-        # Checking that we are STA (association response are relevant for STA only) and this is a unicast.
-        if self._role == "STA" and cast == "Unicast":
-            log.mac(f"({self._identifier}) Association response frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Association response",
-                                     "SOURCE_ADDRESS": source_address})
+        log.mac(f"({self._identifier}) Association response frame subtype")
 
-            # Send ACK response.
-            self.send_acknowledgement_frame(source_address=source_address)
+        # Assert that AP is authenticated.
+        if source_address == self._authenticated_ap:
+            self._associated_ap = source_address
+            log.success(f"({self._identifier}) Association successful")
 
-            # Assert that AP is authenticated.
-            if source_address == self._authenticated_ap:
-                self._associated_ap = source_address
-                log.success(f"({self._identifier}) Association successful")
-
+    @role_guard(role="AP", cast="Broadcast")
+    @record_rx_stat("Probe request")
     def _handle_probe_request(self, source_address, cast):
         """
         Responds with a Probe Response if the destination is broadcast. Relevant for APs.
         """
 
-        # Checking that we are AP (probe requests are relevant for AP only) and this is a broadcast.
-        if self._role == "AP" and cast == "Broadcast":
-            log.mac(f"({self._identifier}) Probe request frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Probe request",
-                                     "SOURCE_ADDRESS": source_address})
+        log.mac(f"({self._identifier}) Probe request frame subtype")
 
-            # Send probe response.
-            frame_parameters = {
-                "TYPE": "Probe Response",
-                "DESTINATION_ADDRESS": source_address,
-                "WAIT_FOR_CONFIRMATION": "ACK"
-            }
-            self._tx_queue.append((frame_parameters, []))
+        # Send probe response.
+        self._tx_queue.append((
+            FrameParameters(type="Probe Response", destination_address=source_address,
+                            wait_for_confirmation="ACK"),
+            []
+        ))
 
+    @role_guard(role="STA", cast="Unicast")
+    @record_rx_stat("Probe response")
+    @send_ack
     def _handle_probe_response(self, source_address, cast):
         """
         Sets the responding AP as the probed one (unless blacklisted) and initiates authentication.
         Relevant for STAs.
         """
 
-        # Checking that we are STA (probe responses are relevant for STA only).
-        if self._role == "STA" and cast == "Unicast":
-            log.mac(f"({self._identifier}) Probe response frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Probe response",
-                                     "SOURCE_ADDRESS": source_address})
+        log.mac(f"({self._identifier}) Probe response frame subtype")
 
-            # Send ACK response.
-            self.send_acknowledgement_frame(source_address=source_address)
+        # Check that AP is not blacklisted.
+        if source_address not in self._probed_ap_blacklist:
+            # Updating the successfully probed AP MAC address.
+            self._probed_ap = source_address
 
-            # Check that AP is not blacklisted.
-            if source_address not in self._probed_ap_blacklist:
-                # Updating the successfully probed AP MAC address.
-                self._probed_ap = source_address
-
-                # Send authenticating request.
-                frame_parameters = {
-                    "TYPE": "Authentication",
-                    "DESTINATION_ADDRESS": self._probed_ap,
-                    "WAIT_FOR_CONFIRMATION": "ACK"
-                }
-                self._tx_queue.append((frame_parameters,
-                                       SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-                #                                                                            Seq. number
-            else:
-                log.warning(f"({self._identifier}) Probe response received from a blacklisted AP, "
-                            f"no response needed")
+            # Send authenticating request.
+            self._tx_queue.append((
+                FrameParameters(type="Authentication", destination_address=self._probed_ap,
+                                wait_for_confirmation="ACK"),
+                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]
+                #                                                     Seq. number
+            ))
+        else:
+            log.warning(f"({self._identifier}) Probe response received from a blacklisted AP, "
+                        f"no response needed")
 
     def _handle_beacon(self, source_address, cast):
         """
@@ -605,21 +573,19 @@ class MAC(MACCrypto, MACFrame):
             # Check that AP is not blacklisted.
             if source_address not in self._probed_ap_blacklist:
                 log.mac(f"({self._identifier}) Beacon frame subtype")
-                # Add to statistics.
-                self._statistics.append({"DIRECTION": "RX", "TYPE": "Beacon", "SOURCE_ADDRESS": source_address})
+                self._statistics.append(FrameStatistic(
+                    direction="RX", type="Beacon", source_address=source_address))
 
                 # Updating the successfully probed AP MAC address.
                 self._probed_ap = source_address
 
                 # Send authenticating request.
-                frame_parameters = {
-                    "TYPE": "Authentication",
-                    "DESTINATION_ADDRESS": self._probed_ap,
-                    "WAIT_FOR_CONFIRMATION": "ACK"
-                }
-                self._tx_queue.append((frame_parameters,
-                                       SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-                #                                                                            Seq. number
+                self._tx_queue.append((
+                    FrameParameters(type="Authentication", destination_address=self._probed_ap,
+                                    wait_for_confirmation="ACK"),
+                    SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]
+                    #                                                     Seq. number
+                ))
             else:
                 log.warning(f"({self._identifier}) Beacon received from a blacklisted AP, no response needed")
         else:
@@ -663,9 +629,8 @@ class MAC(MACCrypto, MACFrame):
                 # Checking that we are AP (authentication requests are relevant for AP only).
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK response.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -675,23 +640,19 @@ class MAC(MACCrypto, MACFrame):
                     self._encryption_type[str(source_address)] = "open-system"
 
                     # Send authentication response.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_CONFIRMATION": "ACK"
-                    }
-                    self._tx_queue.append(
-                        (frame_parameters, [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]))
-                    #                       algorithm      Seq. number      Success
+                    self._tx_queue.append((
+                        FrameParameters(type="Authentication", destination_address=source_address,
+                                        wait_for_confirmation="ACK"), [0x00, 0x00] + [0x00, 0x02] + [0x00, 0x00]
+                        #                                              algorithm      Seq. number      Success
+                    ))
 
             case [0x00, 0x02]:  # Sequence 2 - Authentication response.
                 # Checking that we are STA (authentication responses are relevant for STA only) and AP
                 # is the probed one.
                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                     log.mac(f"({self._identifier}) Sequence 2 - Authentication response")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK.
                     self.send_acknowledgement_frame(source_address=self._probed_ap)
@@ -703,12 +664,12 @@ class MAC(MACCrypto, MACFrame):
                         log.success(f"({self._identifier}) Authentication successful")
 
                         # Send association request.
-                        frame_parameters = {
-                            "TYPE": "Association Request",
-                            "DESTINATION_ADDRESS": self._authenticated_ap,
-                            "WAIT_FOR_CONFIRMATION": "ACK"
-                        }
-                        self._tx_queue.append((frame_parameters, []))
+                        self._tx_queue.append((
+                            FrameParameters(type="Association Request",
+                                            destination_address=self._authenticated_ap,
+                                            wait_for_confirmation="ACK"),
+                            []
+                        ))
                     else:
                         log.warning(f"({self._identifier}) Authentication failed with status code - "
                                     f"{authentication_data[4:6]}")
@@ -751,9 +712,8 @@ class MAC(MACCrypto, MACFrame):
                 # Checking that we are AP (authentication sequence 1 is relevant for AP only).
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Sequence 1 - Authentication request")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -766,23 +726,19 @@ class MAC(MACCrypto, MACFrame):
                     self._challenge_text[str(source_address)] = challenge
 
                     # Send challenge text.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_CONFIRMATION": "ACK"
-                    }
-                    self._tx_queue.append(
-                        (frame_parameters, [0x00, 0x01] + [0x00, 0x02] + challenge))
-                    #                       algorithm      Seq. number
+                    self._tx_queue.append((
+                        FrameParameters(type="Authentication", destination_address=source_address,
+                                        wait_for_confirmation="ACK"), [0x00, 0x01] + [0x00, 0x02] + challenge
+                        #                                              algorithm      Seq. number
+                    ))
 
             case [0x00, 0x02]:  # Sequence 2 - Challenge text.
                 # Checking that we are STA (authentication sequence 2 is relevant for STA only) and AP
                 # is the probed one.
                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                     log.mac(f"({self._identifier}) Sequence 2 - Challenge text")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -791,25 +747,23 @@ class MAC(MACCrypto, MACFrame):
                     challenge = authentication_data[4:]
 
                     # Send encrypted challenge.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_CONFIRMATION": "ACK"
-                    }
                     #              algorithm      Seq. number
                     frame_data = ([0x00, 0x01] + [0x00, 0x03] +
                                   self.encrypt_data(encryption_method="shared-key",  # Method.
                                                     data=challenge,                  # Challenge.
                                                     wep_key_index=1))                # Guest key ID.
-                    self._tx_queue.append((frame_parameters, frame_data))
+                    self._tx_queue.append((
+                        FrameParameters(type="Authentication", destination_address=source_address,
+                                        wait_for_confirmation="ACK"),
+                        frame_data
+                    ))
 
             case [0x00, 0x03]:  # Sequence 3 - Encrypted challenge.
                 # Checking that we are AP (authentication sequence 3 is relevant for AP only).
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) Sequence 3 - Encrypted challenge")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK.
                     self.send_acknowledgement_frame(source_address=source_address)
@@ -836,23 +790,19 @@ class MAC(MACCrypto, MACFrame):
                     self._challenge_text.pop(str(source_address))
 
                     # Send authentication response.
-                    frame_parameters = {
-                        "TYPE": "Authentication",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_CONFIRMATION": "ACK"
-                    }
-                    self._tx_queue.append(
-                        (frame_parameters, [0x00, 0x01] + [0x00, 0x04] + result))
-                    #                       algorithm      Seq. number
+                    self._tx_queue.append((
+                        FrameParameters(type="Authentication", destination_address=source_address,
+                                        wait_for_confirmation="ACK"), [0x00, 0x01] + [0x00, 0x04] + result
+                        #                                              algorithm      Seq. number
+                    ))
 
             case [0x00, 0x04]:  # Sequence 4 - Authentication response.
                 # Checking that we are STA (authentication sequence 4 is relevant for STA only) and AP
                 # is the probed one.
                 if self._role == "STA" and cast == "Unicast" and source_address == self._probed_ap:
                     log.mac(f"({self._identifier}) Sequence 4 - Authentication response")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "Authentication",
-                                             "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="Authentication", source_address=source_address))
 
                     # Send ACK.
                     self.send_acknowledgement_frame(source_address=self._probed_ap)
@@ -864,12 +814,12 @@ class MAC(MACCrypto, MACFrame):
                         log.success(f"({self._identifier}) Authentication successful")
 
                         # Send association request.
-                        frame_parameters = {
-                            "TYPE": "Association Request",
-                            "DESTINATION_ADDRESS": self._authenticated_ap,
-                            "WAIT_FOR_CONFIRMATION": "ACK"
-                        }
-                        self._tx_queue.append((frame_parameters, []))
+                        self._tx_queue.append((
+                            FrameParameters(type="Association Request",
+                                            destination_address=self._authenticated_ap,
+                                            wait_for_confirmation="ACK"),
+                            []
+                        ))
                     else:
                         log.warning(f"({self._identifier}) Authentication failed with status code - "
                                     f"{authentication_data[4:6]}")
@@ -887,9 +837,8 @@ class MAC(MACCrypto, MACFrame):
 
         if self._role == "AP" and cast == "Unicast" and source_address in self._associated_sta:
             log.mac(f"({self._identifier}) Disassociation frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Disassociation",
-                                     "SOURCE_ADDRESS": source_address})
+            self._statistics.append(FrameStatistic(
+                direction="RX", type="Disassociation", source_address=source_address))
 
             # Extract and log reason code.
             reason_code = convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
@@ -903,9 +852,8 @@ class MAC(MACCrypto, MACFrame):
 
         elif self._role == "STA" and cast == "Unicast" and source_address == self._associated_ap:
             log.mac(f"({self._identifier}) Disassociation frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Disassociation",
-                                     "SOURCE_ADDRESS": source_address})
+            self._statistics.append(FrameStatistic(
+                direction="RX", type="Disassociation", source_address=source_address))
 
             # Extract and log reason code.
             reason_code = convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
@@ -928,9 +876,8 @@ class MAC(MACCrypto, MACFrame):
 
         if self._role == "AP" and cast == "Unicast" and source_address in self._authenticated_sta:
             log.mac(f"({self._identifier}) Deauthentication frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Deauthentication",
-                                     "SOURCE_ADDRESS": source_address})
+            self._statistics.append(FrameStatistic(
+                direction="RX", type="Deauthentication", source_address=source_address))
 
             # Extract and log reason code.
             reason_code = convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
@@ -948,9 +895,8 @@ class MAC(MACCrypto, MACFrame):
 
         elif self._role == "STA" and cast == "Unicast" and source_address == self._authenticated_ap:
             log.mac(f"({self._identifier}) Deauthentication frame subtype")
-            # Add to statistics.
-            self._statistics.append({"DIRECTION": "RX", "TYPE": "Deauthentication",
-                                     "SOURCE_ADDRESS": source_address})
+            self._statistics.append(FrameStatistic(
+                direction="RX", type="Deauthentication", source_address=source_address))
 
             # Extract and log reason code.
             reason_code = convert_bits_to_bytes(bits=self._rx_psdu_buffer)[24:-4][:2]
@@ -985,14 +931,12 @@ class MAC(MACCrypto, MACFrame):
             log.mac(f"({self._identifier}) Restarting authentication process")
 
             # Send authenticating request.
-            frame_parameters = {
-                "TYPE": "Authentication",
-                "DESTINATION_ADDRESS": self._probed_ap,
-                "WAIT_FOR_CONFIRMATION": "ACK"
-            }
-            self._tx_queue.append((frame_parameters,
-                                   SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]))
-            #                                                                            Seq. number
+            self._tx_queue.append((
+                FrameParameters(type="Authentication", destination_address=self._probed_ap,
+                                wait_for_confirmation="ACK"),
+                SECURITY_ALGORITHMS[self.authentication_algorithm] + [0x00, 0x01]
+                #                                                     Seq. number
+            ))
 
     def control_controller(self, mac_header: list[int]):
         """
@@ -1013,8 +957,8 @@ class MAC(MACCrypto, MACFrame):
 
                     # TODO: Need to check if we are waiting for ACK from a specific source?
                     if self._is_confirmed == "Waiting for confirmation":
-                        # Add to statistics.
-                        self._statistics.append({"DIRECTION": "RX", "TYPE": "ACK", "SOURCE_ADDRESS": source_address})
+                        self._statistics.append(FrameStatistic(
+                            direction="RX", type="ACK", source_address=source_address))
                         self._is_confirmed = "ACK"
                     else:
                         log.mac(f"({self._identifier}) Irrelevant since we are not waiting for an ACK")
@@ -1022,16 +966,14 @@ class MAC(MACCrypto, MACFrame):
             case [1, 0, 1, 1]:  # RTS.
                 if self._role == "AP" and cast == "Unicast":
                     log.mac(f"({self._identifier}) RTS frame subtype")
-                    # Add to statistics.
-                    self._statistics.append({"DIRECTION": "RX", "TYPE": "RTS", "SOURCE_ADDRESS": source_address})
+                    self._statistics.append(FrameStatistic(
+                        direction="RX", type="RTS", source_address=source_address))
 
                     # Send CTS frame.
-                    frame_parameters = {
-                        "TYPE": "CTS",
-                        "DESTINATION_ADDRESS": source_address,
-                        "WAIT_FOR_CONFIRMATION": False
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self._tx_queue.append((
+                        FrameParameters(type="CTS", destination_address=source_address),
+                        []
+                    ))
                 else:  # RTS is not intended for us.
                     pass  # TODO: Set NAV time to hold transmission.
 
@@ -1040,8 +982,8 @@ class MAC(MACCrypto, MACFrame):
                     log.mac(f"({self._identifier}) CTS frame subtype")
 
                     if self._is_confirmed == "Waiting for confirmation":
-                        # Add to statistics.
-                        self._statistics.append({"DIRECTION": "RX", "TYPE": "CTS", "SOURCE_ADDRESS": source_address})
+                        self._statistics.append(FrameStatistic(
+                            direction="RX", type="CTS", source_address=source_address))
                         self._is_rts_cts = False  # For debug purposes.
                         self._is_confirmed = "CTS"
                     else:
@@ -1077,8 +1019,8 @@ class MAC(MACCrypto, MACFrame):
                     if ((self._role == "AP" and source_address in self._associated_sta) or  # Relevant for uplink.
                         (self._role == "STA" and source_address == self._associated_ap)):   # Relevant for downlink.
                         log.mac(f"({self._identifier}) Data frame subtype")
-                        # Add to statistics.
-                        self._statistics.append({"DIRECTION": "RX", "TYPE": "DATA", "SOURCE_ADDRESS": source_address})
+                        self._statistics.append(FrameStatistic(
+                            direction="RX", type="DATA", source_address=source_address))
 
                         # Decrypt data.
                         self._last_data = self.decrypt_data(
@@ -1177,7 +1119,7 @@ class MAC(MACCrypto, MACFrame):
     # TX - Public send methods
     # ------------------------------------------------------------------------------------------------------------------
 
-    def start_transmission_chain(self, frame_parameters: dict, data: list[int]):
+    def start_transmission_chain(self, frame_parameters: FrameParameters, data: list[int]):
         """
         Initiates the data transmission process from the MAC layer to the PHY layer.
 
@@ -1192,10 +1134,10 @@ class MAC(MACCrypto, MACFrame):
         """
 
         log.mac(f"({self._identifier}) Starting transmission chain with parameters:")
-        log.mac(f"({self._identifier}) Frame type - {frame_parameters['TYPE'].upper()}")
+        log.mac(f"({self._identifier}) Frame type - {frame_parameters.type.upper()}")
         log.mac(f"({self._identifier}) Data size (in octets) - {len(data)}")
-        log.mac(f"({self._identifier}) Destination address - {':'.join(f'{b:02X}' for b in
-                                                                       frame_parameters['DESTINATION_ADDRESS'])}")
+        log.mac(f"({self._identifier}) Destination address - "
+                f"{':'.join(f'{b:02X}' for b in frame_parameters.destination_address)}")
         log.mac(f"({self._identifier}) PHY RATE - {self.phy_rate}")
 
         log.mac(f"({self._identifier}) Generating MAC header")
@@ -1209,23 +1151,27 @@ class MAC(MACCrypto, MACFrame):
         self.send(primitive="PHY-TXSTART.request",
                   data=[self.phy_rate, int(len(self._tx_psdu_buffer) / 8)])  # TX VECTOR.
 
-        if "RETRY" not in frame_parameters:
+        if frame_parameters.retry == 0:
             # Original frame. Add to statistics.
-            self._statistics.append({"DIRECTION": "TX", "TYPE": frame_parameters["TYPE"],
-                                     "DESTINATION_ADDRESS": frame_parameters["DESTINATION_ADDRESS"],
-                                     "FRAME_SIZE": int(len(self._tx_psdu_buffer) / 8),
-                                     "PHY_RATE": self.phy_rate})
+            stat = FrameStatistic(
+                direction="TX",
+                type=frame_parameters.type,
+                destination_address=frame_parameters.destination_address,
+                frame_size=int(len(self._tx_psdu_buffer) / 8),
+                phy_rate=self.phy_rate,
+            )
+            self._statistics.append(stat)
 
             # Check if confirmation (ACK/CTS) is needed for frame.
-            if frame_parameters['WAIT_FOR_CONFIRMATION']:
+            if frame_parameters.wait_for_confirmation:
                 # Original frame, requires confirmation.
-                log.mac(f"({self._identifier}) Waiting for {frame_parameters['WAIT_FOR_CONFIRMATION']}")
-                self._statistics[-1]["RETRY_ATTEMPTS"] = 0  # Set retry attempts counter.
+                log.mac(f"({self._identifier}) Waiting for {frame_parameters.wait_for_confirmation}")
+                stat.retry_attempts = 0  # Set retry attempts counter.
                 self._is_confirmed = "Waiting for confirmation"
-                # Pass the frame dict directly so wait_for_confirmation always updates the right entry,
+                # Pass the FrameStatistic directly so wait_for_confirmation always updates the right entry,
                 # even if further RX statistics are appended concurrently.
                 confirmation_thread = threading.Thread(target=self.wait_for_confirmation,
-                                                       args=(frame_parameters, data, self._statistics[-1]),
+                                                       args=(frame_parameters, data, stat),
                                                        daemon=True)
                 confirmation_thread.start()
                 self._threads.append(confirmation_thread)
@@ -1277,13 +1223,12 @@ class MAC(MACCrypto, MACFrame):
                     self._is_rts_cts = True  # Used for debug purposes.
 
                     # Send RTS frame.
-                    frame_parameters = {
-                        "TYPE": "RTS",
-                        "DIRECTION": "Uplink",
-                        "DESTINATION_ADDRESS": destination_address,
-                        "WAIT_FOR_CONFIRMATION": "CTS"
-                    }
-                    self._tx_queue.append((frame_parameters, []))
+                    self._tx_queue.append((
+                        FrameParameters(type="RTS", direction="Uplink",
+                                        destination_address=destination_address,
+                                        wait_for_confirmation="CTS"),
+                        []
+                    ))
 
                 else:
                     # Check frame size of the chunk.
@@ -1293,24 +1238,23 @@ class MAC(MACCrypto, MACFrame):
                         self._is_rts_cts = True  # Used for debug purposes.
 
                         # Send RTS frame.
-                        frame_parameters = {
-                            "TYPE": "RTS",
-                            "DIRECTION": "Uplink",
-                            "DESTINATION_ADDRESS": destination_address,
-                            "WAIT_FOR_CONFIRMATION": "CTS"
-                        }
-                        self._tx_queue.append((frame_parameters, []))
+                        self._tx_queue.append((
+                            FrameParameters(type="RTS", direction="Uplink",
+                                            destination_address=destination_address,
+                                            wait_for_confirmation="CTS"),
+                            []
+                        ))
 
                     # TODO: Add another check for RTS-CTS if channel conditions are bad.
 
             # Queue the data chunk as an independent DATA frame.
-            frame_parameters = {
-                "TYPE": "Data",
-                "DIRECTION": "Uplink" if self._role == "STA" else "Downlink",
-                "DESTINATION_ADDRESS": destination_address,
-                "WAIT_FOR_CONFIRMATION": "ACK"
-            }
-            self._tx_queue.append((frame_parameters, encrypted_chunk))
+            self._tx_queue.append((
+                FrameParameters(type="Data",
+                                direction="Uplink" if self._role == "STA" else "Downlink",
+                                destination_address=destination_address,
+                                wait_for_confirmation="ACK"),
+                encrypted_chunk
+            ))
 
     def send_disassociation_frame(self, destination_address: list[int]):
         """
@@ -1329,12 +1273,11 @@ class MAC(MACCrypto, MACFrame):
         elif self._role == "STA":
             self._associated_ap = None
 
-        frame_parameters = {
-            "TYPE": "Disassociation",
-            "DESTINATION_ADDRESS": destination_address,
-            "WAIT_FOR_CONFIRMATION": "ACK"
-        }
-        self._tx_queue.append((frame_parameters, REASON_CODES["leaving_network"]))
+        self._tx_queue.append((
+            FrameParameters(type="Disassociation", destination_address=destination_address,
+                            wait_for_confirmation="ACK"),
+            REASON_CODES["leaving_network"]
+        ))
 
     def send_deauthentication_frame(self, destination_address: list[int]):
         """
@@ -1360,12 +1303,11 @@ class MAC(MACCrypto, MACFrame):
             self._authentication_attempts = 0
             self._encryption_type.pop(str(destination_address), None)
 
-        frame_parameters = {
-            "TYPE": "Deauthentication",
-            "DESTINATION_ADDRESS": destination_address,
-            "WAIT_FOR_CONFIRMATION": "ACK"
-        }
-        self._tx_queue.append((frame_parameters, REASON_CODES["leaving_network"]))
+        self._tx_queue.append((
+            FrameParameters(type="Deauthentication", destination_address=destination_address,
+                            wait_for_confirmation="ACK"),
+            REASON_CODES["leaving_network"]
+        ))
 
     def send_acknowledgement_frame(self, source_address: list[int]):
         """
@@ -1376,15 +1318,13 @@ class MAC(MACCrypto, MACFrame):
         :param source_address: The address of the node to which the ACK should be sent.
         """
 
-        # Send ACK response.
-        frame_parameters = {
-            "TYPE": "ACK",
-            "DESTINATION_ADDRESS": source_address,
-            "WAIT_FOR_CONFIRMATION": False
-        }
-        self._tx_queue.append((frame_parameters, []))
+        self._tx_queue.append((
+            FrameParameters(type="ACK", destination_address=source_address),
+            []
+        ))
 
-    def wait_for_confirmation(self, frame_parameters: dict, data: list[int], frame: dict):
+    def wait_for_confirmation(self, frame_parameters: FrameParameters, data: list[int],
+                              frame: FrameStatistic):
         """
         Waits for an acknowledgment (ACK/CTS) after a frame transmission.
 
@@ -1407,10 +1347,10 @@ class MAC(MACCrypto, MACFrame):
                 time.sleep(0.1)
                 waited += 0.1
 
-                if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
+                if self._is_confirmed == frame_parameters.wait_for_confirmation:
                     log.success(f"({self._identifier}) Frame confirmed, "
-                                f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
-                    frame["CONFIRMED"] = True
+                                f"{frame_parameters.wait_for_confirmation} received")
+                    frame.confirmed = True
                     self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
                     return  # No need to continue as the frame was confirmed.
 
@@ -1421,8 +1361,8 @@ class MAC(MACCrypto, MACFrame):
             log.warning(f"({self._identifier}) No confirmation, retransmitting")
 
             # Adjust the frame parameters for a retransmission.
-            frame_parameters["RETRY"] = 1  # Turn on the retry bit.
-            frame["RETRY_ATTEMPTS"] += 1   # Update the retry counter.
+            frame_parameters.retry = 1   # Turn on the retry bit.
+            frame.retry_attempts += 1    # Update the retry counter.
 
             # Retransmit.
             self.start_transmission_chain(frame_parameters=frame_parameters, data=data)
@@ -1433,10 +1373,10 @@ class MAC(MACCrypto, MACFrame):
             time.sleep(0.1)
             waited += 0.1
 
-            if self._is_confirmed == frame_parameters['WAIT_FOR_CONFIRMATION']:
+            if self._is_confirmed == frame_parameters.wait_for_confirmation:
                 log.success(f"({self._identifier}) Frame confirmed, "
-                            f"{frame_parameters['WAIT_FOR_CONFIRMATION']} received")
-                frame["CONFIRMED"] = True
+                            f"{frame_parameters.wait_for_confirmation} received")
+                frame.confirmed = True
                 self._is_confirmed = "No confirmation required"
                 return
 
@@ -1444,8 +1384,8 @@ class MAC(MACCrypto, MACFrame):
             return
 
         # If we got to this point, the frame is dropped.
-        log.error(f"({self._identifier}) {frame_parameters['TYPE']} frame was dropped")
-        frame["CONFIRMED"] = False  # Update frame status.
+        log.error(f"({self._identifier}) {frame_parameters.type} frame was dropped")
+        frame.confirmed = False  # Update frame status.
         self._is_confirmed = "No confirmation required"  # Resetting the value for next transmissions.
         # TODO: Special treatment for special frames (i.e. no ACK for authentication frame -> Remove from
         #  authentication list).

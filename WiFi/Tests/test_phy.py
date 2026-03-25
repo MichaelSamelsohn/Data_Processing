@@ -27,7 +27,7 @@ def test_generate_signal_field(phy_rate, length):
     # Step (2) - Generate SIGNAL field.
     phy = PHY(identifier="")
     phy._length = length
-    signal_field_coding = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate]["SIGNAL_FIELD_CODING"]
+    signal_field_coding = MODULATION_CODING_SCHEME_PARAMETERS[phy_rate].signal_field_coding
     phy._signal_field_coding = signal_field_coding
     signal_field = phy.generate_signal_field()
 

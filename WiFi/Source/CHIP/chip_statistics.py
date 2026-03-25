@@ -2,6 +2,7 @@
 import textwrap
 
 from WiFi.Settings.wifi_settings import *
+from WiFi.Source.MAC.mac_types import FrameStatistic
 
 
 class ChipStatistics:
@@ -22,7 +23,7 @@ class ChipStatistics:
 
         After the per-frame table, an aggregate summary block is printed containing:
             * Frame counts       - Total TX and RX frames, broken down by frame type.
-            * Total bytes        - Sum of FRAME_SIZE across all TX and RX frames.
+            * Total bytes        - Sum of frame_size across all TX and RX frames.
             * Retry rate         - Percentage of TX frames (requiring confirmation) that needed at least one retry.
             * Frame drop rate    - Percentage of TX frames (requiring confirmation) that were ultimately dropped.
             * PHY rate stats     - Min, average, and max PHY rate across all frames with a recorded rate.
@@ -35,27 +36,27 @@ class ChipStatistics:
         rows = []
 
         for frame in self.mac._statistics:
-            direction = frame.get("DIRECTION", "UNKNOWN")
-            frame_type = frame.get("TYPE", "UNKNOWN")
-            frame_size = str(frame["FRAME_SIZE"]) if "FRAME_SIZE" in frame else "N/A"
-            phy_rate = str(frame["PHY_RATE"]) if "PHY_RATE" in frame else "N/A"
+            direction = frame.direction
+            frame_type = frame.type
+            frame_size = str(frame.frame_size) if frame.frame_size is not None else "N/A"
+            phy_rate = str(frame.phy_rate) if frame.phy_rate is not None else "N/A"
 
             # Base description and retries.
             if direction == "RX":
                 direction += " <--"
                 description = frame_type
                 retries = "N/A"
-                mac = frame["SOURCE_ADDRESS"]
+                mac = frame.source_address
             elif direction == "TX":
                 direction += " -->"
                 description = frame_type
-                mac = frame["DESTINATION_ADDRESS"]
+                mac = frame.destination_address
 
-                if "RETRY_ATTEMPTS" not in frame:
+                if frame.retry_attempts is None:
                     retries = "N/A"
                 else:
-                    retries = str(frame["RETRY_ATTEMPTS"])
-                    if frame["RETRY_ATTEMPTS"] > 0 and not frame.get("CONFIRMED", False):
+                    retries = str(frame.retry_attempts)
+                    if frame.retry_attempts > 0 and not frame.confirmed:
                         retries += " (frame dropped)"
             else:
                 direction = "UNKNOWN"
@@ -111,30 +112,30 @@ class ChipStatistics:
 
         # ── Aggregate summary ────────────────────────────────────────────── #
 
-        tx_frames = [f for f in self.mac._statistics if f.get("DIRECTION") == "TX"]
-        rx_frames = [f for f in self.mac._statistics if f.get("DIRECTION") == "RX"]
+        tx_frames = [f for f in self.mac._statistics if f.direction == "TX"]
+        rx_frames = [f for f in self.mac._statistics if f.direction == "RX"]
 
         # Frame counts by type.
         tx_counts = {}
         for f in tx_frames:
-            tx_counts[f.get("TYPE", "UNKNOWN")] = tx_counts.get(f.get("TYPE", "UNKNOWN"), 0) + 1
+            tx_counts[f.type] = tx_counts.get(f.type, 0) + 1
         rx_counts = {}
         for f in rx_frames:
-            rx_counts[f.get("TYPE", "UNKNOWN")] = rx_counts.get(f.get("TYPE", "UNKNOWN"), 0) + 1
+            rx_counts[f.type] = rx_counts.get(f.type, 0) + 1
 
         # Total bytes.
-        tx_bytes = sum(f["FRAME_SIZE"] for f in tx_frames if "FRAME_SIZE" in f)
-        rx_bytes = sum(f["FRAME_SIZE"] for f in rx_frames if "FRAME_SIZE" in f)
+        tx_bytes = sum(f.frame_size for f in tx_frames if f.frame_size is not None)
+        rx_bytes = sum(f.frame_size for f in rx_frames if f.frame_size is not None)
 
         # Retry and drop rates (only frames that track retries).
-        confirmed_tx = [f for f in tx_frames if "RETRY_ATTEMPTS" in f]
-        retried      = [f for f in confirmed_tx if f["RETRY_ATTEMPTS"] > 0]
-        dropped      = [f for f in confirmed_tx if f["RETRY_ATTEMPTS"] > 0 and not f.get("CONFIRMED", False)]
+        confirmed_tx = [f for f in tx_frames if f.retry_attempts is not None]
+        retried      = [f for f in confirmed_tx if f.retry_attempts > 0]
+        dropped      = [f for f in confirmed_tx if f.retry_attempts > 0 and not f.confirmed]
         retry_rate = (len(retried) / len(confirmed_tx) * 100) if confirmed_tx else 0.0
         drop_rate  = (len(dropped) / len(confirmed_tx) * 100) if confirmed_tx else 0.0
 
         # PHY rate stats.
-        phy_rates = [f["PHY_RATE"] for f in self.mac._statistics if "PHY_RATE" in f]
+        phy_rates = [f.phy_rate for f in self.mac._statistics if f.phy_rate is not None]
         if phy_rates:
             phy_min = min(phy_rates)
             phy_avg = sum(phy_rates) / len(phy_rates)
