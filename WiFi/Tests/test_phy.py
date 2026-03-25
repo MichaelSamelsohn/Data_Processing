@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 from unittest.mock import patch
-from WiFi.Source.phy import PHY, MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
+from WiFi.Source.PHY import PHY
+from WiFi.Settings.wifi_settings import MODULATION_CODING_SCHEME_PARAMETERS, FREQUENCY_DOMAIN_STF, FREQUENCY_DOMAIN_LTF
 from constants import *
 
 

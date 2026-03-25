@@ -4,7 +4,7 @@ import os
 import pytest
 
 from unittest.mock import patch
-from WiFi.Source.mac import MAC
+from WiFi.Source.MAC import MAC
 from constants import *
 
 

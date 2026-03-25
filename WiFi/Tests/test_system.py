@@ -7,8 +7,8 @@ import socket
 
 from unittest.mock import patch
 from WiFi.Settings.wifi_settings import *
-from WiFi.Source.chip import CHIP
-from channel import Channel
+from WiFi.Source.CHIP import CHIP
+from WiFi.Source.Channel import Channel
 from constants import *
 
 
@@ -110,8 +110,8 @@ def test_send_data_with_association():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
@@ -159,8 +159,8 @@ def test_send_data_without_association():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
         # Mocking association between AP and STA (AP side only).
@@ -255,8 +255,8 @@ def test_rts_cts_mechanism():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
@@ -314,8 +314,8 @@ def test_rts_cts_configuration():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality). STA is configured with RTS-CTS.
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         # Setting the AP and STA.
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
@@ -373,8 +373,8 @@ def test_disassociation_by_sta():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
 
@@ -425,8 +425,8 @@ def test_disassociation_by_ap():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
 
@@ -477,8 +477,8 @@ def test_deauthentication_by_sta():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
 
@@ -531,8 +531,8 @@ def test_deauthentication_by_ap():
 
     # Step (1) - Setting channel, AP and STA (with patched advertisement functionality).
     channel = Channel(channel_response=[1], snr_db=25)
-    with (patch('chip.MAC.beacon_broadcast', return_value=None),
-          patch('chip.MAC.scanning', return_value=None)):
+    with (patch('WiFi.Source.CHIP.chip.MAC.beacon_broadcast', return_value=None),
+          patch('WiFi.Source.CHIP.chip.MAC.scanning', return_value=None)):
         ap = CHIP(role='AP', identifier="AP")
         sta = CHIP(role='STA', identifier="STA 1")
 
